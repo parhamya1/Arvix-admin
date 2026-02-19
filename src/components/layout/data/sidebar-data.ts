@@ -81,8 +81,94 @@ export const sidebarData: SidebarData = {
         },
         {
           title: 'Reporting',
-          url: '/reporting',
           icon: FileBarChart2,
+          items: [
+            {
+              title: 'CM',
+              items: [
+                {
+                  title: 'Raw Data',
+                  items: [
+                    { title: 'Huawei', url: '/reporting/cm/raw/huawei' },
+                    { title: 'Nokia', url: '/reporting/cm/raw/nokia' },
+                    { title: 'Ericsson', url: '/reporting/cm/raw/ericsson' },
+                  ],
+                },
+                {
+                  title: 'History (Parameter Changes)',
+                  url: '/reporting/cm/history',
+                },
+              ],
+            },
+            {
+              title: 'PM',
+              items: [
+                {
+                  title: 'Raw Data',
+                  items: [
+                    { title: 'Huawei', url: '/reporting/pm/raw/huawei' },
+                    { title: 'Nokia', url: '/reporting/pm/raw/nokia' },
+                    { title: 'Ericsson', url: '/reporting/pm/raw/ericsson' },
+                  ],
+                },
+                {
+                  title: 'History (KPI / Trend vs Baseline)',
+                  url: '/reporting/pm/history',
+                },
+              ],
+            },
+            {
+              title: 'License',
+              items: [
+                {
+                  title: 'Raw Data',
+                  items: [
+                    { title: 'Huawei', url: '/reporting/license/raw/huawei' },
+                    { title: 'Nokia', url: '/reporting/license/raw/nokia' },
+                    { title: 'Ericsson', url: '/reporting/license/raw/ericsson' },
+                  ],
+                },
+                {
+                  title: 'History (Utilization / Expiry / Risk)',
+                  url: '/reporting/license/history',
+                },
+              ],
+            },
+            {
+              title: 'Inventory',
+              items: [
+                {
+                  title: 'Raw Data',
+                  items: [
+                    { title: 'Huawei', url: '/reporting/inventory/raw/huawei' },
+                    { title: 'Nokia', url: '/reporting/inventory/raw/nokia' },
+                    { title: 'Ericsson', url: '/reporting/inventory/raw/ericsson' },
+                  ],
+                },
+                {
+                  title: 'History (HW/SW Changes / Lifecycle)',
+                  url: '/reporting/inventory/history',
+                },
+              ],
+            },
+            {
+              title: 'User Log',
+              items: [
+                {
+                  title: 'Raw Data',
+                  items: [
+                    { title: 'Huawei', url: '/reporting/user-log/raw/huawei' },
+                    { title: 'Nokia', url: '/reporting/user-log/raw/nokia' },
+                    { title: 'Ericsson', url: '/reporting/user-log/raw/ericsson' },
+                  ],
+                },
+                {
+                  title: 'History (Commands / Actions)',
+                  url: '/reporting/user-log/history',
+                },
+              ],
+            },
+          ],
         },
         {
           title: 'Secured by Clerk',

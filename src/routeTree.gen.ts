@@ -40,6 +40,8 @@ import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_auth
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
+import { Route as AuthenticatedReportingDomainHistoryRouteImport } from './routes/_authenticated/reporting/$domain/history'
+import { Route as AuthenticatedReportingDomainRawVendorRouteImport } from './routes/_authenticated/reporting/$domain/raw/$vendor'
 
 const ClerkRouteRoute = ClerkRouteRouteImport.update({
   id: '/clerk',
@@ -203,6 +205,18 @@ const AuthenticatedErrorsErrorRoute =
     path: '/errors/$error',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedReportingDomainHistoryRoute =
+  AuthenticatedReportingDomainHistoryRouteImport.update({
+    id: '/reporting/$domain/history',
+    path: '/reporting/$domain/history',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedReportingDomainRawVendorRoute =
+  AuthenticatedReportingDomainRawVendorRouteImport.update({
+    id: '/reporting/$domain/raw/$vendor',
+    path: '/reporting/$domain/raw/$vendor',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/clerk': typeof ClerkAuthenticatedRouteRouteWithChildren
@@ -233,6 +247,8 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
+  '/reporting/$domain/history': typeof AuthenticatedReportingDomainHistoryRoute
+  '/reporting/$domain/raw/$vendor': typeof AuthenticatedReportingDomainRawVendorRoute
 }
 export interface FileRoutesByTo {
   '/clerk': typeof ClerkAuthenticatedRouteRouteWithChildren
@@ -262,6 +278,8 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
+  '/reporting/$domain/history': typeof AuthenticatedReportingDomainHistoryRoute
+  '/reporting/$domain/raw/$vendor': typeof AuthenticatedReportingDomainRawVendorRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -296,6 +314,8 @@ export interface FileRoutesById {
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
+  '/_authenticated/reporting/$domain/history': typeof AuthenticatedReportingDomainHistoryRoute
+  '/_authenticated/reporting/$domain/raw/$vendor': typeof AuthenticatedReportingDomainRawVendorRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -328,6 +348,8 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/tasks'
     | '/users'
+    | '/reporting/$domain/history'
+    | '/reporting/$domain/raw/$vendor'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/clerk'
@@ -357,6 +379,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tasks'
     | '/users'
+    | '/reporting/$domain/history'
+    | '/reporting/$domain/raw/$vendor'
   id:
     | '__root__'
     | '/_authenticated'
@@ -390,6 +414,8 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/'
     | '/_authenticated/tasks/'
     | '/_authenticated/users/'
+    | '/_authenticated/reporting/$domain/history'
+    | '/_authenticated/reporting/$domain/raw/$vendor'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -626,6 +652,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/reporting/$domain/history': {
+      id: '/_authenticated/reporting/$domain/history'
+      path: '/reporting/$domain/history'
+      fullPath: '/reporting/$domain/history'
+      preLoaderRoute: typeof AuthenticatedReportingDomainHistoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reporting/$domain/raw/$vendor': {
+      id: '/_authenticated/reporting/$domain/raw/$vendor'
+      path: '/reporting/$domain/raw/$vendor'
+      fullPath: '/reporting/$domain/raw/$vendor'
+      preLoaderRoute: typeof AuthenticatedReportingDomainRawVendorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -662,6 +702,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedReportingIndexRoute: typeof AuthenticatedReportingIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
+  AuthenticatedReportingDomainHistoryRoute: typeof AuthenticatedReportingDomainHistoryRoute
+  AuthenticatedReportingDomainRawVendorRoute: typeof AuthenticatedReportingDomainRawVendorRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -674,6 +716,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedReportingIndexRoute: AuthenticatedReportingIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
+  AuthenticatedReportingDomainHistoryRoute:
+    AuthenticatedReportingDomainHistoryRoute,
+  AuthenticatedReportingDomainRawVendorRoute:
+    AuthenticatedReportingDomainRawVendorRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
