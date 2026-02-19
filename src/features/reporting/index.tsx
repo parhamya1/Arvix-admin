@@ -77,15 +77,72 @@ const labels = {
 } as const
 
 const cmRawByVendor: Record<ReportingVendor, RawRow[]> = {
-  huawei: [['THDL006A', 'HW-CM-THDL006A-20260218-0800', 'MaxUE', '210', '2026-02-18 08:00']].map(
-    ([cell, index, parameter, value, date]) => ({ node: 'TH006', site: 'THDL006', cell, index, parameter, value, date })
-  ),
-  nokia: [['THDL006A', 'NO-CM-THDL006A-20260218-0800', 'maxNumUe', '200', '2026-02-18 08:00']].map(
-    ([cell, index, parameter, value, date]) => ({ node: 'TH006', site: 'THDL006', cell, index, parameter, value, date })
-  ),
-  ericsson: [['THDL006A', 'ER-CM-THDL006A-20260218-0800', 'maxNumActUE', '180', '2026-02-18 08:00']].map(
-    ([cell, index, parameter, value, date]) => ({ node: 'TH006', site: 'THDL006', cell, index, parameter, value, date })
-  ),
+  huawei: [
+    ['THDL006A', 'HW-CM-THDL006A-20260218-0800', 'MaxUE', '210', '2026-02-18 08:00'],
+    ['THDL006A', 'HW-CM-THDL006A-20260218-0800', 'TxPwr', '36', '2026-02-18 08:00'],
+    ['THDL006A', 'HW-CM-THDL006A-20260218-0800', 'LoadLimit', '78', '2026-02-18 08:00'],
+    ['THDL006A', 'HW-CM-THDL006A-20260218-0800', 'HO_Threshold', '-95', '2026-02-18 08:00'],
+    ['THDL006A', 'HW-CM-THDL006A-20260218-0800', 'Qoffset', '2', '2026-02-18 08:00'],
+    ['THDL006A', 'HW-CM-THDL006A-20260218-0900', 'MaxUE', '240', '2026-02-18 09:00'],
+    ['THDL006A', 'HW-CM-THDL006A-20260218-0900', 'TxPwr', '36', '2026-02-18 09:00'],
+    ['THDL006A', 'HW-CM-THDL006A-20260218-0900', 'LoadLimit', '101', '2026-02-18 09:00'],
+    ['THDL006A', 'HW-CM-THDL006A-20260218-0900', 'HO_Threshold', '-89', '2026-02-18 09:00'],
+    ['THDL006A', 'HW-CM-THDL006A-20260218-0900', 'Qoffset', '4', '2026-02-18 09:00'],
+    ['THDL006B', 'HW-CM-THDL006B-20260218-0800', 'MaxUE', '180', '2026-02-18 08:00'],
+    ['THDL006B', 'HW-CM-THDL006B-20260218-0800', 'TxPwr', '38', '2026-02-18 08:00'],
+    ['THDL006B', 'HW-CM-THDL006B-20260218-0800', 'LoadLimit', '80', '2026-02-18 08:00'],
+    ['THDL006B', 'HW-CM-THDL006B-20260218-0800', 'HO_Threshold', '-97', '2026-02-18 08:00'],
+    ['THDL006B', 'HW-CM-THDL006B-20260218-0800', 'SINR_Offset', '-1', '2026-02-18 08:00'],
+    ['THDL006B', 'HW-CM-THDL006B-20260218-0900', 'MaxUE', '200', '2026-02-18 09:00'],
+    ['THDL006B', 'HW-CM-THDL006B-20260218-0900', 'TxPwr', '34', '2026-02-18 09:00'],
+    ['THDL006B', 'HW-CM-THDL006B-20260218-0900', 'LoadLimit', '95', '2026-02-18 09:00'],
+    ['THDL006B', 'HW-CM-THDL006B-20260218-0900', 'HO_Threshold', '-90', '2026-02-18 09:00'],
+    ['THDL006B', 'HW-CM-THDL006B-20260218-0900', 'SINR_Offset', '-3', '2026-02-18 09:00'],
+  ].map(([cell, index, parameter, value, date]) => ({ node: 'TH006', site: 'THDL006', cell, index, parameter, value, date })),
+  nokia: [
+    ['THDL006A', 'NO-CM-THDL006A-20260218-0800', 'maxNumUe', '200', '2026-02-18 08:00'],
+    ['THDL006A', 'NO-CM-THDL006A-20260218-0800', 'txPower', '40', '2026-02-18 08:00'],
+    ['THDL006A', 'NO-CM-THDL006A-20260218-0800', 'loadLimit', '80', '2026-02-18 08:00'],
+    ['THDL006A', 'NO-CM-THDL006A-20260218-0800', 'hoThresh', '-95', '2026-02-18 08:00'],
+    ['THDL006A', 'NO-CM-THDL006A-20260218-0800', 'qOffset', '2', '2026-02-18 08:00'],
+    ['THDL006A', 'NO-CM-THDL006A-20260218-0900', 'maxNumUe', '240', '2026-02-18 09:00'],
+    ['THDL006A', 'NO-CM-THDL006A-20260218-0900', 'txPower', '40', '2026-02-18 09:00'],
+    ['THDL006A', 'NO-CM-THDL006A-20260218-0900', 'loadLimit', '95', '2026-02-18 09:00'],
+    ['THDL006A', 'NO-CM-THDL006A-20260218-0900', 'hoThresh', '-89', '2026-02-18 09:00'],
+    ['THDL006A', 'NO-CM-THDL006A-20260218-0900', 'qOffset', '4', '2026-02-18 09:00'],
+    ['THDL006B', 'NO-CM-THDL006B-20260218-0800', 'maxNumUe', '160', '2026-02-18 08:00'],
+    ['THDL006B', 'NO-CM-THDL006B-20260218-0800', 'txPower', '38', '2026-02-18 08:00'],
+    ['THDL006B', 'NO-CM-THDL006B-20260218-0800', 'loadLimit', '75', '2026-02-18 08:00'],
+    ['THDL006B', 'NO-CM-THDL006B-20260218-0800', 'hoThresh', '-97', '2026-02-18 08:00'],
+    ['THDL006B', 'NO-CM-THDL006B-20260218-0800', 'sinrOffset', '-1', '2026-02-18 08:00'],
+    ['THDL006B', 'NO-CM-THDL006B-20260218-0900', 'maxNumUe', '185', '2026-02-18 09:00'],
+    ['THDL006B', 'NO-CM-THDL006B-20260218-0900', 'txPower', '34', '2026-02-18 09:00'],
+    ['THDL006B', 'NO-CM-THDL006B-20260218-0900', 'loadLimit', '92', '2026-02-18 09:00'],
+    ['THDL006B', 'NO-CM-THDL006B-20260218-0900', 'hoThresh', '-90', '2026-02-18 09:00'],
+    ['THDL006B', 'NO-CM-THDL006B-20260218-0900', 'sinrOffset', '-3', '2026-02-18 09:00'],
+  ].map(([cell, index, parameter, value, date]) => ({ node: 'TH006', site: 'THDL006', cell, index, parameter, value, date })),
+  ericsson: [
+    ['THDL006A', 'ER-CM-THDL006A-20260218-0800', 'maxNumActUE', '180', '2026-02-18 08:00'],
+    ['THDL006A', 'ER-CM-THDL006A-20260218-0800', 'dlBw2', '20MHz', '2026-02-18 08:00'],
+    ['THDL006A', 'ER-CM-THDL006A-20260218-0800', 'loadLimit', '85', '2026-02-18 08:00'],
+    ['THDL006A', 'ER-CM-THDL006A-20260218-0800', 'hoTime', '64', '2026-02-18 08:00'],
+    ['THDL006A', 'ER-CM-THDL006A-20260218-0800', 'qOffset', '2', '2026-02-18 08:00'],
+    ['THDL006A', 'ER-CM-THDL006A-20260218-0900', 'maxNumActUE', '210', '2026-02-18 09:00'],
+    ['THDL006A', 'ER-CM-THDL006A-20260218-0900', 'dlBw2', '15MHz', '2026-02-18 09:00'],
+    ['THDL006A', 'ER-CM-THDL006A-20260218-0900', 'loadLimit', '97', '2026-02-18 09:00'],
+    ['THDL006A', 'ER-CM-THDL006A-20260218-0900', 'hoTime', '72', '2026-02-18 09:00'],
+    ['THDL006A', 'ER-CM-THDL006A-20260218-0900', 'qOffset', '4', '2026-02-18 09:00'],
+    ['THDL006B', 'ER-CM-THDL006B-20260218-0800', 'maxNumActUE', '150', '2026-02-18 08:00'],
+    ['THDL006B', 'ER-CM-THDL006B-20260218-0800', 'dlBw2', '20MHz', '2026-02-18 08:00'],
+    ['THDL006B', 'ER-CM-THDL006B-20260218-0800', 'loadLimit', '80', '2026-02-18 08:00'],
+    ['THDL006B', 'ER-CM-THDL006B-20260218-0800', 'sinrOffset', '0', '2026-02-18 08:00'],
+    ['THDL006B', 'ER-CM-THDL006B-20260218-0800', 'txPwr', '37', '2026-02-18 08:00'],
+    ['THDL006B', 'ER-CM-THDL006B-20260218-0900', 'maxNumActUE', '175', '2026-02-18 09:00'],
+    ['THDL006B', 'ER-CM-THDL006B-20260218-0900', 'dlBw2', '15MHz', '2026-02-18 09:00'],
+    ['THDL006B', 'ER-CM-THDL006B-20260218-0900', 'loadLimit', '92', '2026-02-18 09:00'],
+    ['THDL006B', 'ER-CM-THDL006B-20260218-0900', 'sinrOffset', '-2', '2026-02-18 09:00'],
+    ['THDL006B', 'ER-CM-THDL006B-20260218-0900', 'txPwr', '33', '2026-02-18 09:00'],
+  ].map(([cell, index, parameter, value, date]) => ({ node: 'TH006', site: 'THDL006', cell, index, parameter, value, date })),
 }
 
 const pmRawByVendor: Record<ReportingVendor, PmRawRow[]> = {
@@ -128,7 +185,24 @@ const pmRawByVendor: Record<ReportingVendor, PmRawRow[]> = {
 }
 
 const cmHistoryRows: HistoryRow[] = [
-  ['TH006', 'THDL006', 'THDL006A', 'CHG-1', 'maxNumUe', '200', '240', '2026-02-18 09:14'],
+  ['TH006', 'THDL006', 'THDL006A', 'CHG-THDL006A-20260218-0800-0900', 'maxNumUe', '200', '240', '2026-02-18 09:14'],
+  ['TH006', 'THDL006', 'THDL006A', 'CHG-THDL006A-20260218-0800-0900', 'loadLimit', '80', '95', '2026-02-18 09:14'],
+  ['TH006', 'THDL006', 'THDL006A', 'CHG-THDL006A-20260218-0800-0900', 'hoThresh', '-95', '-89', '2026-02-18 09:14'],
+  ['TH006', 'THDL006', 'THDL006A', 'CHG-THDL006A-20260218-0800-0900', 'qOffset', '2', '4', '2026-02-18 09:14'],
+  ['TH006', 'THDL006', 'THDL006B', 'CHG-THDL006B-20260218-0800-0900', 'maxNumActUE', '150', '175', '2026-02-18 09:18'],
+  ['TH006', 'THDL006', 'THDL006B', 'CHG-THDL006B-20260218-0800-0900', 'dlBw2', '20MHz', '15MHz', '2026-02-18 09:18'],
+  ['TH006', 'THDL006', 'THDL006B', 'CHG-THDL006B-20260218-0800-0900', 'loadLimit', '80', '92', '2026-02-18 09:18'],
+  ['TH006', 'THDL006', 'THDL006B', 'CHG-THDL006B-20260218-0800-0900', 'sinrOffset', '0', '-2', '2026-02-18 09:18'],
+  ['TH006', 'THDL006', 'THDL006B', 'CHG-THDL006B-20260218-0800-0900', 'txPwr', '37', '33', '2026-02-18 09:18'],
+  ['TH006', 'THDL006', 'THDL006A', 'CHG-HW-THDL006A-20260218-0800-0900', 'MaxUE', '210', '240', '2026-02-18 09:00'],
+  ['TH006', 'THDL006', 'THDL006A', 'CHG-HW-THDL006A-20260218-0800-0900', 'LoadLimit', '78', '101', '2026-02-18 09:00'],
+  ['TH006', 'THDL006', 'THDL006A', 'CHG-HW-THDL006A-20260218-0800-0900', 'HO_Threshold', '-95', '-89', '2026-02-18 09:00'],
+  ['TH006', 'THDL006', 'THDL006A', 'CHG-HW-THDL006A-20260218-0800-0900', 'Qoffset', '2', '4', '2026-02-18 09:00'],
+  ['TH006', 'THDL006', 'THDL006B', 'CHG-NO-THDL006B-20260218-0800-0900', 'maxNumUe', '160', '185', '2026-02-18 09:10'],
+  ['TH006', 'THDL006', 'THDL006B', 'CHG-NO-THDL006B-20260218-0800-0900', 'loadLimit', '75', '92', '2026-02-18 09:10'],
+  ['TH006', 'THDL006', 'THDL006B', 'CHG-NO-THDL006B-20260218-0800-0900', 'hoThresh', '-97', '-90', '2026-02-18 09:10'],
+  ['TH006', 'THDL006', 'THDL006B', 'CHG-NO-THDL006B-20260218-0800-0900', 'sinrOffset', '-1', '-3', '2026-02-18 09:10'],
+  ['TH006', 'THDL006', 'THDL006B', 'CHG-NO-THDL006B-20260218-0800-0900', 'txPower', '38', '34', '2026-02-18 09:10'],
 ].map(([node, site, cell, index, parameter, oldValue, newValue, date]) => ({ node, site, cell, index, parameter, oldValue, newValue, date }))
 
 const pmHistoryRows: PmHistoryRow[] = [
