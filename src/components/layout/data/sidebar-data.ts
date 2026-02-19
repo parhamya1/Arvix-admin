@@ -95,7 +95,7 @@ export const sidebarData: SidebarData = {
                   ],
                 },
                 {
-                  title: 'History (Parameter Changes)',
+                  title: 'History (Normalized)',
                   url: '/reporting/cm/history',
                 },
               ],
@@ -112,7 +112,7 @@ export const sidebarData: SidebarData = {
                   ],
                 },
                 {
-                  title: 'History (KPI / Trend vs Baseline)',
+                  title: 'History (Normalized)',
                   url: '/reporting/pm/history',
                 },
               ],
@@ -129,7 +129,7 @@ export const sidebarData: SidebarData = {
                   ],
                 },
                 {
-                  title: 'History (Utilization / Expiry / Risk)',
+                  title: 'History (Normalized)',
                   url: '/reporting/license/history',
                 },
               ],
@@ -146,7 +146,7 @@ export const sidebarData: SidebarData = {
                   ],
                 },
                 {
-                  title: 'History (HW/SW Changes / Lifecycle)',
+                  title: 'History (Normalized)',
                   url: '/reporting/inventory/history',
                 },
               ],
@@ -163,7 +163,7 @@ export const sidebarData: SidebarData = {
                   ],
                 },
                 {
-                  title: 'History (Commands / Actions)',
+                  title: 'History (Normalized)',
                   url: '/reporting/user-log/history',
                 },
               ],
