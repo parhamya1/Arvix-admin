@@ -155,17 +155,9 @@ export const sidebarData: SidebarData = {
               title: 'User Log',
               items: [
                 {
-                  title: 'Raw Data',
+                  title: 'Row Data',
                   items: [
-                    {
-                      title: 'Nokia',
-                      items: [
-                        { title: 'Audit Log', url: '/reporting/user-log/raw/nokia#audit-log' },
-                        { title: 'CLI Session', url: '/reporting/user-log/raw/nokia#cli-session' },
-                        { title: 'CLI Command', url: '/reporting/user-log/raw/nokia#cli-command' },
-                        { title: 'CM Change', url: '/reporting/user-log/raw/nokia#cm-change' },
-                      ],
-                    },
+                    { title: 'Nokia', url: '/reporting/user-log/raw/nokia' },
                   ],
                 },
                 {
