@@ -112,7 +112,7 @@ export const sidebarData: SidebarData = {
                   ],
                 },
                 {
-                  title: 'History',
+                  title: 'History (Counter Changes)',
                   url: '/reporting/pm/history',
                 },
               ],

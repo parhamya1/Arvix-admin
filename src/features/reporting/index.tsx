@@ -39,6 +39,32 @@ type HistoryRow = {
   date: string
 }
 
+type PmRawRow = {
+  id: string
+  node: string
+  site: string
+  cell: string
+  measTime: string
+  granularityMin: string
+  counterName: string
+  counterValue: string
+  fileReadTime: string
+}
+
+type PmHistoryRow = {
+  id: string
+  vendor: string
+  node: string
+  site: string
+  cell: string
+  counterName: string
+  measTime: string
+  previousValue: string
+  currentValue: string
+  delta: string
+  changeDetectedTime: string
+}
+
 const labels = {
   cm: 'CM',
   pm: 'PM',
@@ -51,117 +77,71 @@ const labels = {
 } as const
 
 const cmRawByVendor: Record<ReportingVendor, RawRow[]> = {
-  huawei: [
-    ['THDL006A','HW-CM-THDL006A-20260218-0800','MaxUE','210','2026-02-18 08:00'],
-    ['THDL006A','HW-CM-THDL006A-20260218-0800','TxPwr','36','2026-02-18 08:00'],
-    ['THDL006A','HW-CM-THDL006A-20260218-0800','LoadLimit','78','2026-02-18 08:00'],
-    ['THDL006A','HW-CM-THDL006A-20260218-0800','HO_Threshold','-95','2026-02-18 08:00'],
-    ['THDL006A','HW-CM-THDL006A-20260218-0800','Qoffset','2','2026-02-18 08:00'],
-    ['THDL006A','HW-CM-THDL006A-20260218-0900','MaxUE','240','2026-02-18 09:00'],
-    ['THDL006A','HW-CM-THDL006A-20260218-0900','TxPwr','36','2026-02-18 09:00'],
-    ['THDL006A','HW-CM-THDL006A-20260218-0900','LoadLimit','101','2026-02-18 09:00'],
-    ['THDL006A','HW-CM-THDL006A-20260218-0900','HO_Threshold','-89','2026-02-18 09:00'],
-    ['THDL006A','HW-CM-THDL006A-20260218-0900','Qoffset','4','2026-02-18 09:00'],
-    ['THDL006B','HW-CM-THDL006B-20260218-0800','MaxUE','180','2026-02-18 08:00'],
-    ['THDL006B','HW-CM-THDL006B-20260218-0800','TxPwr','38','2026-02-18 08:00'],
-    ['THDL006B','HW-CM-THDL006B-20260218-0800','LoadLimit','80','2026-02-18 08:00'],
-    ['THDL006B','HW-CM-THDL006B-20260218-0800','HO_Threshold','-97','2026-02-18 08:00'],
-    ['THDL006B','HW-CM-THDL006B-20260218-0800','SINR_Offset','-1','2026-02-18 08:00'],
-    ['THDL006B','HW-CM-THDL006B-20260218-0900','MaxUE','200','2026-02-18 09:00'],
-    ['THDL006B','HW-CM-THDL006B-20260218-0900','TxPwr','34','2026-02-18 09:00'],
-    ['THDL006B','HW-CM-THDL006B-20260218-0900','LoadLimit','95','2026-02-18 09:00'],
-    ['THDL006B','HW-CM-THDL006B-20260218-0900','HO_Threshold','-90','2026-02-18 09:00'],
-    ['THDL006B','HW-CM-THDL006B-20260218-0900','SINR_Offset','-3','2026-02-18 09:00'],
-  ].map(([cell,index,parameter,value,date])=>({node:'TH006',site:'THDL006',cell,index,parameter,value,date})),
+  huawei: [['THDL006A', 'HW-CM-THDL006A-20260218-0800', 'MaxUE', '210', '2026-02-18 08:00']].map(
+    ([cell, index, parameter, value, date]) => ({ node: 'TH006', site: 'THDL006', cell, index, parameter, value, date })
+  ),
+  nokia: [['THDL006A', 'NO-CM-THDL006A-20260218-0800', 'maxNumUe', '200', '2026-02-18 08:00']].map(
+    ([cell, index, parameter, value, date]) => ({ node: 'TH006', site: 'THDL006', cell, index, parameter, value, date })
+  ),
+  ericsson: [['THDL006A', 'ER-CM-THDL006A-20260218-0800', 'maxNumActUE', '180', '2026-02-18 08:00']].map(
+    ([cell, index, parameter, value, date]) => ({ node: 'TH006', site: 'THDL006', cell, index, parameter, value, date })
+  ),
+}
+
+const pmRawByVendor: Record<ReportingVendor, PmRawRow[]> = {
   nokia: [
-    ['THDL006A','NO-CM-THDL006A-20260218-0800','maxNumUe','200','2026-02-18 08:00'],
-    ['THDL006A','NO-CM-THDL006A-20260218-0800','txPower','40','2026-02-18 08:00'],
-    ['THDL006A','NO-CM-THDL006A-20260218-0800','loadLimit','80','2026-02-18 08:00'],
-    ['THDL006A','NO-CM-THDL006A-20260218-0800','hoThresh','-95','2026-02-18 08:00'],
-    ['THDL006A','NO-CM-THDL006A-20260218-0800','qOffset','2','2026-02-18 08:00'],
-    ['THDL006A','NO-CM-THDL006A-20260218-0900','maxNumUe','240','2026-02-18 09:00'],
-    ['THDL006A','NO-CM-THDL006A-20260218-0900','txPower','40','2026-02-18 09:00'],
-    ['THDL006A','NO-CM-THDL006A-20260218-0900','loadLimit','95','2026-02-18 09:00'],
-    ['THDL006A','NO-CM-THDL006A-20260218-0900','hoThresh','-89','2026-02-18 09:00'],
-    ['THDL006A','NO-CM-THDL006A-20260218-0900','qOffset','4','2026-02-18 09:00'],
-    ['THDL006B','NO-CM-THDL006B-20260218-0800','maxNumUe','160','2026-02-18 08:00'],
-    ['THDL006B','NO-CM-THDL006B-20260218-0800','txPower','38','2026-02-18 08:00'],
-    ['THDL006B','NO-CM-THDL006B-20260218-0800','loadLimit','75','2026-02-18 08:00'],
-    ['THDL006B','NO-CM-THDL006B-20260218-0800','hoThresh','-97','2026-02-18 08:00'],
-    ['THDL006B','NO-CM-THDL006B-20260218-0800','sinrOffset','-1','2026-02-18 08:00'],
-    ['THDL006B','NO-CM-THDL006B-20260218-0900','maxNumUe','185','2026-02-18 09:00'],
-    ['THDL006B','NO-CM-THDL006B-20260218-0900','txPower','34','2026-02-18 09:00'],
-    ['THDL006B','NO-CM-THDL006B-20260218-0900','loadLimit','92','2026-02-18 09:00'],
-    ['THDL006B','NO-CM-THDL006B-20260218-0900','hoThresh','-90','2026-02-18 09:00'],
-    ['THDL006B','NO-CM-THDL006B-20260218-0900','sinrOffset','-3','2026-02-18 09:00'],
-  ].map(([cell,index,parameter,value,date])=>({node:'TH006',site:'THDL006',cell,index,parameter,value,date})),
+    ['n-1', 'TH006', 'THDL006', 'THDL006A', '2026-02-18 14:00', '60', 'pmCellThpDl', '96.4', '2026-02-18 14:10'],
+    ['n-2', 'TH006', 'THDL006', 'THDL006A', '2026-02-18 14:00', '60', 'pmPrbUtilDl', '71.2', '2026-02-18 14:10'],
+    ['n-3', 'TH006', 'THDL006', 'THDL006A', '2026-02-18 15:00', '60', 'pmCellThpDl', '82.1', '2026-02-18 15:10'],
+    ['n-4', 'TH006', 'THDL006', 'THDL006A', '2026-02-18 15:00', '60', 'pmPrbUtilDl', '88.5', '2026-02-18 15:10'],
+    ['n-5', 'TH006', 'THDL006', 'THDL006B', '2026-02-18 14:00', '60', 'pmCellThpDl', '73.8', '2026-02-18 14:10'],
+    ['n-6', 'TH006', 'THDL006', 'THDL006B', '2026-02-18 15:00', '60', 'pmCellThpDl', '69.5', '2026-02-18 15:10'],
+    ['n-7', 'TH006', 'THDL006', 'THDL006B', '2026-02-18 15:00', '60', 'pmPrbUtilDl', '79.4', '2026-02-18 15:10'],
+    ['n-8', 'TH006', 'THDL006', 'THDL006B', '2026-02-18 14:00', '60', 'pmErabDropRate', '0.33', '2026-02-18 14:10'],
+    ['n-9', 'TH006', 'THDL006', 'THDL006B', '2026-02-18 15:00', '60', 'pmErabDropRate', '0.58', '2026-02-18 15:10'],
+    ['n-10', 'TH006', 'THDL006', 'THDL006A', '2026-02-18 15:00', '60', 'pmErabDropRate', '0.91', '2026-02-18 15:10'],
+  ].map(([id, node, site, cell, measTime, granularityMin, counterName, counterValue, fileReadTime]) => ({ id, node, site, cell, measTime, granularityMin, counterName, counterValue, fileReadTime })),
   ericsson: [
-    ['THDL006A','ER-CM-THDL006A-20260218-0800','maxNumActUE','180','2026-02-18 08:00'],
-    ['THDL006A','ER-CM-THDL006A-20260218-0800','dlBw2','20MHz','2026-02-18 08:00'],
-    ['THDL006A','ER-CM-THDL006A-20260218-0800','loadLimit','85','2026-02-18 08:00'],
-    ['THDL006A','ER-CM-THDL006A-20260218-0800','hoTime','64','2026-02-18 08:00'],
-    ['THDL006A','ER-CM-THDL006A-20260218-0800','qOffset','2','2026-02-18 08:00'],
-    ['THDL006A','ER-CM-THDL006A-20260218-0900','maxNumActUE','210','2026-02-18 09:00'],
-    ['THDL006A','ER-CM-THDL006A-20260218-0900','dlBw2','15MHz','2026-02-18 09:00'],
-    ['THDL006A','ER-CM-THDL006A-20260218-0900','loadLimit','97','2026-02-18 09:00'],
-    ['THDL006A','ER-CM-THDL006A-20260218-0900','hoTime','72','2026-02-18 09:00'],
-    ['THDL006A','ER-CM-THDL006A-20260218-0900','qOffset','4','2026-02-18 09:00'],
-    ['THDL006B','ER-CM-THDL006B-20260218-0800','maxNumActUE','150','2026-02-18 08:00'],
-    ['THDL006B','ER-CM-THDL006B-20260218-0800','dlBw2','20MHz','2026-02-18 08:00'],
-    ['THDL006B','ER-CM-THDL006B-20260218-0800','loadLimit','80','2026-02-18 08:00'],
-    ['THDL006B','ER-CM-THDL006B-20260218-0800','sinrOffset','0','2026-02-18 08:00'],
-    ['THDL006B','ER-CM-THDL006B-20260218-0800','txPwr','37','2026-02-18 08:00'],
-    ['THDL006B','ER-CM-THDL006B-20260218-0900','maxNumActUE','175','2026-02-18 09:00'],
-    ['THDL006B','ER-CM-THDL006B-20260218-0900','dlBw2','15MHz','2026-02-18 09:00'],
-    ['THDL006B','ER-CM-THDL006B-20260218-0900','loadLimit','92','2026-02-18 09:00'],
-    ['THDL006B','ER-CM-THDL006B-20260218-0900','sinrOffset','-2','2026-02-18 09:00'],
-    ['THDL006B','ER-CM-THDL006B-20260218-0900','txPwr','33','2026-02-18 09:00'],
-  ].map(([cell,index,parameter,value,date])=>({node:'TH006',site:'THDL006',cell,index,parameter,value,date})),
+    ['e-1', 'TH006', 'THDL006', 'THDL006A', '2026-02-18 14:00', '60', 'pmDlTrafficVol', '101.7', '2026-02-18 14:11'],
+    ['e-2', 'TH006', 'THDL006', 'THDL006A', '2026-02-18 15:00', '60', 'pmDlTrafficVol', '92.2', '2026-02-18 15:11'],
+  ].map(([id, node, site, cell, measTime, granularityMin, counterName, counterValue, fileReadTime]) => ({ id, node, site, cell, measTime, granularityMin, counterName, counterValue, fileReadTime })),
+  huawei: [
+    ['h-1', 'TH006', 'THDL006', 'THDL006A', '2026-02-18 14:00', '60', 'L.Thrp.bits.DL', '98.9', '2026-02-18 14:12'],
+    ['h-2', 'TH006', 'THDL006', 'THDL006A', '2026-02-18 15:00', '60', 'L.Thrp.bits.DL', '84.8', '2026-02-18 15:12'],
+  ].map(([id, node, site, cell, measTime, granularityMin, counterName, counterValue, fileReadTime]) => ({ id, node, site, cell, measTime, granularityMin, counterName, counterValue, fileReadTime })),
 }
 
 const cmHistoryRows: HistoryRow[] = [
-  ['THDL006A','CHG-THDL006A-20260218-0800-0900','maxNumUe','200','240','2026-02-18 09:14'],
-  ['THDL006A','CHG-THDL006A-20260218-0800-0900','loadLimit','80','95','2026-02-18 09:14'],
-  ['THDL006A','CHG-THDL006A-20260218-0800-0900','hoThresh','-95','-89','2026-02-18 09:14'],
-  ['THDL006A','CHG-THDL006A-20260218-0800-0900','qOffset','2','4','2026-02-18 09:14'],
-  ['THDL006A','CHG-THDL006A-20260218-0800-0900','sinrOffset','-1','-3','2026-02-18 09:14'],
-  ['THDL006B','CHG-THDL006B-20260218-0800-0900','maxNumActUE','150','175','2026-02-18 09:18'],
-  ['THDL006B','CHG-THDL006B-20260218-0800-0900','dlBw2','20MHz','15MHz','2026-02-18 09:18'],
-  ['THDL006B','CHG-THDL006B-20260218-0800-0900','loadLimit','80','92','2026-02-18 09:18'],
-  ['THDL006B','CHG-THDL006B-20260218-0800-0900','sinrOffset','0','-2','2026-02-18 09:18'],
-  ['THDL006B','CHG-THDL006B-20260218-0800-0900','txPwr','37','33','2026-02-18 09:18'],
-  ['THDL006A','CHG-HW-THDL006A-20260218-0800-0900','MaxUE','210','240','2026-02-18 09:00'],
-  ['THDL006A','CHG-HW-THDL006A-20260218-0800-0900','LoadLimit','78','101','2026-02-18 09:00'],
-  ['THDL006A','CHG-HW-THDL006A-20260218-0800-0900','HO_Threshold','-95','-89','2026-02-18 09:00'],
-  ['THDL006A','CHG-HW-THDL006A-20260218-0800-0900','Qoffset','2','4','2026-02-18 09:00'],
-  ['THDL006A','CHG-HW-THDL006A-20260218-0800-0900','SINR_Offset','-1','-3','2026-02-18 09:00'],
-  ['THDL006B','CHG-NO-THDL006B-20260218-0800-0900','maxNumUe','160','185','2026-02-18 09:10'],
-  ['THDL006B','CHG-NO-THDL006B-20260218-0800-0900','loadLimit','75','92','2026-02-18 09:10'],
-  ['THDL006B','CHG-NO-THDL006B-20260218-0800-0900','hoThresh','-97','-90','2026-02-18 09:10'],
-  ['THDL006B','CHG-NO-THDL006B-20260218-0800-0900','sinrOffset','-1','-3','2026-02-18 09:10'],
-  ['THDL006B','CHG-NO-THDL006B-20260218-0800-0900','txPower','38','34','2026-02-18 09:10'],
-].map(([cell,index,parameter,oldValue,newValue,date])=>({node:'TH006',site:'THDL006',cell,index,parameter,oldValue,newValue,date}))
+  ['TH006', 'THDL006', 'THDL006A', 'CHG-1', 'maxNumUe', '200', '240', '2026-02-18 09:14'],
+].map(([node, site, cell, index, parameter, oldValue, newValue, date]) => ({ node, site, cell, index, parameter, oldValue, newValue, date }))
+
+const pmHistoryRows: PmHistoryRow[] = [
+  ['p-1', 'Nokia', 'TH006', 'THDL006', 'THDL006A', 'pmCellThpDl', '2026-02-18 15:00', '96.4', '82.1', '-14.3', '2026-02-18 15:10'],
+  ['p-2', 'Nokia', 'TH006', 'THDL006', 'THDL006A', 'pmPrbUtilDl', '2026-02-18 15:00', '71.2', '88.5', '+17.3', '2026-02-18 15:10'],
+  ['p-3', 'Nokia', 'TH006', 'THDL006', 'THDL006B', 'pmCellThpDl', '2026-02-18 15:00', '73.8', '69.5', '-4.3', '2026-02-18 15:10'],
+  ['p-4', 'Nokia', 'TH006', 'THDL006', 'THDL006B', 'pmErabDropRate', '2026-02-18 15:00', '0.33', '0.58', '+0.25', '2026-02-18 15:10'],
+  ['p-5', 'Nokia', 'TH006', 'THDL006', 'THDL006A', 'pmErabDropRate', '2026-02-18 15:00', 'NULL', '0.91', 'NULL', '2026-02-18 15:10'],
+].map(([id, vendor, node, site, cell, counterName, measTime, previousValue, currentValue, delta, changeDetectedTime]) => ({ id, vendor, node, site, cell, counterName, measTime, previousValue, currentValue, delta, changeDetectedTime }))
 
 export function ReportingLandingPage() {
   return (
     <ReportingShell title='Reporting'>
       <Card className='border-none bg-gradient-to-r from-primary/5 via-background to-primary/5 shadow-lg'>
         <CardHeader><CardTitle>Reporting</CardTitle></CardHeader>
-        <CardContent className='text-sm text-muted-foreground'>
-          از سایدبار مسیرهای Reporting را باز کن و وارد صفحه‌های Raw Data یا History شو.
-        </CardContent>
+        <CardContent className='text-sm text-muted-foreground'>از سایدبار مسیرهای Reporting را باز کن و وارد صفحه‌های Raw Data یا History شو.</CardContent>
       </Card>
     </ReportingShell>
   )
 }
 
 export function ReportingRawPage({ domain, vendor }: { domain: ReportingDomain; vendor: ReportingVendor }) {
-  const rows = domain === 'cm' ? cmRawByVendor[vendor] : []
   return (
     <ReportingShell title={`${labels[domain]} / Raw Data / ${labels[vendor]}`}>
       <FilterBar domain={domain} vendor={vendor} view='Raw Data' />
       <ActionRow />
-      <TableCard title='CM Raw Data'><RawTable rows={rows} /></TableCard>
+      <TableCard title={`${labels[domain]} Raw Data`}>
+        {domain === 'pm' ? <PmRawTable rows={pmRawByVendor[vendor]} /> : <RawTable rows={cmRawByVendor[vendor]} />}
+      </TableCard>
     </ReportingShell>
   )
 }
@@ -171,12 +151,8 @@ export function ReportingHistoryPage({ domain }: { domain: ReportingDomain }) {
     <ReportingShell title={`${labels[domain]} / History`}>
       <FilterBar domain={domain} view='History' />
       <ActionRow />
-      <TableCard title='CM History'>
-        {domain === 'cm' ? (
-          <HistoryTable rows={cmHistoryRows} />
-        ) : (
-          <div className='p-6 text-sm text-muted-foreground'>Sample history data for this domain will be added.</div>
-        )}
+      <TableCard title={domain === 'pm' ? 'PM History (Counter Changes)' : `${labels[domain]} History`}>
+        {domain === 'pm' ? <PmHistoryTable rows={pmHistoryRows} /> : <HistoryTable rows={cmHistoryRows} />}
       </TableCard>
     </ReportingShell>
   )
@@ -185,10 +161,7 @@ export function ReportingHistoryPage({ domain }: { domain: ReportingDomain }) {
 function ReportingShell({ title, children }: { title: string; children: ReactNode }) {
   return (
     <>
-      <Header>
-        <Search />
-        <div className='ms-auto flex items-center gap-4'><ThemeSwitch /><ProfileDropdown /></div>
-      </Header>
+      <Header><Search /><div className='ms-auto flex items-center gap-4'><ThemeSwitch /><ProfileDropdown /></div></Header>
       <Main><h1 className='text-2xl font-bold tracking-tight'>{title}</h1><div className='mt-4'>{children}</div></Main>
     </>
   )
@@ -220,31 +193,31 @@ function ActionRow() {
 }
 
 function TableCard({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <Card className='mt-4 overflow-hidden border-none shadow-xl ring-1 ring-border/60'>
-      <CardHeader className='bg-muted/40'><CardTitle>{title}</CardTitle></CardHeader>
-      <CardContent className='p-0'>{children}</CardContent>
-    </Card>
-  )
+  return <Card className='mt-4 overflow-hidden border-none shadow-xl ring-1 ring-border/60'><CardHeader className='bg-muted/40'><CardTitle>{title}</CardTitle></CardHeader><CardContent className='p-0'>{children}</CardContent></Card>
 }
 
 function RawTable({ rows }: { rows: RawRow[] }) {
-  return (
-    <div className='overflow-x-auto'>
-      <table className='w-full min-w-[980px] text-left text-sm'>
-        <thead className='sticky top-0 z-10 bg-card'><tr className='border-b bg-muted/40'>{['Node','Site','Cell','Index','Parameter','Value','Date'].map((h)=><th key={h} className='px-3 py-3 font-semibold'>{h}</th>)}</tr></thead>
-        <tbody>{rows.map((r)=><tr key={`${r.index}-${r.parameter}`} className='border-b transition duration-300 hover:bg-primary/5'><td className='px-3 py-2'>{r.node}</td><td className='px-3 py-2'>{r.site}</td><td className='px-3 py-2 font-medium'>{r.cell}</td><td className='px-3 py-2'>{r.index}</td><td className='px-3 py-2'>{r.parameter}</td><td className='px-3 py-2 tabular-nums'>{r.value}</td><td className='px-3 py-2'>{r.date}</td></tr>)}</tbody>
-      </table>
-    </div>
-  )
+  return <SimpleTable headers={['Node', 'Site', 'Cell', 'Index', 'Parameter', 'Value', 'Date']} rows={rows.map((r) => [r.node, r.site, r.cell, r.index, r.parameter, r.value, r.date])} />
 }
 
 function HistoryTable({ rows }: { rows: HistoryRow[] }) {
+  return <SimpleTable headers={['Node', 'Site', 'Cell', 'Index', 'Parameter', 'Old Value', 'New Value', 'Date']} rows={rows.map((r) => [r.node, r.site, r.cell, r.index, r.parameter, r.oldValue, r.newValue, r.date])} />
+}
+
+function PmRawTable({ rows }: { rows: PmRawRow[] }) {
+  return <SimpleTable headers={['id', 'node', 'site', 'cell', 'meas_time', 'granularity_min', 'counter_name', 'counter_value', 'file_read_time']} rows={rows.map((r) => [r.id, r.node, r.site, r.cell, r.measTime, r.granularityMin, r.counterName, r.counterValue, r.fileReadTime])} />
+}
+
+function PmHistoryTable({ rows }: { rows: PmHistoryRow[] }) {
+  return <SimpleTable headers={['id', 'vendor', 'node', 'site', 'cell', 'counter_name', 'meas_time', 'previous_value', 'current_value', 'delta', 'change_detected_time']} rows={rows.map((r) => [r.id, r.vendor, r.node, r.site, r.cell, r.counterName, r.measTime, r.previousValue, r.currentValue, r.delta, r.changeDetectedTime])} />
+}
+
+function SimpleTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
   return (
     <div className='overflow-x-auto'>
       <table className='w-full min-w-[1080px] text-left text-sm'>
-        <thead className='sticky top-0 z-10 bg-card'><tr className='border-b bg-muted/40'>{['Node','Site','Cell','Index','Parameter','Old Value','New Value','Date'].map((h)=><th key={h} className='px-3 py-3 font-semibold'>{h}</th>)}</tr></thead>
-        <tbody>{rows.map((r)=><tr key={`${r.index}-${r.parameter}`} className='border-b transition duration-300 hover:bg-primary/5'><td className='px-3 py-2'>{r.node}</td><td className='px-3 py-2'>{r.site}</td><td className='px-3 py-2 font-medium'>{r.cell}</td><td className='px-3 py-2'>{r.index}</td><td className='px-3 py-2'>{r.parameter}</td><td className='px-3 py-2 text-amber-600'>{r.oldValue}</td><td className='px-3 py-2 text-emerald-600'>{r.newValue}</td><td className='px-3 py-2'>{r.date}</td></tr>)}</tbody>
+        <thead className='sticky top-0 z-10 bg-card'><tr className='border-b bg-muted/40'>{headers.map((h) => <th key={h} className='px-3 py-3 font-semibold'>{h}</th>)}</tr></thead>
+        <tbody>{rows.map((row, i) => <tr key={`${row[0]}-${i}`} className='border-b transition duration-300 hover:bg-primary/5'>{row.map((c, j) => <td key={`${j}-${c}`} className='px-3 py-2'>{c}</td>)}</tr>)}</tbody>
       </table>
     </div>
   )
