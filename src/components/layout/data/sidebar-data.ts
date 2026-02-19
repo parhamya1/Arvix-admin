@@ -17,6 +17,7 @@ import {
   UserX,
   Users,
   MessagesSquare,
+  FileBarChart2,
   ShieldCheck,
   AudioWaveform,
   Command,
@@ -77,6 +78,11 @@ export const sidebarData: SidebarData = {
           title: 'Users',
           url: '/users',
           icon: Users,
+        },
+        {
+          title: 'Reporting',
+          url: '/reporting',
+          icon: FileBarChart2,
         },
         {
           title: 'Secured by Clerk',
