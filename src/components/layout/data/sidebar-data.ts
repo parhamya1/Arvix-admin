@@ -157,14 +157,27 @@ export const sidebarData: SidebarData = {
                 {
                   title: 'Raw Data',
                   items: [
-                    { title: 'Huawei', url: '/reporting/user-log/raw/huawei' },
-                    { title: 'Nokia', url: '/reporting/user-log/raw/nokia' },
-                    { title: 'Ericsson', url: '/reporting/user-log/raw/ericsson' },
+                    {
+                      title: 'Nokia',
+                      items: [
+                        { title: 'Audit Log', url: '/reporting/user-log/raw/nokia#audit-log' },
+                        { title: 'CLI Session', url: '/reporting/user-log/raw/nokia#cli-session' },
+                        { title: 'CLI Command', url: '/reporting/user-log/raw/nokia#cli-command' },
+                        { title: 'CM Change', url: '/reporting/user-log/raw/nokia#cm-change' },
+                      ],
+                    },
                   ],
                 },
                 {
-                  title: 'History',
-                  url: '/reporting/user-log/history',
+                  title: 'Change Analysis',
+                  items: [
+                    {
+                      title: 'Nokia',
+                      items: [
+                        { title: 'Applied Configuration Changes', url: '/reporting/user-log/history' },
+                      ],
+                    },
+                  ],
                 },
               ],
             },

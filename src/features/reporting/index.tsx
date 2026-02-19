@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react'
+import { useLocation } from '@tanstack/react-router'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
@@ -90,6 +91,58 @@ type LicenseHistoryRow = {
   expireDate: string
   status: string
   changeDetectedTime: string
+}
+
+type AuditLogRow = {
+  auditId: string
+  eventTime: string
+  userName: string
+  action: string
+  targetDn: string
+  result: string
+  requestId: string
+  sourceIp: string
+}
+
+type CmChangeLogRow = {
+  changeId: string
+  changeTime: string
+  objectDn: string
+  parameter: string
+  oldValue: string
+  newValue: string
+  requestId: string
+}
+
+type CliSessionRow = {
+  sessionId: string
+  userName: string
+  startTime: string
+  endTime: string
+  sourceIp: string
+  jumpHost: string
+  authResult: string
+}
+
+type CliCommandRow = {
+  cmdId: string
+  sessionId: string
+  cmdTime: string
+  commandText: string
+  targetHint: string
+  result: string
+}
+
+type AppliedConfigChangeRow = {
+  corrId: string
+  auditId: string
+  userName: string
+  action: string
+  targetDn: string
+  requestId: string
+  changeCount: string
+  firstChangeTime: string
+  lastChangeTime: string
 }
 
 const labels = {
@@ -295,6 +348,73 @@ const licenseHistoryRows: LicenseHistoryRow[] = [
   ['Huawei', 'TH006', 'THDL006', 'NR Cell License', '287', '288', '+1', '98.97', '99.31', '2026-06-30', 'WARNING', '2026-02-18 08:25'],
 ].map(([vendor, node, site, licenseItem, prevUsage, currUsage, deltaUsage, prevUtilizationPct, currUtilizationPct, expireDate, status, changeDetectedTime]) => ({ vendor, node, site, licenseItem, prevUsage, currUsage, deltaUsage, prevUtilizationPct, currUtilizationPct, expireDate, status, changeDetectedTime }))
 
+
+
+const nokiaAuditLogRows: AuditLogRow[] = [
+  ['1001', '2026-02-18 09:02:10', 'john', 'MODIFY', 'MRBTS-600/LNCEL-1', 'SUCCESS', 'REQ-77881', '10.10.2.15'],
+  ['1002', '2026-02-18 09:05:44', 'svc_automation', 'MODIFY', 'MRBTS-600/LNCEL-2', 'SUCCESS', 'REQ-77890', '10.10.2.50'],
+  ['1003', '2026-02-18 09:08:01', 'john', 'LOGIN', 'NMS', 'SUCCESS', 'SESS-33101', '10.10.2.15'],
+  ['1004', '2026-02-18 09:12:33', 'sara', 'MODIFY', 'MRBTS-600/LNCEL-1', 'SUCCESS', 'REQ-77905', '10.10.2.21'],
+  ['1005', '2026-02-18 09:16:18', 'mikael', 'MODIFY', 'MRBTS-600/LNCEL-3', 'FAILED', 'REQ-77918', '10.10.2.33'],
+  ['1006', '2026-02-18 09:20:57', 'admin_ops', 'EXPORT', 'NMS', 'SUCCESS', 'REQ-77930', '10.10.2.10'],
+  ['1007', '2026-02-18 09:24:40', 'fatima', 'MODIFY', 'MRBTS-600/LNCEL-2', 'SUCCESS', 'REQ-77941', '10.10.2.28'],
+  ['1008', '2026-02-18 09:28:12', 'john', 'MODIFY', 'MRBTS-600/LNCEL-1', 'SUCCESS', 'REQ-77955', '10.10.2.15'],
+  ['1009', '2026-02-18 09:33:09', 'sara', 'LOGOUT', 'NMS', 'SUCCESS', 'SESS-33144', '10.10.2.21'],
+  ['1010', '2026-02-18 09:37:26', 'svc_automation', 'MODIFY', 'MRBTS-600/LNCEL-4', 'SUCCESS', 'REQ-77980', '10.10.2.50'],
+].map(([auditId, eventTime, userName, action, targetDn, result, requestId, sourceIp]) => ({ auditId, eventTime, userName, action, targetDn, result, requestId, sourceIp }))
+
+const nokiaCmChangeRows: CmChangeLogRow[] = [
+  ['9001', '2026-02-18 09:02:25', 'MRBTS-600/LNCEL-1', 'maxNumUe', '200', '240', 'REQ-77881'],
+  ['9002', '2026-02-18 09:02:25', 'MRBTS-600/LNCEL-1', 'hoThresh', '-95', '-89', 'REQ-77881'],
+  ['9003', '2026-02-18 09:05:55', 'MRBTS-600/LNCEL-2', 'loadLimit', '75', '92', 'REQ-77890'],
+  ['9004', '2026-02-18 09:05:55', 'MRBTS-600/LNCEL-2', 'sinrOffset', '-1', '-3', 'REQ-77890'],
+  ['9005', '2026-02-18 09:12:48', 'MRBTS-600/LNCEL-1', 'qOffset', '2', '4', 'REQ-77905'],
+  ['9006', '2026-02-18 09:12:48', 'MRBTS-600/LNCEL-1', 'loadLimit', '80', '95', 'REQ-77905'],
+  ['9007', '2026-02-18 09:24:58', 'MRBTS-600/LNCEL-2', 'maxNumUe', '160', '185', 'REQ-77941'],
+  ['9008', '2026-02-18 09:24:58', 'MRBTS-600/LNCEL-2', 'hoThresh', '-97', '-90', 'REQ-77941'],
+  ['9009', '2026-02-18 09:28:29', 'MRBTS-600/LNCEL-1', 'sinrOffset', '-2', '-4', 'REQ-77955'],
+  ['9010', '2026-02-18 09:37:41', 'MRBTS-600/LNCEL-4', 'loadLimit', '70', '88', 'REQ-77980'],
+].map(([changeId, changeTime, objectDn, parameter, oldValue, newValue, requestId]) => ({ changeId, changeTime, objectDn, parameter, oldValue, newValue, requestId }))
+
+const nokiaCliSessionRows: CliSessionRow[] = [
+  ['5001', 'john', '2026-02-18 09:00:40', '2026-02-18 09:07:10', '10.10.2.15', 'bastion-01', 'SUCCESS'],
+  ['5002', 'sara', '2026-02-18 09:11:05', '2026-02-18 09:18:02', '10.10.2.21', 'bastion-01', 'SUCCESS'],
+  ['5003', 'mikael', '2026-02-18 09:15:02', '2026-02-18 09:16:50', '10.10.2.33', 'bastion-02', 'FAILED'],
+  ['5004', 'admin_ops', '2026-02-18 09:19:10', '2026-02-18 09:22:34', '10.10.2.10', 'bastion-01', 'SUCCESS'],
+  ['5005', 'fatima', '2026-02-18 09:23:30', '2026-02-18 09:26:12', '10.10.2.28', 'bastion-01', 'SUCCESS'],
+  ['5006', 'svc_automation', '2026-02-18 09:04:50', '2026-02-18 09:06:20', '10.10.2.50', 'bastion-automation', 'SUCCESS'],
+  ['5007', 'john', '2026-02-18 09:27:40', '2026-02-18 09:30:05', '10.10.2.15', 'bastion-01', 'SUCCESS'],
+  ['5008', 'sara', '2026-02-18 09:31:00', '2026-02-18 09:33:05', '10.10.2.21', 'bastion-01', 'SUCCESS'],
+  ['5009', 'svc_automation', '2026-02-18 09:36:10', '2026-02-18 09:38:05', '10.10.2.50', 'bastion-automation', 'SUCCESS'],
+  ['5010', 'john', '2026-02-18 09:39:00', '2026-02-18 09:41:40', '10.10.2.15', 'bastion-01', 'SUCCESS'],
+].map(([sessionId, userName, startTime, endTime, sourceIp, jumpHost, authResult]) => ({ sessionId, userName, startTime, endTime, sourceIp, jumpHost, authResult }))
+
+const nokiaCliCommandRows: CliCommandRow[] = [
+  ['7001', '5001', '2026-02-18 09:02:05', 'set LNCEL-1 maxNumUe=240', 'MRBTS-600/LNCEL-1', 'SUCCESS'],
+  ['7002', '5001', '2026-02-18 09:02:06', 'set LNCEL-1 hoThresh=-89', 'MRBTS-600/LNCEL-1', 'SUCCESS'],
+  ['7003', '5006', '2026-02-18 09:05:40', 'set LNCEL-2 loadLimit=92', 'MRBTS-600/LNCEL-2', 'SUCCESS'],
+  ['7004', '5006', '2026-02-18 09:05:41', 'set LNCEL-2 sinrOffset=-3', 'MRBTS-600/LNCEL-2', 'SUCCESS'],
+  ['7005', '5002', '2026-02-18 09:12:30', 'set LNCEL-1 qOffset=4', 'MRBTS-600/LNCEL-1', 'SUCCESS'],
+  ['7006', '5002', '2026-02-18 09:12:31', 'set LNCEL-1 loadLimit=95', 'MRBTS-600/LNCEL-1', 'SUCCESS'],
+  ['7007', '5005', '2026-02-18 09:24:35', 'set LNCEL-2 maxNumUe=185', 'MRBTS-600/LNCEL-2', 'SUCCESS'],
+  ['7008', '5005', '2026-02-18 09:24:36', 'set LNCEL-2 hoThresh=-90', 'MRBTS-600/LNCEL-2', 'SUCCESS'],
+  ['7009', '5007', '2026-02-18 09:28:05', 'set LNCEL-1 sinrOffset=-4', 'MRBTS-600/LNCEL-1', 'SUCCESS'],
+  ['7010', '5003', '2026-02-18 09:16:10', 'set LNCEL-3 loadLimit=97', 'MRBTS-600/LNCEL-3', 'FAILED'],
+].map(([cmdId, sessionId, cmdTime, commandText, targetHint, result]) => ({ cmdId, sessionId, cmdTime, commandText, targetHint, result }))
+
+const appliedConfigurationChangesRows: AppliedConfigChangeRow[] = [
+  ['1', '1001', 'john', 'MODIFY', 'MRBTS-600/LNCEL-1', 'REQ-77881', '2', '2026-02-18 09:02:25', '2026-02-18 09:02:25'],
+  ['2', '1002', 'svc_automation', 'MODIFY', 'MRBTS-600/LNCEL-2', 'REQ-77890', '2', '2026-02-18 09:05:55', '2026-02-18 09:05:55'],
+  ['3', '1004', 'sara', 'MODIFY', 'MRBTS-600/LNCEL-1', 'REQ-77905', '2', '2026-02-18 09:12:48', '2026-02-18 09:12:48'],
+  ['4', '1005', 'mikael', 'MODIFY', 'MRBTS-600/LNCEL-3', 'REQ-77918', '0', 'NULL', 'NULL'],
+  ['5', '1007', 'fatima', 'MODIFY', 'MRBTS-600/LNCEL-2', 'REQ-77941', '2', '2026-02-18 09:24:58', '2026-02-18 09:24:58'],
+  ['6', '1008', 'john', 'MODIFY', 'MRBTS-600/LNCEL-1', 'REQ-77955', '1', '2026-02-18 09:28:29', '2026-02-18 09:28:29'],
+  ['7', '1010', 'svc_automation', 'MODIFY', 'MRBTS-600/LNCEL-4', 'REQ-77980', '1', '2026-02-18 09:37:41', '2026-02-18 09:37:41'],
+  ['8', '1006', 'admin_ops', 'EXPORT', 'NMS', 'REQ-77930', '0', 'NULL', 'NULL'],
+  ['9', '1003', 'john', 'LOGIN', 'NMS', 'SESS-33101', '0', 'NULL', 'NULL'],
+  ['10', '1009', 'sara', 'LOGOUT', 'NMS', 'SESS-33144', '0', 'NULL', 'NULL'],
+].map(([corrId, auditId, userName, action, targetDn, requestId, changeCount, firstChangeTime, lastChangeTime]) => ({ corrId, auditId, userName, action, targetDn, requestId, changeCount, firstChangeTime, lastChangeTime }))
+
 export function ReportingLandingPage() {
   return (
     <ReportingShell title='Reporting'>
@@ -312,7 +432,7 @@ export function ReportingRawPage({ domain, vendor }: { domain: ReportingDomain; 
       <FilterBar domain={domain} vendor={vendor} view='Raw Data' />
       <ActionRow />
       <TableCard title={`${labels[domain]} Raw Data`}>
-        {domain === 'pm' ? <PmRawTable rows={pmRawByVendor[vendor]} /> : domain === 'license' ? <LicenseRawTable rows={licenseRawByVendor[vendor]} /> : <RawTable rows={cmRawByVendor[vendor]} />}
+        {domain === 'pm' ? <PmRawTable rows={pmRawByVendor[vendor]} /> : domain === 'license' ? <LicenseRawTable rows={licenseRawByVendor[vendor]} /> : domain === 'user-log' ? <UserLogRawTables vendor={vendor} /> : <RawTable rows={cmRawByVendor[vendor]} />}
       </TableCard>
     </ReportingShell>
   )
@@ -323,8 +443,8 @@ export function ReportingHistoryPage({ domain }: { domain: ReportingDomain }) {
     <ReportingShell title={`${labels[domain]} / History`}>
       <FilterBar domain={domain} view='History' />
       <ActionRow />
-      <TableCard title={domain === 'pm' ? 'PM History (Counter Changes)' : domain === 'license' ? 'License History (Usage Changes)' : `${labels[domain]} History`}>
-        {domain === 'pm' ? <PmHistoryTable rows={pmHistoryRows} /> : domain === 'license' ? <LicenseHistoryTable rows={licenseHistoryRows} /> : <HistoryTable rows={cmHistoryRows} />}
+      <TableCard title={domain === 'pm' ? 'PM History (Counter Changes)' : domain === 'license' ? 'License History (Usage Changes)' : domain === 'user-log' ? 'Applied Configuration Changes' : `${labels[domain]} History`}>
+        {domain === 'pm' ? <PmHistoryTable rows={pmHistoryRows} /> : domain === 'license' ? <LicenseHistoryTable rows={licenseHistoryRows} /> : domain === 'user-log' ? <AppliedConfigurationChangesTable rows={appliedConfigurationChangesRows} /> : <HistoryTable rows={cmHistoryRows} />}
       </TableCard>
     </ReportingShell>
   )
@@ -390,6 +510,38 @@ function LicenseRawTable({ rows }: { rows: LicenseRawRow[] }) {
 
 function LicenseHistoryTable({ rows }: { rows: LicenseHistoryRow[] }) {
   return <SimpleTable headers={['vendor', 'node', 'site', 'license_item', 'prev_usage', 'curr_usage', 'delta_usage', 'prev_utilization_pct', 'curr_utilization_pct', 'expire_date', 'status', 'change_detected_time']} rows={rows.map((r) => [r.vendor, r.node, r.site, r.licenseItem, r.prevUsage, r.currUsage, r.deltaUsage, r.prevUtilizationPct, r.currUtilizationPct, r.expireDate, r.status, r.changeDetectedTime])} />
+}
+
+
+
+function UserLogRawTables({ vendor }: { vendor: ReportingVendor }) {
+  const href = useLocation({ select: (location) => location.href })
+  const rawTabFromHash = href.split('#')[1]
+  const activeTab = (rawTabFromHash ?? 'audit-log') as 'audit-log' | 'cli-session' | 'cli-command' | 'cm-change'
+
+  if (vendor !== 'nokia') {
+    return <div className='p-4 text-sm text-muted-foreground'>User Log data is currently available only for Nokia.</div>
+  }
+
+  return (
+    <div className='space-y-4 p-4'>
+      <div className='flex flex-wrap gap-2'>
+        <Button variant={activeTab === 'audit-log' ? 'default' : 'outline'} asChild><a href='/reporting/user-log/raw/nokia#audit-log'>Audit Log</a></Button>
+        <Button variant={activeTab === 'cli-session' ? 'default' : 'outline'} asChild><a href='/reporting/user-log/raw/nokia#cli-session'>CLI Session</a></Button>
+        <Button variant={activeTab === 'cli-command' ? 'default' : 'outline'} asChild><a href='/reporting/user-log/raw/nokia#cli-command'>CLI Command</a></Button>
+        <Button variant={activeTab === 'cm-change' ? 'default' : 'outline'} asChild><a href='/reporting/user-log/raw/nokia#cm-change'>CM Change</a></Button>
+      </div>
+
+      {activeTab === 'audit-log' && <SimpleTable headers={['audit_id', 'event_time', 'user_name', 'action', 'target_dn', 'result', 'request_id', 'source_ip']} rows={nokiaAuditLogRows.map((r) => [r.auditId, r.eventTime, r.userName, r.action, r.targetDn, r.result, r.requestId, r.sourceIp])} />}
+      {activeTab === 'cli-session' && <SimpleTable headers={['session_id', 'user_name', 'start_time', 'end_time', 'source_ip', 'jump_host', 'auth_result']} rows={nokiaCliSessionRows.map((r) => [r.sessionId, r.userName, r.startTime, r.endTime, r.sourceIp, r.jumpHost, r.authResult])} />}
+      {activeTab === 'cli-command' && <SimpleTable headers={['cmd_id', 'session_id', 'cmd_time', 'command_text', 'target_hint', 'result']} rows={nokiaCliCommandRows.map((r) => [r.cmdId, r.sessionId, r.cmdTime, r.commandText, r.targetHint, r.result])} />}
+      {activeTab === 'cm-change' && <SimpleTable headers={['change_id', 'change_time', 'object_dn', 'parameter', 'old_value', 'new_value', 'request_id']} rows={nokiaCmChangeRows.map((r) => [r.changeId, r.changeTime, r.objectDn, r.parameter, r.oldValue, r.newValue, r.requestId])} />}
+    </div>
+  )
+}
+
+function AppliedConfigurationChangesTable({ rows }: { rows: AppliedConfigChangeRow[] }) {
+  return <SimpleTable headers={['corr_id', 'audit_id', 'user_name', 'action', 'target_dn', 'request_id', 'change_count', 'first_change_time', 'last_change_time']} rows={rows.map((r) => [r.corrId, r.auditId, r.userName, r.action, r.targetDn, r.requestId, r.changeCount, r.firstChangeTime, r.lastChangeTime])} />
 }
 
 function SimpleTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
