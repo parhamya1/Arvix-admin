@@ -17,6 +17,7 @@ import {
   UserX,
   Users,
   MessagesSquare,
+  FileBarChart2,
   ShieldCheck,
   AudioWaveform,
   Command,
@@ -77,6 +78,97 @@ export const sidebarData: SidebarData = {
           title: 'Users',
           url: '/users',
           icon: Users,
+        },
+        {
+          title: 'Reporting',
+          icon: FileBarChart2,
+          items: [
+            {
+              title: 'CM',
+              items: [
+                {
+                  title: 'Raw Data',
+                  items: [
+                    { title: 'Huawei', url: '/reporting/cm/raw/huawei' },
+                    { title: 'Nokia', url: '/reporting/cm/raw/nokia' },
+                    { title: 'Ericsson', url: '/reporting/cm/raw/ericsson' },
+                  ],
+                },
+                {
+                  title: 'History (Normalized)',
+                  url: '/reporting/cm/history',
+                },
+              ],
+            },
+            {
+              title: 'PM',
+              items: [
+                {
+                  title: 'Raw Data',
+                  items: [
+                    { title: 'Huawei', url: '/reporting/pm/raw/huawei' },
+                    { title: 'Nokia', url: '/reporting/pm/raw/nokia' },
+                    { title: 'Ericsson', url: '/reporting/pm/raw/ericsson' },
+                  ],
+                },
+                {
+                  title: 'History (Normalized)',
+                  url: '/reporting/pm/history',
+                },
+              ],
+            },
+            {
+              title: 'License',
+              items: [
+                {
+                  title: 'Raw Data',
+                  items: [
+                    { title: 'Huawei', url: '/reporting/license/raw/huawei' },
+                    { title: 'Nokia', url: '/reporting/license/raw/nokia' },
+                    { title: 'Ericsson', url: '/reporting/license/raw/ericsson' },
+                  ],
+                },
+                {
+                  title: 'History (Normalized)',
+                  url: '/reporting/license/history',
+                },
+              ],
+            },
+            {
+              title: 'Inventory',
+              items: [
+                {
+                  title: 'Raw Data',
+                  items: [
+                    { title: 'Huawei', url: '/reporting/inventory/raw/huawei' },
+                    { title: 'Nokia', url: '/reporting/inventory/raw/nokia' },
+                    { title: 'Ericsson', url: '/reporting/inventory/raw/ericsson' },
+                  ],
+                },
+                {
+                  title: 'History (Normalized)',
+                  url: '/reporting/inventory/history',
+                },
+              ],
+            },
+            {
+              title: 'User Log',
+              items: [
+                {
+                  title: 'Raw Data',
+                  items: [
+                    { title: 'Huawei', url: '/reporting/user-log/raw/huawei' },
+                    { title: 'Nokia', url: '/reporting/user-log/raw/nokia' },
+                    { title: 'Ericsson', url: '/reporting/user-log/raw/ericsson' },
+                  ],
+                },
+                {
+                  title: 'History (Normalized)',
+                  url: '/reporting/user-log/history',
+                },
+              ],
+            },
+          ],
         },
         {
           title: 'Secured by Clerk',
