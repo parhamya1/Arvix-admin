@@ -1,20 +1,12 @@
-import { type ReactNode, useMemo, useState } from 'react'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Area,
@@ -32,41 +24,19 @@ import {
 } from 'recharts'
 
 type Severity = 'Normal' | 'Warning' | 'Critical'
-type Vendor = 'Huawei' | 'Nokia' | 'Ericsson'
-type ReportingDomain = 'CM' | 'PM' | 'License' | 'Inventory' | 'User Log'
-
-type RawFileRow = {
-  ingestionDateUtc: string
-  fileCoverageUtc: string
-  parserStatus: 'OK' | 'PARTIAL' | 'FAILED'
-  extractedRecordCount: number
-}
-
-type RawExtractedRow = {
-  recordTimeUtc: string
-  networkEntityType: 'REGION' | 'SITE' | 'NODE' | 'CELL'
-  vendorEntityId: string
-  nativeObjectType: string
-  nativeParameterName: string
-  extractedValue: string
-  measurementUnit: string
-}
 
 const severityClass: Record<Severity, string> = {
-  Normal:
-    'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
-  Warning:
-    'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
-  Critical:
-    'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300',
+  Normal: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+  Warning: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+  Critical: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300',
 }
 
 const networkSummary = [
   { label: 'Network Health Score', value: '82 / 100' },
-  { label: 'Cells with Active Violations', value: '1,342 (6.8%)' },
-  { label: 'Regions Degraded', value: '2 / 8' },
-  { label: 'Automated CM Changes (24h)', value: '417' },
-  { label: 'Decisions Pending Approval', value: '19' },
+  { label: 'Cells with active violations', value: '1,342 (6.8%)' },
+  { label: 'Regions degraded', value: '2 / 8' },
+  { label: 'Automated CM changes (24h)', value: '417' },
+  { label: 'Decisions pending approval', value: '19' },
 ]
 
 const kpiTrendData = [
@@ -96,6 +66,13 @@ const kpiStatusRows = [
   ['Drop Rate', 'Region Helsinki', '0.95%', '0.60%', '+0.35', 'Warning'],
   ['Throughput', 'Region Helsinki', '78 Mbps', '105 Mbps', '-27', 'Critical'],
   ['Latency', 'Region Helsinki', '31 ms', '22 ms', '+9', 'Critical'],
+  ['Call Setup SR', 'Region Helsinki', '98.9%', '99.3%', '-0.4', 'Warning'],
+  ['Handover SR', 'Region Helsinki', '98.1%', '98.9%', '-0.8', 'Warning'],
+  ['Drop Rate', 'Region Tampere', '0.88%', '0.60%', '+0.28', 'Warning'],
+  ['Throughput', 'Region Tampere', '86 Mbps', '102 Mbps', '-16', 'Warning'],
+  ['Latency', 'Region Tampere', '28 ms', '22 ms', '+6', 'Warning'],
+  ['Drop Rate', 'Region Turku', '0.79%', '0.60%', '+0.19', 'Warning'],
+  ['Throughput', 'Region Turku', '91 Mbps', '100 Mbps', '-9', 'Normal'],
 ]
 
 const guardrailRows = [
@@ -104,6 +81,11 @@ const guardrailRows = [
   ['Nokia', 'Cell', 'HO_Threshold', 'Manual', '-95', '±5', 'All'],
   ['Ericsson', 'Cell', 'Qoffset', 'Average', 'avg(30d)', '±10%', 'All'],
   ['Nokia', 'Cell', 'TxPower', 'Average', 'avg(14d)', '±8%', 'Region Tampere'],
+  ['Ericsson', 'Cell', 'RSRP_Min', 'Manual', '-110', '±5', 'All'],
+  ['Nokia', 'Cell', 'HO_Hysteresis', 'Average', 'avg(14d)', '±12%', 'Region Helsinki'],
+  ['Ericsson', 'Cell', 'SINR_Offset', 'Average', 'avg(7d)', '±10%', 'All'],
+  ['Nokia', 'Cell', 'LoadLimit', 'Average', 'avg(30d)', '±15%', 'Region Turku'],
+  ['Ericsson', 'Cell', 'DLBW1', 'Average', 'avg(14d)', '±8%', 'All'],
 ]
 
 const violationRows = [
@@ -111,6 +93,14 @@ const violationRows = [
   ['KFI-HEL-305', 'Ericsson', 'DLBW2', 'avg', '-18%', '-18%', 'Warning'],
   ['KFI-TKU-114', 'Nokia', 'HO_Threshold', '-95', '-89', '+6', 'Warning'],
   ['KFI-HEL-402', 'Ericsson', 'Qoffset', 'avg', '+14%', '+14%', 'Warning'],
+  ['KFI-TMP-087', 'Nokia', 'TxPower', 'avg', '-12%', '-12%', 'Critical'],
+  ['KFI-HEL-512', 'Nokia', 'LoadLimit', 'avg', '+19%', '+19%', 'Critical'],
+  ['KFI-TMP-233', 'Ericsson', 'SINR_Offset', 'avg', '-11%', '-11%', 'Warning'],
+  ['KFI-TKU-341', 'Nokia', 'MaxUE', 'avg', '+16%', '+16%', 'Critical'],
+  ['KFI-OUL-118', 'Ericsson', 'DLBW1', 'avg', '-9%', '-9%', 'Warning'],
+  ['KFI-JYV-204', 'Nokia', 'TxPower', 'avg', '-7%', '-7%', 'Warning'],
+  ['KFI-HEL-619', 'Ericsson', 'HO_Time', 'avg', '+18%', '+18%', 'Critical'],
+  ['KFI-TKU-188', 'Nokia', 'RSRP_Min', '-108', '-101', '+7', 'Warning'],
 ]
 
 const cmTimelineRows = [
@@ -135,144 +125,20 @@ const decisionRows = [
   ['KFI-TMP-087', 'TxPower imbalance', 'Normalize to avg', '0.81'],
 ]
 
-const reportingDomains: ReportingDomain[] = [
-  'CM',
-  'PM',
-  'License',
-  'Inventory',
-  'User Log',
+const reportingRows = [
+  ['2026-02-18T09:14:00Z', 'CM', 'Cell', 'MaxUE', '109', '127', 'System'],
+  ['2026-02-18T09:18:00Z', 'CM', 'Cell', 'DLBW2', '20MHz', '18MHz', 'Decision Engine'],
+  ['2026-02-18T09:25:00Z', 'PM', 'Region', 'Throughput', '108 Mbps', '79 Mbps', 'System'],
+  ['2026-02-18T09:32:00Z', 'Auto-Optimizer', 'Cell', 'HO_Threshold', '-95', '-89', 'System'],
 ]
 
-const rawFiles: Record<ReportingDomain, Record<Vendor, RawFileRow[]>> = {
-  CM: {
-    Huawei: [
-      {
-        ingestionDateUtc: '2026-02-18 09:35',
-        fileCoverageUtc: '09:00 → 09:30',
-        parserStatus: 'OK',
-        extractedRecordCount: 13224,
-      },
-    ],
-    Nokia: [
-      {
-        ingestionDateUtc: '2026-02-18 09:36',
-        fileCoverageUtc: '09:00 → 09:30',
-        parserStatus: 'OK',
-        extractedRecordCount: 15440,
-      },
-    ],
-    Ericsson: [
-      {
-        ingestionDateUtc: '2026-02-18 09:37',
-        fileCoverageUtc: '09:00 → 09:30',
-        parserStatus: 'PARTIAL',
-        extractedRecordCount: 12870,
-      },
-    ],
-  },
-  PM: {
-    Huawei: [
-      {
-        ingestionDateUtc: '2026-02-18 09:31',
-        fileCoverageUtc: '09:00 → 09:15',
-        parserStatus: 'OK',
-        extractedRecordCount: 22051,
-      },
-    ],
-    Nokia: [
-      {
-        ingestionDateUtc: '2026-02-18 09:32',
-        fileCoverageUtc: '09:00 → 09:15',
-        parserStatus: 'OK',
-        extractedRecordCount: 24812,
-      },
-    ],
-    Ericsson: [
-      {
-        ingestionDateUtc: '2026-02-18 09:33',
-        fileCoverageUtc: '09:00 → 09:15',
-        parserStatus: 'OK',
-        extractedRecordCount: 23990,
-      },
-    ],
-  },
-  License: { Huawei: [], Nokia: [], Ericsson: [] },
-  Inventory: { Huawei: [], Nokia: [], Ericsson: [] },
-  'User Log': { Huawei: [], Nokia: [], Ericsson: [] },
-}
-
-const rawRows: Record<ReportingDomain, Record<Vendor, RawExtractedRow[]>> = {
-  CM: {
-    Huawei: [
-      {
-        recordTimeUtc: '2026-02-18 09:14',
-        networkEntityType: 'CELL',
-        vendorEntityId: 'HFI-HEL-102',
-        nativeObjectType: 'EUtranCellFDD',
-        nativeParameterName: 'MaxUE',
-        extractedValue: '121',
-        measurementUnit: 'users',
-      },
-    ],
-    Nokia: [
-      {
-        recordTimeUtc: '2026-02-18 09:14',
-        networkEntityType: 'CELL',
-        vendorEntityId: 'KFI-HEL-221',
-        nativeObjectType: 'LNCEL',
-        nativeParameterName: 'MaxUE',
-        extractedValue: '+22%',
-        measurementUnit: '%',
-      },
-      {
-        recordTimeUtc: '2026-02-18 09:18',
-        networkEntityType: 'CELL',
-        vendorEntityId: 'KFI-TMP-087',
-        nativeObjectType: 'LNCEL',
-        nativeParameterName: 'TxPower',
-        extractedValue: '-12%',
-        measurementUnit: '%',
-      },
-    ],
-    Ericsson: [
-      {
-        recordTimeUtc: '2026-02-18 09:18',
-        networkEntityType: 'CELL',
-        vendorEntityId: 'EFI-HEL-305',
-        nativeObjectType: 'EUtranCellFDD',
-        nativeParameterName: 'DLBW2',
-        extractedValue: '-18%',
-        measurementUnit: '%',
-      },
-    ],
-  },
-  PM: {
-    Huawei: [],
-    Nokia: [
-      {
-        recordTimeUtc: '2026-02-18 09:15',
-        networkEntityType: 'REGION',
-        vendorEntityId: 'Region Helsinki',
-        nativeObjectType: 'KPI',
-        nativeParameterName: 'Throughput',
-        extractedValue: '78',
-        measurementUnit: 'Mbps',
-      },
-    ],
-    Ericsson: [],
-  },
-  License: { Huawei: [], Nokia: [], Ericsson: [] },
-  Inventory: { Huawei: [], Nokia: [], Ericsson: [] },
-  'User Log': { Huawei: [], Nokia: [], Ericsson: [] },
-}
+const mainNavItems = ['Overview', 'Guardrails (Baselines)', 'Violations', 'Investigation', 'Decisions', 'Reporting']
 
 export function Dashboard() {
   return (
     <>
       <Header>
-        <div className='text-sm font-semibold tracking-wide text-muted-foreground'>
-          ARVIX Finland Network Simulation
-        </div>
+        <div className='text-sm font-semibold tracking-wide text-muted-foreground'>ARVIX Finland Network Simulation</div>
         <div className='ms-auto flex items-center gap-3'>
           <Search />
           <ThemeSwitch />
@@ -281,17 +147,48 @@ export function Dashboard() {
       </Header>
 
       <Main>
-        <GlobalContextBar showVendor />
+        <div className='mb-4 rounded-lg border bg-card p-4'>
+          <div className='mb-3 text-sm font-medium'>Global Context Bar</div>
+          <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
+            <Select defaultValue='ericsson'>
+              <SelectTrigger>
+                <SelectValue placeholder='Vendor selector' />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='ericsson'>Ericsson</SelectItem>
+                <SelectItem value='nokia'>Nokia</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select defaultValue='network'>
+              <SelectTrigger>
+                <SelectValue placeholder='Scope selector' />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='network'>Network</SelectItem>
+                <SelectItem value='region'>Region</SelectItem>
+                <SelectItem value='cell'>Cell</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select defaultValue='24h'>
+              <SelectTrigger>
+                <SelectValue placeholder='Time window' />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='24h'>Last 24h</SelectItem>
+                <SelectItem value='7d'>Last 7d</SelectItem>
+                <SelectItem value='custom'>Custom</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input placeholder='Search: Cell ID / Region' />
+          </div>
+        </div>
 
         <Tabs defaultValue='overview' className='space-y-4'>
           <div className='w-full overflow-x-auto'>
             <TabsList>
-              <TabsTrigger value='overview'>Overview</TabsTrigger>
-              <TabsTrigger value='guardrails'>Guardrails (Baselines)</TabsTrigger>
-              <TabsTrigger value='violations'>Violations</TabsTrigger>
-              <TabsTrigger value='investigation'>Investigation</TabsTrigger>
-              <TabsTrigger value='decisions'>Decisions</TabsTrigger>
-              <TabsTrigger value='reporting'>Reporting</TabsTrigger>
+              {mainNavItems.map((item) => (
+                <TabsTrigger key={item} value={item.toLowerCase().split(' ')[0]}>{item}</TabsTrigger>
+              ))}
             </TabsList>
           </div>
 
@@ -300,9 +197,7 @@ export function Dashboard() {
               {networkSummary.map((metric) => (
                 <Card key={metric.label}>
                   <CardHeader className='pb-2'>
-                    <CardTitle className='text-sm font-medium text-muted-foreground'>
-                      {metric.label}
-                    </CardTitle>
+                    <CardTitle className='text-sm font-medium text-muted-foreground'>{metric.label}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className='text-2xl font-bold'>{metric.value}</div>
@@ -312,49 +207,64 @@ export function Dashboard() {
             </div>
 
             <div className='grid gap-4 lg:grid-cols-2'>
-              <ChartCard title='Network KPI Trends'>
-                <ResponsiveContainer width='100%' height={280}>
-                  <LineChart data={kpiTrendData}>
-                    <CartesianGrid strokeDasharray='3 3' />
-                    <XAxis dataKey='time' />
-                    <YAxis yAxisId='left' />
-                    <YAxis yAxisId='right' orientation='right' />
-                    <Tooltip />
-                    <Legend />
-                    <Line yAxisId='left' type='monotone' dataKey='dropRate' name='Drop Rate (%)' stroke='#ef4444' />
-                    <Line yAxisId='right' type='monotone' dataKey='throughput' name='Throughput (Mbps)' stroke='#2563eb' />
-                    <Line yAxisId='right' type='monotone' dataKey='latency' name='Latency (ms)' stroke='#10b981' />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartCard>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Network KPIs over time (24h / 7d)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width='100%' height={280}>
+                    <LineChart data={kpiTrendData}>
+                      <CartesianGrid strokeDasharray='3 3' />
+                      <XAxis dataKey='time' />
+                      <YAxis yAxisId='left' />
+                      <YAxis yAxisId='right' orientation='right' />
+                      <Tooltip />
+                      <Legend />
+                      <Line yAxisId='left' type='monotone' dataKey='dropRate' name='Drop Rate (%)' stroke='#ef4444' />
+                      <Line yAxisId='right' type='monotone' dataKey='throughput' name='Throughput (Mbps)' stroke='#2563eb' />
+                      <Line yAxisId='right' type='monotone' dataKey='latency' name='Latency (ms)' stroke='#10b981' />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
 
-              <ChartCard title='Active Violations Over Time'>
-                <ResponsiveContainer width='100%' height={280}>
-                  <AreaChart data={violationTrendData}>
-                    <CartesianGrid strokeDasharray='3 3' />
-                    <XAxis dataKey='time' />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Area type='monotone' dataKey='critical' stackId='1' stroke='#f43f5e' fill='#f43f5e' name='Critical' />
-                    <Area type='monotone' dataKey='warning' stackId='1' stroke='#f59e0b' fill='#f59e0b' name='Warning' />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </ChartCard>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Active Violations Over Time</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width='100%' height={280}>
+                    <AreaChart data={violationTrendData}>
+                      <CartesianGrid strokeDasharray='3 3' />
+                      <XAxis dataKey='time' />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Area type='monotone' dataKey='critical' stackId='1' stroke='#f43f5e' fill='#f43f5e' name='Critical' />
+                      <Area type='monotone' dataKey='warning' stackId='1' stroke='#f59e0b' fill='#f59e0b' name='Warning' />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
             </div>
 
             <div className='grid gap-4 lg:grid-cols-3'>
-              <ChartCard title='Vendor Impact Split'>
-                <ResponsiveContainer width='100%' height={240}>
-                  <BarChart data={[{ vendor: 'Nokia', share: 52 }, { vendor: 'Ericsson', share: 48 }]}>
-                    <CartesianGrid strokeDasharray='3 3' />
-                    <XAxis dataKey='vendor' />
-                    <YAxis unit='%' />
-                    <Tooltip />
-                    <Bar dataKey='share' fill='#6366f1' radius={6} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartCard>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Vendor Impact Split</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width='100%' height={240}>
+                    <BarChart data={[{ vendor: 'Nokia', share: 52 }, { vendor: 'Ericsson', share: 48 }]}>
+                      <CartesianGrid strokeDasharray='3 3' />
+                      <XAxis dataKey='vendor' />
+                      <YAxis unit='%' />
+                      <Tooltip />
+                      <Bar dataKey='share' fill='#6366f1' radius={6} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
 
               <Card className='lg:col-span-2'>
                 <CardHeader>
@@ -362,7 +272,7 @@ export function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <DataTable
-                    headers={['Region Name', 'Affected Cells', 'Maximum Severity']}
+                    headers={['Region', 'Affected Cells', 'Max Severity']}
                     rows={[
                       ['Helsinki Metro', '412', 'Critical'],
                       ['Tampere', '188', 'Warning'],
@@ -380,7 +290,7 @@ export function Dashboard() {
               </CardHeader>
               <CardContent>
                 <DataTable
-                  headers={['KPI Name', 'Scope', 'Current Value', 'Baseline Value', 'Delta', 'Health Status']}
+                  headers={['KPI', 'Scope', 'Current', 'Baseline', 'Delta', 'Status']}
                   rows={kpiStatusRows}
                   severityColumnIndex={5}
                 />
@@ -395,7 +305,7 @@ export function Dashboard() {
               </CardHeader>
               <CardContent>
                 <DataTable
-                  headers={['Vendor', 'Entity Level', 'Parameter Name', 'Baseline Method', 'Expected Baseline', 'Tolerance', 'Rule Scope']}
+                  headers={['Vendor', 'Entity', 'Parameter', 'Method', 'Expected', 'Tolerance', 'Scope']}
                   rows={guardrailRows}
                 />
               </CardContent>
@@ -405,11 +315,11 @@ export function Dashboard() {
           <TabsContent value='violations'>
             <Card>
               <CardHeader>
-                <CardTitle>Violations – Baseline Breaches</CardTitle>
+                <CardTitle>Violations – Baseline Violations</CardTitle>
               </CardHeader>
               <CardContent>
                 <DataTable
-                  headers={['Cell ID', 'Vendor', 'Parameter Name', 'Expected Value', 'Current Value', 'Deviation', 'Severity']}
+                  headers={['Cell', 'Vendor', 'Parameter', 'Expected', 'Current', 'Deviation', 'Severity']}
                   rows={violationRows}
                   severityColumnIndex={6}
                 />
@@ -423,7 +333,7 @@ export function Dashboard() {
                 <CardTitle>CM Timeline</CardTitle>
               </CardHeader>
               <CardContent>
-                <DataTable headers={['Event Time', 'Data Source', 'Change Description']} rows={cmTimelineRows} />
+                <DataTable headers={['Time', 'Source', 'Change']} rows={cmTimelineRows} />
               </CardContent>
             </Card>
             <Card>
@@ -431,7 +341,7 @@ export function Dashboard() {
                 <CardTitle>KPI Before / After</CardTitle>
               </CardHeader>
               <CardContent>
-                <DataTable headers={['KPI Name', 'Before Change', 'After Change']} rows={beforeAfterRows} />
+                <DataTable headers={['KPI', 'Before', 'After']} rows={beforeAfterRows} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -442,10 +352,7 @@ export function Dashboard() {
                 <CardTitle>Decision Suggestions</CardTitle>
               </CardHeader>
               <CardContent>
-                <DataTable
-                  headers={['Cell ID', 'Detected Issue', 'Suggested Action', 'Confidence Score']}
-                  rows={decisionRows}
-                />
+                <DataTable headers={['Cell', 'Issue', 'Suggested Action', 'Confidence']} rows={decisionRows} />
                 <p className='mt-4 text-sm text-muted-foreground'>
                   Confidence logic (MVP): rule-based + historical similarity + recency weighting.
                 </p>
@@ -453,329 +360,34 @@ export function Dashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value='reporting'>
-            <ReportingWorkspace />
+          <TabsContent value='reporting' className='space-y-4'>
+            <Card>
+              <CardHeader>
+                <CardTitle>Reporting Filters</CardTitle>
+              </CardHeader>
+              <CardContent className='grid gap-3 md:grid-cols-3'>
+                <Select defaultValue='24h'><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value='24h'>Last 24h</SelectItem><SelectItem value='7d'>7d</SelectItem><SelectItem value='30d'>30d</SelectItem><SelectItem value='custom'>Custom</SelectItem></SelectContent></Select>
+                <Select defaultValue='cm'><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value='cm'>CM</SelectItem><SelectItem value='pm'>PM</SelectItem><SelectItem value='userlog'>UserLog</SelectItem><SelectItem value='system'>System</SelectItem><SelectItem value='auto'>Auto-Optimizer</SelectItem></SelectContent></Select>
+                <Input placeholder='Vendor / Region / Cell / User / Action Type' />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Unified Event History (Read-only)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DataTable
+                  headers={['Time', 'Source', 'Entity', 'Parameter / KPI', 'Old Value', 'New Value', 'Actor']}
+                  rows={reportingRows}
+                />
+                <p className='mt-4 text-sm text-muted-foreground'>Export formats: CSV, JSON • CM/PM retention: 12–24 months • Logs/decisions retention: 24+ months.</p>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </Main>
     </>
-  )
-}
-
-function ReportingWorkspace() {
-  const [domain, setDomain] = useState<ReportingDomain>('CM')
-  const [viewMode, setViewMode] = useState<'raw' | 'history'>('raw')
-  const [vendor, setVendor] = useState<Vendor>('Nokia')
-
-  const fileRows = rawFiles[domain][vendor]
-  const extractedRows = rawRows[domain][vendor]
-
-  const historyDataset = useMemo(() => {
-    if (domain === 'CM') {
-      return {
-        headers: [
-          'Change Time (UTC)',
-          'Vendor',
-          'Entity Type',
-          'Entity ID',
-          'Logical Parameter',
-          'Old Value',
-          'New Value',
-        ],
-        rows: [
-          ['2026-02-18 09:14', 'Nokia', 'CELL', 'KFI-HEL-221', 'MaxUE', 'avg', '+22%'],
-          ['2026-02-18 09:18', 'Ericsson', 'CELL', 'KFI-HEL-305', 'DLBW2', 'avg', '-18%'],
-        ],
-      }
-    }
-
-    if (domain === 'PM') {
-      return {
-        headers: [
-          'KPI Time (UTC)',
-          'Vendor',
-          'Scope',
-          'Scope ID',
-          'KPI Name',
-          'Current KPI Value',
-          'Baseline',
-          'Status',
-        ],
-        rows: [
-          ['2026-02-18 09:15', 'Nokia', 'REGION', 'Helsinki', 'Throughput', '78 Mbps', '105 Mbps', 'Critical'],
-          ['2026-02-18 09:15', 'Ericsson', 'NETWORK', 'Finland', 'Drop Rate', '0.82%', '0.60%', 'Warning'],
-        ],
-      }
-    }
-
-    if (domain === 'License') {
-      return {
-        headers: [
-          'Snapshot Time (UTC)',
-          'Vendor',
-          'Node ID',
-          'License Type',
-          'Entitlement',
-          'Used',
-          'Utilization',
-          'Risk Flag',
-        ],
-        rows: [
-          ['2026-02-18 09:20', 'Nokia', 'NOD-HEL-01', '5G Carrier', '120', '112', '93%', 'Warning'],
-          ['2026-02-18 09:20', 'Ericsson', 'NOD-TMP-03', 'LTE Capacity', '95', '95', '100%', 'Critical'],
-        ],
-      }
-    }
-
-    if (domain === 'Inventory') {
-      return {
-        headers: [
-          'Change Time (UTC)',
-          'Vendor',
-          'Node ID',
-          'Changed Field',
-          'Old Value',
-          'New Value',
-          'Lifecycle Status',
-        ],
-        rows: [
-          ['2026-02-18 08:10', 'Nokia', 'NOD-HEL-01', 'SW Version', '21B', '22A', 'ACTIVE'],
-          ['2026-02-18 08:45', 'Huawei', 'NOD-TKU-12', 'Board Type', 'BBU3900', 'BBU5900', 'ACTIVE'],
-        ],
-      }
-    }
-
-    return {
-      headers: [
-        'Event Time (UTC)',
-        'Vendor',
-        'User ID',
-        'Action Type',
-        'Target Type',
-        'Target ID',
-        'Execution Result',
-      ],
-      rows: [
-        ['2026-02-18 09:10', 'Ericsson', 'op_hel_12', 'MODIFY', 'CELL', 'KFI-HEL-221', 'SUCCESS'],
-        ['2026-02-18 09:13', 'Nokia', 'op_tmp_04', 'ROLLBACK', 'CELL', 'KFI-TMP-087', 'SUCCESS'],
-      ],
-    }
-  }, [domain])
-
-  return (
-    <div className='space-y-4'>
-      <Card>
-        <CardHeader>
-          <CardTitle>Reporting Interface</CardTitle>
-        </CardHeader>
-        <CardContent className='space-y-4'>
-          <div className='grid gap-3 lg:grid-cols-4'>
-            <Select value={domain} onValueChange={(value) => setDomain(value as ReportingDomain)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {reportingDomains.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={viewMode} onValueChange={(value) => setViewMode(value as 'raw' | 'history')}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='raw'>Raw Data</SelectItem>
-                <SelectItem value='history'>History (Normalized)</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={vendor} onValueChange={(value) => setVendor(value as Vendor)} disabled={viewMode === 'history'}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='Huawei'>Huawei</SelectItem>
-                <SelectItem value='Nokia'>Nokia</SelectItem>
-                <SelectItem value='Ericsson'>Ericsson</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select defaultValue='50'>
-              <SelectTrigger>
-                <SelectValue placeholder='Page size' />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='25'>25 rows</SelectItem>
-                <SelectItem value='50'>50 rows</SelectItem>
-                <SelectItem value='100'>100 rows</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <GlobalContextBar showVendor={viewMode === 'history'} compact />
-
-          <div className='flex flex-wrap gap-2'>
-            <Button variant='outline'>Export CSV</Button>
-            <Button variant='outline'>Export XLSX</Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {viewMode === 'raw' ? (
-        <div className='grid gap-4 xl:grid-cols-2'>
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                Raw File Registry — {domain} / {vendor}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DataTable
-                headers={[
-                  'Ingestion Date (UTC)',
-                  'File Coverage (UTC)',
-                  'Parse Status',
-                  'Extracted Record Count',
-                  'File Actions',
-                ]}
-                rows={
-                  fileRows.length > 0
-                    ? fileRows.map((file) => [
-                        file.ingestionDateUtc,
-                        file.fileCoverageUtc,
-                        file.parserStatus,
-                        `${file.extractedRecordCount}`,
-                        'View Payload / Download',
-                      ])
-                    : [['-', '-', '-', '-', 'No files in selected range']]
-                }
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                Raw KV Index Rows — {domain} / {vendor}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DataTable
-                headers={[
-                  'Record Time (UTC)',
-                  'Entity Type',
-                  'Entity ID (Native)',
-                  'Object Type (Native)',
-                  'Parameter Name (Native)',
-                  'Extracted Value',
-                  'Unit',
-                  'Row Action',
-                ]}
-                rows={
-                  extractedRows.length > 0
-                    ? extractedRows.map((row) => [
-                        row.recordTimeUtc,
-                        row.networkEntityType,
-                        row.vendorEntityId,
-                        row.nativeObjectType,
-                        row.nativeParameterName,
-                        row.extractedValue,
-                        row.measurementUnit,
-                        'Open payload around row',
-                      ])
-                    : [['-', '-', '-', '-', '-', '-', '-', 'No rows in selected filter']]
-                }
-              />
-            </CardContent>
-          </Card>
-        </div>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>{domain} History (Normalized)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              headers={historyDataset.headers}
-              rows={historyDataset.rows}
-              severityColumnIndex={domain === 'PM' ? 7 : undefined}
-            />
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  )
-}
-
-function GlobalContextBar({
-  showVendor,
-  compact,
-}: {
-  showVendor?: boolean
-  compact?: boolean
-}) {
-  return (
-    <div className={`${compact ? '' : 'mb-4'} rounded-lg border bg-card p-4`}>
-      <div className='mb-3 text-sm font-medium'>Global Context Bar</div>
-      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
-        <Select defaultValue='24h'>
-          <SelectTrigger>
-            <SelectValue placeholder='Time Range' />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='24h'>Last 24h</SelectItem>
-            <SelectItem value='7d'>Last 7d</SelectItem>
-            <SelectItem value='custom'>Custom</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select defaultValue='network'>
-          <SelectTrigger>
-            <SelectValue placeholder='Scope Level' />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='network'>Network</SelectItem>
-            <SelectItem value='region'>Region</SelectItem>
-            <SelectItem value='site'>Site</SelectItem>
-            <SelectItem value='node'>Node</SelectItem>
-            <SelectItem value='cell'>Cell</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {showVendor ? (
-          <Select defaultValue='all'>
-            <SelectTrigger>
-              <SelectValue placeholder='Vendor Filter' />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='all'>All Vendors</SelectItem>
-              <SelectItem value='huawei'>Huawei</SelectItem>
-              <SelectItem value='nokia'>Nokia</SelectItem>
-              <SelectItem value='ericsson'>Ericsson</SelectItem>
-            </SelectContent>
-          </Select>
-        ) : (
-          <Input placeholder='Search: Cell / Site / Node / Region' />
-        )}
-
-        <Input placeholder='Search: Cell / Site / Node / Region' />
-      </div>
-    </div>
-  )
-}
-
-function ChartCard({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
   )
 }
 
@@ -790,7 +402,7 @@ function DataTable({
 }) {
   return (
     <div className='overflow-x-auto'>
-      <table className='w-full min-w-[760px] text-left text-sm'>
+      <table className='w-full min-w-[720px] text-left text-sm'>
         <thead>
           <tr className='border-b'>
             {headers.map((header) => (
@@ -805,12 +417,8 @@ function DataTable({
             <tr key={`${row[0]}-${rowIndex}`} className='border-b'>
               {row.map((cell, cellIndex) => (
                 <td key={`${cell}-${cellIndex}`} className='px-3 py-2'>
-                  {cellIndex === severityColumnIndex &&
-                  ['Normal', 'Warning', 'Critical'].includes(cell) ? (
-                    <Badge
-                      variant='secondary'
-                      className={severityClass[cell as Severity]}
-                    >
+                  {cellIndex === severityColumnIndex && ['Normal', 'Warning', 'Critical'].includes(cell) ? (
+                    <Badge variant='secondary' className={severityClass[cell as Severity]}>
                       {cell}
                     </Badge>
                   ) : (
