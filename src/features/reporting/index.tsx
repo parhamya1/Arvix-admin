@@ -65,6 +65,33 @@ type PmHistoryRow = {
   changeDetectedTime: string
 }
 
+type LicenseRawRow = {
+  node: string
+  site: string
+  licenseItem: string
+  allocated: string
+  usage: string
+  utilizationPct: string
+  expireDate: string
+  status: string
+  fileReadTime: string
+}
+
+type LicenseHistoryRow = {
+  vendor: string
+  node: string
+  site: string
+  licenseItem: string
+  prevUsage: string
+  currUsage: string
+  deltaUsage: string
+  prevUtilizationPct: string
+  currUtilizationPct: string
+  expireDate: string
+  status: string
+  changeDetectedTime: string
+}
+
 const labels = {
   cm: 'CM',
   pm: 'PM',
@@ -184,6 +211,46 @@ const pmRawByVendor: Record<ReportingVendor, PmRawRow[]> = {
   ].map(([id, node, site, cell, measTime, granularityMin, counterName, counterValue, fileReadTime]) => ({ id, node, site, cell, measTime, granularityMin, counterName, counterValue, fileReadTime })),
 }
 
+
+const licenseRawByVendor: Record<ReportingVendor, LicenseRawRow[]> = {
+  nokia: [
+    ['TH006', 'THDL006', 'LTE Cells', '1200', '1120', '93.33', '2027-12-31', 'ACTIVE', '2026-02-18 08:18'],
+    ['TH006', 'THDL006', 'LTE Active UEs', '50000', '46320', '92.64', '2027-12-31', 'ACTIVE', '2026-02-18 08:18'],
+    ['TH006', 'THDL006', 'CA Carriers', '600', '480', '80.00', '2027-12-31', 'ACTIVE', '2026-02-18 08:18'],
+    ['TH006', 'THDL006', 'VoLTE Subscribers', '20000', '18450', '92.25', '2026-10-01', 'ACTIVE', '2026-02-18 08:18'],
+    ['TH006', 'THDL006', 'NR Cells', '300', '295', '98.33', '2026-06-30', 'WARNING', '2026-02-18 08:18'],
+    ['TH006', 'THDL006', 'EPC Attach Capacity', '80000', '70210', '87.76', '2027-12-31', 'ACTIVE', '2026-02-18 08:18'],
+    ['TH006', 'THDL006', 'NB-IoT Devices', '100000', '41200', '41.20', '2027-12-31', 'ACTIVE', '2026-02-18 08:18'],
+    ['TH006', 'THDL006', 'SON Feature Pack', '1', '1', '100.00', '2027-12-31', 'ACTIVE', '2026-02-18 08:18'],
+    ['TH006', 'THDL006', 'ENDC Capability', '1', '1', '100.00', '2026-09-15', 'ACTIVE', '2026-02-18 08:18'],
+    ['TH006', 'THDL006', 'Security Suite', '1', '1', '100.00', '2027-12-31', 'ACTIVE', '2026-02-18 08:18'],
+  ].map(([node, site, licenseItem, allocated, usage, utilizationPct, expireDate, status, fileReadTime]) => ({ node, site, licenseItem, allocated, usage, utilizationPct, expireDate, status, fileReadTime })),
+  ericsson: [
+    ['TH006', 'THDL006', 'EUTRAN Cells', '1100', '1045', '95.00', '2027-11-30', 'ACTIVE', '2026-02-18 08:22'],
+    ['TH006', 'THDL006', 'Active UEs', '48000', '45110', '93.98', '2027-11-30', 'ACTIVE', '2026-02-18 08:22'],
+    ['TH006', 'THDL006', 'Carrier Aggregation', '550', '510', '92.73', '2027-11-30', 'ACTIVE', '2026-02-18 08:22'],
+    ['TH006', 'THDL006', 'VoLTE Capacity', '18000', '16700', '92.78', '2026-08-31', 'ACTIVE', '2026-02-18 08:22'],
+    ['TH006', 'THDL006', 'NR Cells', '280', '278', '99.29', '2026-07-31', 'WARNING', '2026-02-18 08:22'],
+    ['TH006', 'THDL006', 'NB-IoT Devices', '90000', '39800', '44.22', '2027-11-30', 'ACTIVE', '2026-02-18 08:22'],
+    ['TH006', 'THDL006', 'ENDC Feature', '1', '1', '100.00', '2026-12-15', 'ACTIVE', '2026-02-18 08:22'],
+    ['TH006', 'THDL006', 'QoS Profiles', '1', '1', '100.00', '2027-11-30', 'ACTIVE', '2026-02-18 08:22'],
+    ['TH006', 'THDL006', 'Security Pack', '1', '1', '100.00', '2027-11-30', 'ACTIVE', '2026-02-18 08:22'],
+    ['TH006', 'THDL006', 'SON Automation', '1', '1', '100.00', '2027-11-30', 'ACTIVE', '2026-02-18 08:22'],
+  ].map(([node, site, licenseItem, allocated, usage, utilizationPct, expireDate, status, fileReadTime]) => ({ node, site, licenseItem, allocated, usage, utilizationPct, expireDate, status, fileReadTime })),
+  huawei: [
+    ['TH006', 'THDL006', 'LTE Cell License', '1150', '1098', '95.48', '2027-10-31', 'ACTIVE', '2026-02-18 08:25'],
+    ['TH006', 'THDL006', 'LTE Active UEs', '49000', '46250', '94.39', '2027-10-31', 'ACTIVE', '2026-02-18 08:25'],
+    ['TH006', 'THDL006', 'CA License', '580', '520', '89.66', '2027-10-31', 'ACTIVE', '2026-02-18 08:25'],
+    ['TH006', 'THDL006', 'VoLTE Capacity', '19000', '17820', '93.79', '2026-09-30', 'ACTIVE', '2026-02-18 08:25'],
+    ['TH006', 'THDL006', 'NR Cell License', '290', '288', '99.31', '2026-06-30', 'WARNING', '2026-02-18 08:25'],
+    ['TH006', 'THDL006', 'EPC Attach Capacity', '75000', '68850', '91.80', '2027-10-31', 'ACTIVE', '2026-02-18 08:25'],
+    ['TH006', 'THDL006', 'NB-IoT Capacity', '95000', '41020', '43.18', '2027-10-31', 'ACTIVE', '2026-02-18 08:25'],
+    ['TH006', 'THDL006', 'SON Feature Pack', '1', '1', '100.00', '2027-10-31', 'ACTIVE', '2026-02-18 08:25'],
+    ['TH006', 'THDL006', 'ENDC Support', '1', '1', '100.00', '2026-11-30', 'ACTIVE', '2026-02-18 08:25'],
+    ['TH006', 'THDL006', 'Security Suite', '1', '1', '100.00', '2027-10-31', 'ACTIVE', '2026-02-18 08:25'],
+  ].map(([node, site, licenseItem, allocated, usage, utilizationPct, expireDate, status, fileReadTime]) => ({ node, site, licenseItem, allocated, usage, utilizationPct, expireDate, status, fileReadTime })),
+}
+
 const cmHistoryRows: HistoryRow[] = [
   ['TH006', 'THDL006', 'THDL006A', 'CHG-THDL006A-20260218-0800-0900', 'maxNumUe', '200', '240', '2026-02-18 09:14'],
   ['TH006', 'THDL006', 'THDL006A', 'CHG-THDL006A-20260218-0800-0900', 'loadLimit', '80', '95', '2026-02-18 09:14'],
@@ -218,6 +285,16 @@ const pmHistoryRows: PmHistoryRow[] = [
   ['p-10', 'Nokia', 'TH006', 'THDL006', 'THDL006B', 'pmErabDropRate', '2026-02-18 15:00', '0.33', '0.58', '+0.25', '2026-02-18 15:10'],
 ].map(([id, vendor, node, site, cell, counterName, measTime, previousValue, currentValue, delta, changeDetectedTime]) => ({ id, vendor, node, site, cell, counterName, measTime, previousValue, currentValue, delta, changeDetectedTime }))
 
+
+const licenseHistoryRows: LicenseHistoryRow[] = [
+  ['Nokia', 'TH006', 'THDL006', 'LTE Cells', '1112', '1120', '+8', '92.67', '93.33', '2027-12-31', 'ACTIVE', '2026-02-18 08:18'],
+  ['Ericsson', 'TH006', 'THDL006', 'EUTRAN Cells', '1039', '1045', '+6', '94.45', '95.00', '2027-11-30', 'ACTIVE', '2026-02-18 08:22'],
+  ['Huawei', 'TH006', 'THDL006', 'LTE Cell License', '1092', '1098', '+6', '94.96', '95.48', '2027-10-31', 'ACTIVE', '2026-02-18 08:25'],
+  ['Nokia', 'TH006', 'THDL006', 'NR Cells', '294', '295', '+1', '98.00', '98.33', '2026-06-30', 'WARNING', '2026-02-18 08:18'],
+  ['Ericsson', 'TH006', 'THDL006', 'NR Cells', '276', '278', '+2', '98.57', '99.29', '2026-07-31', 'WARNING', '2026-02-18 08:22'],
+  ['Huawei', 'TH006', 'THDL006', 'NR Cell License', '287', '288', '+1', '98.97', '99.31', '2026-06-30', 'WARNING', '2026-02-18 08:25'],
+].map(([vendor, node, site, licenseItem, prevUsage, currUsage, deltaUsage, prevUtilizationPct, currUtilizationPct, expireDate, status, changeDetectedTime]) => ({ vendor, node, site, licenseItem, prevUsage, currUsage, deltaUsage, prevUtilizationPct, currUtilizationPct, expireDate, status, changeDetectedTime }))
+
 export function ReportingLandingPage() {
   return (
     <ReportingShell title='Reporting'>
@@ -235,7 +312,7 @@ export function ReportingRawPage({ domain, vendor }: { domain: ReportingDomain; 
       <FilterBar domain={domain} vendor={vendor} view='Raw Data' />
       <ActionRow />
       <TableCard title={`${labels[domain]} Raw Data`}>
-        {domain === 'pm' ? <PmRawTable rows={pmRawByVendor[vendor]} /> : <RawTable rows={cmRawByVendor[vendor]} />}
+        {domain === 'pm' ? <PmRawTable rows={pmRawByVendor[vendor]} /> : domain === 'license' ? <LicenseRawTable rows={licenseRawByVendor[vendor]} /> : <RawTable rows={cmRawByVendor[vendor]} />}
       </TableCard>
     </ReportingShell>
   )
@@ -246,8 +323,8 @@ export function ReportingHistoryPage({ domain }: { domain: ReportingDomain }) {
     <ReportingShell title={`${labels[domain]} / History`}>
       <FilterBar domain={domain} view='History' />
       <ActionRow />
-      <TableCard title={domain === 'pm' ? 'PM History (Counter Changes)' : `${labels[domain]} History`}>
-        {domain === 'pm' ? <PmHistoryTable rows={pmHistoryRows} /> : <HistoryTable rows={cmHistoryRows} />}
+      <TableCard title={domain === 'pm' ? 'PM History (Counter Changes)' : domain === 'license' ? 'License History (Usage Changes)' : `${labels[domain]} History`}>
+        {domain === 'pm' ? <PmHistoryTable rows={pmHistoryRows} /> : domain === 'license' ? <LicenseHistoryTable rows={licenseHistoryRows} /> : <HistoryTable rows={cmHistoryRows} />}
       </TableCard>
     </ReportingShell>
   )
@@ -305,6 +382,14 @@ function PmRawTable({ rows }: { rows: PmRawRow[] }) {
 
 function PmHistoryTable({ rows }: { rows: PmHistoryRow[] }) {
   return <SimpleTable headers={['id', 'vendor', 'node', 'site', 'cell', 'counter_name', 'meas_time', 'previous_value', 'current_value', 'delta', 'change_detected_time']} rows={rows.map((r) => [r.id, r.vendor, r.node, r.site, r.cell, r.counterName, r.measTime, r.previousValue, r.currentValue, r.delta, r.changeDetectedTime])} />
+}
+
+function LicenseRawTable({ rows }: { rows: LicenseRawRow[] }) {
+  return <SimpleTable headers={['node', 'site', 'license_item', 'allocated', 'usage', 'utilization_pct', 'expire_date', 'status', 'file_read_time']} rows={rows.map((r) => [r.node, r.site, r.licenseItem, r.allocated, r.usage, r.utilizationPct, r.expireDate, r.status, r.fileReadTime])} />
+}
+
+function LicenseHistoryTable({ rows }: { rows: LicenseHistoryRow[] }) {
+  return <SimpleTable headers={['vendor', 'node', 'site', 'license_item', 'prev_usage', 'curr_usage', 'delta_usage', 'prev_utilization_pct', 'curr_utilization_pct', 'expire_date', 'status', 'change_detected_time']} rows={rows.map((r) => [r.vendor, r.node, r.site, r.licenseItem, r.prevUsage, r.currUsage, r.deltaUsage, r.prevUtilizationPct, r.currUtilizationPct, r.expireDate, r.status, r.changeDetectedTime])} />
 }
 
 function SimpleTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
