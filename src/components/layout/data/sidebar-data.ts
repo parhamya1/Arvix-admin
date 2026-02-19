@@ -95,7 +95,7 @@ export const sidebarData: SidebarData = {
                   ],
                 },
                 {
-                  title: 'History (Normalized)',
+                  title: 'History',
                   url: '/reporting/cm/history',
                 },
               ],
@@ -112,7 +112,7 @@ export const sidebarData: SidebarData = {
                   ],
                 },
                 {
-                  title: 'History (Normalized)',
+                  title: 'History',
                   url: '/reporting/pm/history',
                 },
               ],
@@ -129,7 +129,7 @@ export const sidebarData: SidebarData = {
                   ],
                 },
                 {
-                  title: 'History (Normalized)',
+                  title: 'History',
                   url: '/reporting/license/history',
                 },
               ],
@@ -146,7 +146,7 @@ export const sidebarData: SidebarData = {
                   ],
                 },
                 {
-                  title: 'History (Normalized)',
+                  title: 'History',
                   url: '/reporting/inventory/history',
                 },
               ],
@@ -163,7 +163,7 @@ export const sidebarData: SidebarData = {
                   ],
                 },
                 {
-                  title: 'History (Normalized)',
+                  title: 'History',
                   url: '/reporting/user-log/history',
                 },
               ],
