@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -37,6 +37,7 @@ export function TableManagement() {
 
   const [columns, setColumns] = useState<EditableColumn[]>([createColumn(1)])
   const [newRow, setNewRow] = useState<Record<string, unknown>>({})
+  const queryClient = useQueryClient()
 
   const pagesQuery = useQuery({
     queryKey: ['dynamic-pages'],
@@ -122,10 +123,23 @@ export function TableManagement() {
       body: JSON.stringify({ name: tabName.trim(), columns: payloadColumns }),
     })
     if (!res.ok) {
-      setNotice('Add tab failed. Check tab name uniqueness and column fields.')
+      const errorBody = (await res.json().catch(() => null)) as { message?: string } | null
+      setNotice(errorBody?.message ?? 'Add tab failed. Check tab name uniqueness and column fields.')
       return
     }
     const created = (await res.json()) as { id: string }
+    const newTab: DynamicTab = {
+      id: created.id,
+      name: tabName.trim(),
+      columns: payloadColumns,
+      pageId: resolvedPageId,
+    }
+
+    queryClient.setQueryData<DynamicTab[]>(['dynamic-page-tabs', resolvedPageId], (prev) => [
+      ...(prev ?? []),
+      newTab,
+    ])
+
     setTabName('')
     setColumns([createColumn(1)])
     setSelectedPageId(resolvedPageId)
@@ -199,8 +213,6 @@ export function TableManagement() {
 
   return (
     <div className='space-y-4 pb-8'>
-      {notice && <p className='rounded-md border px-3 py-2 text-sm text-muted-foreground'>{notice}</p>}
-
       <Card>
         <CardHeader>
           <CardTitle>Create Page</CardTitle>
@@ -331,6 +343,7 @@ export function TableManagement() {
                 ))}
               </div>
               <Button onClick={createTab}>Create tab</Button>
+              {notice && <p className='text-sm text-muted-foreground'>{notice}</p>}
             </>
           )}
         </CardContent>

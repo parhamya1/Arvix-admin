@@ -35,6 +35,44 @@ def ensure_column(conn: sqlite3.Connection, table: str, column: str, definition:
         conn.execute(f'ALTER TABLE {table} ADD COLUMN {column} {definition}')
 
 
+
+
+def migrate_dynamic_tables_schema(conn: sqlite3.Connection) -> None:
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='dynamic_tables'"
+    ).fetchone()
+    if not row or not row['sql']:
+        return
+
+    create_sql = row['sql'].upper()
+    if 'NAME TEXT NOT NULL UNIQUE' not in create_sql:
+        return
+
+    conn.execute('PRAGMA foreign_keys = OFF')
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS dynamic_tables_new (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          columns_json TEXT NOT NULL,
+          sidebar_item_id TEXT REFERENCES sidebar_items(id) ON DELETE SET NULL,
+          page_id TEXT REFERENCES dynamic_pages(id) ON DELETE CASCADE,
+          created_at TEXT NOT NULL
+        );
+
+        INSERT INTO dynamic_tables_new (id, name, columns_json, sidebar_item_id, page_id, created_at)
+        SELECT id, name, columns_json, sidebar_item_id, page_id, created_at FROM dynamic_tables;
+
+        DROP TABLE dynamic_tables;
+        ALTER TABLE dynamic_tables_new RENAME TO dynamic_tables;
+
+        CREATE INDEX IF NOT EXISTS idx_dynamic_tables_page_id ON dynamic_tables(page_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_dynamic_tables_page_name ON dynamic_tables(page_id, name);
+        """
+    )
+    conn.execute('PRAGMA foreign_keys = ON')
+
+
 def init_db() -> None:
     with _db_lock:
         conn = get_conn()
@@ -79,6 +117,9 @@ def init_db() -> None:
         ensure_column(conn, 'sidebar_items', 'display_mode', "TEXT NOT NULL DEFAULT 'hierarchy'")
         ensure_column(conn, 'dynamic_tables', 'sidebar_item_id', 'TEXT REFERENCES sidebar_items(id) ON DELETE SET NULL')
         ensure_column(conn, 'dynamic_tables', 'page_id', 'TEXT REFERENCES dynamic_pages(id) ON DELETE CASCADE')
+        migrate_dynamic_tables_schema(conn)
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_dynamic_tables_page_id ON dynamic_tables(page_id)')
+        conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_dynamic_tables_page_name ON dynamic_tables(page_id, name)')
         conn.commit()
         conn.close()
 
@@ -358,6 +399,14 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 with _db_lock:
                     conn = get_conn()
+                    duplicate = conn.execute(
+                        'SELECT id FROM dynamic_tables WHERE page_id=? AND LOWER(name)=LOWER(?)',
+                        (body['pageId'], body['name']),
+                    ).fetchone()
+                    if duplicate:
+                        conn.close()
+                        send_json(self, 409, {'message': 'Table name must be unique within the selected page'})
+                        return
                     conn.execute(
                         'INSERT INTO dynamic_tables (id, name, columns_json, sidebar_item_id, page_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
                         (
@@ -409,6 +458,14 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 with _db_lock:
                     conn = get_conn()
+                    duplicate = conn.execute(
+                        'SELECT id FROM dynamic_tables WHERE page_id=? AND LOWER(name)=LOWER(?)',
+                        (page_id, body['name']),
+                    ).fetchone()
+                    if duplicate:
+                        conn.close()
+                        send_json(self, 409, {'message': 'Tab name must be unique within the selected page'})
+                        return
                     conn.execute(
                         'INSERT INTO dynamic_tables (id, name, columns_json, sidebar_item_id, page_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
                         (table_id, body['name'], json.dumps(body['columns']), None, page_id, utc_now()),
