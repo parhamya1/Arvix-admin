@@ -117,3 +117,119 @@ Crafted with 🤍 by [@satnaing](https://github.com/satnaing)
 ## License
 
 Licensed under the [MIT License](https://choosealicense.com/licenses/mit/)
+
+## Dynamic backend for Sidebar + Flexible Tables
+
+This project includes a lightweight backend API so you can manage sidebar categories/menus and dynamic tables at runtime.
+
+### 1) Start backend
+
+#### Docker
+
+```bash
+docker compose -f docker-compose.backend.yml up -d
+```
+
+#### Local
+
+```bash
+pnpm backend:dev
+```
+
+Backend API base URL: `http://localhost:4000`
+
+### 2) Configure env
+
+Backend env (`.env.backend.example`):
+
+- `BACKEND_HOST=0.0.0.0`
+- `BACKEND_PORT=4000`
+- `BACKEND_DB_PATH=./backend/arvix.db`
+
+Frontend env (`.env.example`):
+
+- `VITE_BACKEND_URL=http://localhost:4000`
+
+### 3) Health check
+
+```bash
+curl http://localhost:4000/health
+```
+
+Expected:
+
+```json
+{"ok": true}
+```
+
+### 4) How to test Category Management end-to-end
+
+1. Open dashboard and go to **Settings > Category Management**.
+2. Create a new item:
+   - Group: `Other`
+   - Title: `Audit Log`
+   - URL: `/reporting/audit-log`
+   - Display mode: `vertical`
+   - Parent: `No parent`
+3. Click **Add menu item**.
+4. Refresh the page and confirm the item still exists (DB persistence check).
+5. Validate via API:
+
+```bash
+curl http://localhost:4000/api/sidebar-items
+```
+
+6. Confirm item is visible in sidebar under **Other > Settings** entries if linked as static route, and dynamic items are merged without removing existing menu items.
+
+### 5) How to test Table Management end-to-end
+
+1. Open **Settings > Table Management**.
+2. Create a table:
+   - Table name: `audit_events`
+   - Columns: `event(text)`, `actor(text)`, `timestamp(date)`
+   - Attach to menu item: choose the item created in Category Management (optional).
+3. Click **Create table**.
+4. Open created table and add rows using the generated form.
+5. Refresh page and verify table and rows are still present.
+6. Validate via API:
+
+```bash
+curl http://localhost:4000/api/dynamic-tables
+```
+
+```bash
+curl http://localhost:4000/api/dynamic-tables/<TABLE_ID>/rows
+```
+
+7. Re-assign table to another menu item using the assignment selector.
+8. Delete a row and then delete the table to confirm full CRUD.
+
+### 6) API reference
+
+#### Sidebar/category management
+
+- `GET /api/sidebar-config` (hierarchical tree)
+- `GET /api/sidebar-items` (flat list)
+- `POST /api/sidebar-items`
+- `DELETE /api/sidebar-items/:id`
+
+`displayMode` values:
+
+- `hierarchy` (sidebar-like nested menu)
+- `vertical` (in-page vertical list style)
+
+#### Dynamic tables
+
+- `GET /api/dynamic-tables`
+- `POST /api/dynamic-tables`
+- `PATCH /api/dynamic-tables/:id/assignment`
+- `DELETE /api/dynamic-tables/:id`
+- `GET /api/dynamic-tables/:id/rows`
+- `POST /api/dynamic-tables/:id/rows`
+- `DELETE /api/dynamic-table-rows/:id`
+
+### 7) Stop backend
+
+```bash
+docker compose -f docker-compose.backend.yml down
+```

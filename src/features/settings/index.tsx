@@ -1,5 +1,5 @@
 import { Outlet } from '@tanstack/react-router'
-import { Monitor, Bell, Palette, Wrench, UserCog } from 'lucide-react'
+import { Monitor, Bell, Palette, Wrench, UserCog, FolderTree, Table2 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
@@ -35,6 +35,17 @@ const sidebarNavItems = [
     href: '/settings/display',
     icon: <Monitor size={18} />,
   },
+
+  {
+    title: 'Category Management',
+    href: '/settings/category-management',
+    icon: <FolderTree size={18} />,
+  },
+  {
+    title: 'Table Management',
+    href: '/settings/table-management',
+    icon: <Table2 size={18} />,
+  },
 ]
 
 export function Settings() {
@@ -56,7 +67,7 @@ export function Settings() {
             Settings
           </h1>
           <p className='text-muted-foreground'>
-            Manage your account settings and set e-mail preferences.
+            Manage profile options and advanced admin configuration for categories and tables.
           </p>
         </div>
         <Separator className='my-4 lg:my-6' />
