@@ -194,10 +194,12 @@ curl http://localhost:4000/api/sidebar-items
 5. After assignment, verify the table appears immediately in the sidebar as a child menu item under the assigned category.
 6. Click that sidebar table item and verify it opens `/dynamic-tables/<TABLE_ID>` with:
    - a final user-facing table page
-   - small top action icons (Filter and Add Row)
+   - horizontal tabs to switch between sibling tables in the same category context
+   - top icons for Filter, Add Row, Delete Row, Add Tab, and Delete Tab
    - per-column filters applied from the filter icon dialog
-   - add row via top icon dialog
+   - add row via top icon dialog for the active tab
    - delete row via top delete icon that opens full table with per-row delete buttons
+   - add/delete tab support where deleting a tab also deletes its underlying table
 7. Refresh page and verify table and rows are still present.
 8. Validate via API:
 
