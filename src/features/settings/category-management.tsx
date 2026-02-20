@@ -80,6 +80,7 @@ export function CategoryManagement() {
     setSortOrder('0')
     setParentId('none')
     await loadItems()
+    window.dispatchEvent(new Event('sidebar-config-updated'))
   }
 
   const deleteItem = async (id: string) => {
@@ -88,6 +89,7 @@ export function CategoryManagement() {
     })
     if (!res.ok) return
     await loadItems()
+    window.dispatchEvent(new Event('sidebar-config-updated'))
   }
 
   return (

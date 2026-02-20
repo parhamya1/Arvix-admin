@@ -196,6 +196,19 @@ export function TableManagement() {
     await loadRows(selectedTableId)
   }
 
+
+  const assignmentPreview = useMemo(() => {
+    const groups = sidebarItems.map((item) => ({
+      id: item.id,
+      label: `${item.groupTitle} / ${item.title}`,
+      tables: tables.filter((table) => table.sidebarItemId === item.id),
+    }))
+
+    const unassigned = tables.filter((table) => !table.sidebarItemId)
+
+    return { groups, unassigned }
+  }, [sidebarItems, tables])
+
   const sidebarLabel = (id?: string | null) => {
     if (!id) return 'Unassigned'
     const item = sidebarItems.find((entry) => entry.id === id)
@@ -323,6 +336,44 @@ export function TableManagement() {
             </div>
           ))}
           {tables.length === 0 && <p className='text-sm text-muted-foreground'>No tables created yet.</p>}
+        </CardContent>
+      </Card>
+
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Assignment Preview</CardTitle>
+        </CardHeader>
+        <CardContent className='space-y-3'>
+          {assignmentPreview.groups.map((group) => (
+            <div key={group.id} className='rounded-md border p-3'>
+              <p className='mb-2 text-sm font-medium'>{group.label}</p>
+              {group.tables.length > 0 ? (
+                <div className='flex flex-wrap gap-2'>
+                  {group.tables.map((table) => (
+                    <Badge key={table.id} variant='secondary'>
+                      {table.name}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className='text-xs text-muted-foreground'>No table assigned to this menu item.</p>
+              )}
+            </div>
+          ))}
+
+          <div className='rounded-md border p-3'>
+            <p className='mb-2 text-sm font-medium'>Unassigned tables</p>
+            {assignmentPreview.unassigned.length > 0 ? (
+              <div className='flex flex-wrap gap-2'>
+                {assignmentPreview.unassigned.map((table) => (
+                  <Badge key={table.id}>{table.name}</Badge>
+                ))}
+              </div>
+            ) : (
+              <p className='text-xs text-muted-foreground'>All tables are assigned.</p>
+            )}
+          </div>
         </CardContent>
       </Card>
 

@@ -33,28 +33,36 @@ export function AppSidebar() {
 
         const data = (await response.json()) as { navGroups?: NavGroupType[] }
 
-        if (Array.isArray(data.navGroups) && data.navGroups.length > 0) {
-          const merged = sidebarData.navGroups.map((group) => ({ ...group, items: [...group.items] }))
+        if (!Array.isArray(data.navGroups) || data.navGroups.length === 0) return
 
-          data.navGroups.forEach((remoteGroup) => {
-            const target = merged.find((group) => group.title === remoteGroup.title)
-            if (target) {
-              target.items = [...target.items, ...remoteGroup.items]
-            } else {
-              merged.push(remoteGroup)
-            }
-          })
+        const merged = sidebarData.navGroups.map((group) => ({ ...group, items: [...group.items] }))
 
-          setNavGroups(merged)
-        }
+        data.navGroups.forEach((remoteGroup) => {
+          const target = merged.find((group) => group.title === remoteGroup.title)
+          if (target) {
+            target.items = [...target.items, ...remoteGroup.items]
+          } else {
+            merged.push(remoteGroup)
+          }
+        })
+
+        setNavGroups(merged)
       } catch {
         // fallback to static sidebar config
       }
     }
 
-    loadSidebarConfig()
+    const handleSidebarUpdate = () => {
+      loadSidebarConfig()
+    }
 
-    return () => controller.abort()
+    loadSidebarConfig()
+    window.addEventListener('sidebar-config-updated', handleSidebarUpdate)
+
+    return () => {
+      controller.abort()
+      window.removeEventListener('sidebar-config-updated', handleSidebarUpdate)
+    }
   }, [])
 
   return (

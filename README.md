@@ -172,14 +172,15 @@ Expected:
    - Display mode: `vertical`
    - Parent: `No parent`
 3. Click **Add menu item**.
-4. Refresh the page and confirm the item still exists (DB persistence check).
-5. Validate via API:
+4. Confirm it appears in the left main sidebar immediately (no hard refresh needed).
+5. Refresh the page and confirm the item still exists (DB persistence check).
+6. Validate via API:
 
 ```bash
 curl http://localhost:4000/api/sidebar-items
 ```
 
-6. Confirm item is visible in sidebar under **Other > Settings** entries if linked as static route, and dynamic items are merged without removing existing menu items.
+7. Confirm dynamic items are merged without removing existing static menu items.
 
 ### 5) How to test Table Management end-to-end
 
@@ -201,7 +202,7 @@ curl http://localhost:4000/api/dynamic-tables
 curl http://localhost:4000/api/dynamic-tables/<TABLE_ID>/rows
 ```
 
-7. Re-assign table to another menu item using the assignment selector.
+7. Re-assign table to another menu item using the assignment selector and verify **Assignment Preview** updates immediately on the same page.
 8. Delete a row and then delete the table to confirm full CRUD.
 
 ### 6) API reference
