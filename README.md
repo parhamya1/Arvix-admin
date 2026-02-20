@@ -120,62 +120,150 @@ Licensed under the [MIT License](https://choosealicense.com/licenses/mit/)
 
 ## Dynamic backend for Sidebar + Flexible Tables
 
-A lightweight backend API has been added so you can:
+> راهنمای مرحله‌به‌مرحله اجرا و استفاده (برای اضافه/حذف آیتم سایدبار و ساخت جدول داینامیک)
 
-- Add/remove sidebar menu items dynamically.
-- Create/remove tables with any number of columns and custom headers.
-- Insert/delete rows for each dynamic table.
+### 1) اجرا کردن بک‌اند
 
-### 1) Run backend with Docker
+#### روش A (پیشنهادی): با Docker
 
 ```bash
 docker compose -f docker-compose.backend.yml up -d
 ```
 
-This starts **Backend API** on `localhost:4000` and uses SQLite at `backend/arvix.db` (no separate DB container required).
+بعد از اجرا:
 
-> If later you want PostgreSQL in Docker too, we can switch this backend to Postgres quickly.
+- API روی `http://localhost:4000` بالا می‌آید.
+- دیتابیس SQLite داخل فایل `backend/arvix.db` ذخیره می‌شود (نیازی به کانتینر دیتابیس جدا نیست).
 
-### 2) Environment variables
+#### روش B: بدون Docker (لوکال)
 
-Copy `.env.backend.example` to your env values:
+```bash
+pnpm backend:dev
+```
+
+یا:
+
+```bash
+python backend/server.py
+```
+
+### 2) تنظیم متغیرهای محیطی
+
+1. فایل `.env.backend.example` را کپی کنید.
+2. مقدارها را در محیط خودتان ست کنید:
 
 - `BACKEND_HOST=0.0.0.0`
 - `BACKEND_PORT=4000`
 - `BACKEND_DB_PATH=./backend/arvix.db`
 
-For frontend, set:
+برای اتصال فرانت به بک‌اند:
 
-- `VITE_BACKEND_URL=http://localhost:4000`
+- در `.env.example` مقدار `VITE_BACKEND_URL=http://localhost:4000` قرار دارد.
 
-The sidebar now tries to load dynamic config from `/api/sidebar-config` and falls back to static data if backend is unavailable.
-
-### 3) Main API endpoints
-
-#### Sidebar
-
-- `GET /api/sidebar-config`
-- `POST /api/sidebar-items`
-- `DELETE /api/sidebar-items/:id`
-
-#### Dynamic tables (schema + rows)
-
-- `GET /api/dynamic-tables`
-- `POST /api/dynamic-tables`
-- `DELETE /api/dynamic-tables/:id`
-- `GET /api/dynamic-tables/:id/rows`
-- `POST /api/dynamic-tables/:id/rows`
-- `DELETE /api/dynamic-table-rows/:id`
-
-Create table with custom columns:
+### 3) تست سریع سلامت سرویس
 
 ```bash
-curl -X POST http://localhost:4000/api/dynamic-tables   -H "Content-Type: application/json"   -d '{
+curl http://localhost:4000/health
+```
+
+خروجی مورد انتظار:
+
+```json
+{"ok": true}
+```
+
+### 4) مدیریت آیتم‌های Sidebar
+
+#### 4-1) دیدن ساختار فعلی سایدبار
+
+```bash
+curl http://localhost:4000/api/sidebar-config
+```
+
+#### 4-2) اضافه کردن آیتم جدید
+
+```bash
+curl -X POST http://localhost:4000/api/sidebar-items \
+  -H "Content-Type: application/json" \
+  -d '{
+    "groupTitle": "General",
+    "title": "My Reports",
+    "url": "/my-reports",
+    "sortOrder": 100
+  }'
+```
+
+#### 4-3) حذف آیتم
+
+```bash
+curl -X DELETE http://localhost:4000/api/sidebar-items/<ITEM_ID>
+```
+
+> `ITEM_ID` را از خروجی API یا از `GET /api/sidebar-config` بردارید.
+
+### 5) ساخت جدول داینامیک (با هر تعداد ستون)
+
+#### 5-1) ساخت جدول
+
+```bash
+curl -X POST http://localhost:4000/api/dynamic-tables \
+  -H "Content-Type: application/json" \
+  -d '{
     "name": "site_inventory",
     "columns": [
       { "key": "site_name", "label": "Site Name", "type": "text" },
       { "key": "region", "label": "Region", "type": "text" },
-      { "key": "active", "label": "Active", "type": "boolean" }
+      { "key": "active", "label": "Active", "type": "boolean" },
+      { "key": "created_at", "label": "Created At", "type": "date" }
     ]
   }'
 ```
+
+پاسخ یک `id` برمی‌گرداند (مثلاً `TABLE_ID`) که برای ثبت ردیف‌ها لازم است.
+
+#### 5-2) لیست جدول‌ها
+
+```bash
+curl http://localhost:4000/api/dynamic-tables
+```
+
+#### 5-3) اضافه کردن ردیف به جدول
+
+```bash
+curl -X POST http://localhost:4000/api/dynamic-tables/<TABLE_ID>/rows \
+  -H "Content-Type: application/json" \
+  -d '{
+    "data": {
+      "site_name": "Tehran-01",
+      "region": "Tehran",
+      "active": true,
+      "created_at": "2026-02-20"
+    }
+  }'
+```
+
+#### 5-4) دیدن ردیف‌های جدول
+
+```bash
+curl http://localhost:4000/api/dynamic-tables/<TABLE_ID>/rows
+```
+
+#### 5-5) حذف یک ردیف
+
+```bash
+curl -X DELETE http://localhost:4000/api/dynamic-table-rows/<ROW_ID>
+```
+
+#### 5-6) حذف کل جدول
+
+```bash
+curl -X DELETE http://localhost:4000/api/dynamic-tables/<TABLE_ID>
+```
+
+### 6) خاموش کردن سرویس Docker
+
+```bash
+docker compose -f docker-compose.backend.yml down
+```
+
+اگر خواستی، در مرحله بعد می‌توانم یک UI داخل پنل ادمین هم اضافه کنم که بدون curl همه این کارها را با فرم انجام بدهی.
