@@ -27,6 +27,7 @@ import { Route as ClerkauthRouteRouteImport } from './routes/clerk/(auth)/route'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
+import { Route as AuthenticatedTableManagerIndexRouteImport } from './routes/_authenticated/table-manager/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedReportingIndexRouteImport } from './routes/_authenticated/reporting/index'
 import { Route as AuthenticatedHelpCenterIndexRouteImport } from './routes/_authenticated/help-center/index'
@@ -133,6 +134,12 @@ const AuthenticatedTasksIndexRoute = AuthenticatedTasksIndexRouteImport.update({
   path: '/tasks/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedTableManagerIndexRoute =
+  AuthenticatedTableManagerIndexRouteImport.update({
+    id: '/table-manager/',
+    path: '/table-manager/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSettingsIndexRoute =
   AuthenticatedSettingsIndexRouteImport.update({
     id: '/',
@@ -261,6 +268,7 @@ export interface FileRoutesByFullPath {
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/reporting': typeof AuthenticatedReportingIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/table-manager': typeof AuthenticatedTableManagerIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
   '/reporting/$domain/history': typeof AuthenticatedReportingDomainHistoryRoute
@@ -294,6 +302,7 @@ export interface FileRoutesByTo {
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/reporting': typeof AuthenticatedReportingIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/table-manager': typeof AuthenticatedTableManagerIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
   '/reporting/$domain/history': typeof AuthenticatedReportingDomainHistoryRoute
@@ -332,6 +341,7 @@ export interface FileRoutesById {
   '/_authenticated/help-center/': typeof AuthenticatedHelpCenterIndexRoute
   '/_authenticated/reporting/': typeof AuthenticatedReportingIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/_authenticated/table-manager/': typeof AuthenticatedTableManagerIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
   '/_authenticated/reporting/$domain/history': typeof AuthenticatedReportingDomainHistoryRoute
@@ -368,6 +378,7 @@ export interface FileRouteTypes {
     | '/help-center'
     | '/reporting'
     | '/settings/'
+    | '/table-manager'
     | '/tasks'
     | '/users'
     | '/reporting/$domain/history'
@@ -401,6 +412,7 @@ export interface FileRouteTypes {
     | '/help-center'
     | '/reporting'
     | '/settings'
+    | '/table-manager'
     | '/tasks'
     | '/users'
     | '/reporting/$domain/history'
@@ -438,6 +450,7 @@ export interface FileRouteTypes {
     | '/_authenticated/help-center/'
     | '/_authenticated/reporting/'
     | '/_authenticated/settings/'
+    | '/_authenticated/table-manager/'
     | '/_authenticated/tasks/'
     | '/_authenticated/users/'
     | '/_authenticated/reporting/$domain/history'
@@ -585,6 +598,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof AuthenticatedTasksIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/table-manager/': {
+      id: '/_authenticated/table-manager/'
+      path: '/table-manager'
+      fullPath: '/table-manager'
+      preLoaderRoute: typeof AuthenticatedTableManagerIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings/': {
@@ -746,6 +766,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedChatsIndexRoute: typeof AuthenticatedChatsIndexRoute
   AuthenticatedHelpCenterIndexRoute: typeof AuthenticatedHelpCenterIndexRoute
   AuthenticatedReportingIndexRoute: typeof AuthenticatedReportingIndexRoute
+  AuthenticatedTableManagerIndexRoute: typeof AuthenticatedTableManagerIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
   AuthenticatedReportingDomainHistoryRoute: typeof AuthenticatedReportingDomainHistoryRoute
@@ -760,6 +781,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedChatsIndexRoute: AuthenticatedChatsIndexRoute,
   AuthenticatedHelpCenterIndexRoute: AuthenticatedHelpCenterIndexRoute,
   AuthenticatedReportingIndexRoute: AuthenticatedReportingIndexRoute,
+  AuthenticatedTableManagerIndexRoute: AuthenticatedTableManagerIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
   AuthenticatedReportingDomainHistoryRoute:
