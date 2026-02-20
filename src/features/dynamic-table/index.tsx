@@ -28,13 +28,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
 
@@ -50,7 +43,6 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [draftFilters, setDraftFilters] = useState<Record<string, string>>({})
-  const [selectedRowIdToDelete, setSelectedRowIdToDelete] = useState<string>('')
 
   const tableQuery = useQuery({
     queryKey: ['dynamic-table', tableId],
@@ -96,8 +88,6 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
   }
 
   const openDeleteDialog = () => {
-    const firstRowId = (filteredRows[0]?.id ?? '') as string
-    setSelectedRowIdToDelete(firstRowId)
     setDeleteDialogOpen(true)
   }
 
@@ -115,15 +105,11 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
     rowsQuery.refetch()
   }
 
-  const deleteSelectedRow = async () => {
-    if (!selectedRowIdToDelete) return
-
-    await fetch(`${backendBaseUrl}/api/dynamic-table-rows/${selectedRowIdToDelete}`, {
+  const deleteRow = async (rowId: string) => {
+    await fetch(`${backendBaseUrl}/api/dynamic-table-rows/${rowId}`, {
       method: 'DELETE',
     })
 
-    setDeleteDialogOpen(false)
-    setSelectedRowIdToDelete('')
     rowsQuery.refetch()
   }
 
@@ -266,36 +252,53 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                   <TooltipContent>Delete row</TooltipContent>
                 </Tooltip>
 
-                <DialogContent>
+                <DialogContent className='max-w-5xl'>
                   <DialogHeader>
-                    <DialogTitle>Delete Row</DialogTitle>
+                    <DialogTitle>Delete Rows</DialogTitle>
                     <DialogDescription>
-                      Select one row from the current filtered table and delete it.
+                      Full table view. Use Delete button on any row you want to remove.
                     </DialogDescription>
                   </DialogHeader>
 
-                  <div className='space-y-2'>
-                    <Label>Row</Label>
-                    <Select value={selectedRowIdToDelete} onValueChange={setSelectedRowIdToDelete}>
-                      <SelectTrigger>
-                        <SelectValue placeholder='Select a row' />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredRows.map((row, index) => (
-                          <SelectItem key={row.id} value={row.id}>
-                            Row {index + 1} - {row.id.slice(0, 8)}
-                          </SelectItem>
+                  <div className='max-h-[60vh] overflow-auto rounded-md border'>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {tableQuery.data?.columns.map((column) => (
+                            <TableHead key={column.key}>{column.label}</TableHead>
+                          ))}
+                          <TableHead className='w-[120px]'>Delete</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredRows.map((row) => (
+                          <TableRow key={row.id}>
+                            {tableQuery.data?.columns.map((column) => (
+                              <TableCell key={`${row.id}-${column.key}`}>
+                                {String(row.data[column.key] ?? '')}
+                              </TableCell>
+                            ))}
+                            <TableCell>
+                              <Button variant='destructive' size='sm' onClick={() => deleteRow(row.id)}>
+                                Delete
+                              </Button>
+                            </TableCell>
+                          </TableRow>
                         ))}
-                      </SelectContent>
-                    </Select>
+                        {filteredRows.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={(tableQuery.data?.columns.length ?? 0) + 1}>
+                              No rows available for deletion.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
                   </div>
 
-                  <div className='flex justify-end gap-2'>
+                  <div className='flex justify-end'>
                     <Button variant='outline' onClick={() => setDeleteDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button variant='destructive' onClick={deleteSelectedRow} disabled={!selectedRowIdToDelete}>
-                      Delete
+                      Close
                     </Button>
                   </div>
                 </DialogContent>

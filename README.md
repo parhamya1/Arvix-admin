@@ -196,7 +196,8 @@ curl http://localhost:4000/api/sidebar-items
    - a final user-facing table page
    - small top action icons (Filter and Add Row)
    - per-column filters applied from the filter icon dialog
-   - add/remove row actions applied to the grid
+   - add row via top icon dialog
+   - delete row via top delete icon that opens full table with per-row delete buttons
 7. Refresh page and verify table and rows are still present.
 8. Validate via API:
 
