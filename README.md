@@ -174,7 +174,7 @@ Expected:
 3. Click **Add menu item**.
 4. Confirm it appears in the left main sidebar immediately (no hard refresh needed).
 5. Refresh the page and confirm the item still exists (DB persistence check).
-6. Validate via API:
+8. Validate via API:
 
 ```bash
 curl http://localhost:4000/api/sidebar-items
@@ -191,8 +191,13 @@ curl http://localhost:4000/api/sidebar-items
    - Attach to menu item: choose the item created in Category Management (optional).
 3. Click **Create table**.
 4. Open created table and add rows using the generated form.
-5. Refresh page and verify table and rows are still present.
-6. Validate via API:
+5. After assignment, verify the table appears immediately in the sidebar as a child menu item under the assigned category.
+6. Click that sidebar table item and verify it opens `/dynamic-tables/<TABLE_ID>` with:
+   - visible table data
+   - per-column filters
+   - add/remove row actions
+7. Refresh page and verify table and rows are still present.
+8. Validate via API:
 
 ```bash
 curl http://localhost:4000/api/dynamic-tables
@@ -202,8 +207,8 @@ curl http://localhost:4000/api/dynamic-tables
 curl http://localhost:4000/api/dynamic-tables/<TABLE_ID>/rows
 ```
 
-7. Re-assign table to another menu item using the assignment selector and verify **Assignment Preview** updates immediately on the same page.
-8. Delete a row and then delete the table to confirm full CRUD.
+9. Re-assign table to another menu item using the assignment selector and verify **Assignment Preview** updates immediately on the same page.
+10. Delete a row and then delete the table to confirm full CRUD.
 
 ### 6) API reference
 

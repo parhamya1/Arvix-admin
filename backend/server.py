@@ -93,7 +93,7 @@ def send_json(handler: BaseHTTPRequestHandler, status: int, payload: dict | list
         handler.wfile.write(json.dumps(payload).encode('utf-8'))
 
 
-def build_sidebar_tree(rows: list[sqlite3.Row]) -> list[dict]:
+def build_sidebar_tree(rows: list[sqlite3.Row], assigned_tables: list[sqlite3.Row]) -> list[dict]:
     groups: dict[str, dict] = {}
     items: dict[str, dict] = {}
 
@@ -112,6 +112,24 @@ def build_sidebar_tree(rows: list[sqlite3.Row]) -> list[dict]:
         items[row['id']] = node
         groups.setdefault(row['group_title'], {'title': row['group_title'], 'items': []})
 
+    # inject assigned table links as child menu items
+    for table in assigned_tables:
+        parent_id = table['sidebar_item_id']
+        if not parent_id or parent_id not in items:
+            continue
+        items[parent_id]['items'].append(
+            {
+                'id': f"table-{table['id']}",
+                'title': table['name'],
+                'url': f"/dynamic-tables/{table['id']}",
+                'displayMode': 'vertical',
+                'parentId': parent_id,
+                'sortOrder': 10_000,
+                'items': [],
+                'groupTitle': items[parent_id]['groupTitle'],
+            }
+        )
+
     for node in items.values():
         parent_id = node['parentId']
         if parent_id and parent_id in items:
@@ -120,18 +138,23 @@ def build_sidebar_tree(rows: list[sqlite3.Row]) -> list[dict]:
             groups[node['groupTitle']]['items'].append(node)
 
     def cleanup(node: dict) -> dict:
+        children = sorted(node['items'], key=lambda x: x['sortOrder'])
         out = {
             'id': node['id'],
             'title': node['title'],
             'displayMode': node['displayMode'],
         }
+
+        if children:
+            out['items'] = [cleanup(child) for child in children]
+            if 'badge' in node:
+                out['badge'] = node['badge']
+            return out
+
         if 'url' in node:
             out['url'] = node['url']
         if 'badge' in node:
             out['badge'] = node['badge']
-        children = sorted(node['items'], key=lambda x: x['sortOrder'])
-        if children:
-            out['items'] = [cleanup(child) for child in children]
         return out
 
     result = []
@@ -174,9 +197,12 @@ class Handler(BaseHTTPRequestHandler):
                 rows = conn.execute(
                     'SELECT id, group_title, parent_id, title, url, badge, sort_order, display_mode, created_at FROM sidebar_items ORDER BY group_title, sort_order, created_at'
                 ).fetchall()
+                assigned_tables = conn.execute(
+                    'SELECT id, name, sidebar_item_id FROM dynamic_tables WHERE sidebar_item_id IS NOT NULL ORDER BY created_at'
+                ).fetchall()
                 conn.close()
             if path == '/api/sidebar-config':
-                send_json(self, 200, {'navGroups': build_sidebar_tree(rows)})
+                send_json(self, 200, {'navGroups': build_sidebar_tree(rows, assigned_tables)})
             else:
                 send_json(self, 200, flatten_sidebar(rows))
             return
@@ -200,6 +226,33 @@ class Handler(BaseHTTPRequestHandler):
             ]
             send_json(self, 200, payload)
             return
+
+        if path.startswith('/api/dynamic-tables/') and not path.endswith('/rows'):
+            parts = path.strip('/').split('/')
+            if len(parts) == 3:
+                table_id = parts[2]
+                with _db_lock:
+                    conn = get_conn()
+                    row = conn.execute(
+                        'SELECT id, name, columns_json, sidebar_item_id, created_at FROM dynamic_tables WHERE id=?',
+                        (table_id,),
+                    ).fetchone()
+                    conn.close()
+                if not row:
+                    send_json(self, 404, {'message': 'Table not found'})
+                    return
+                send_json(
+                    self,
+                    200,
+                    {
+                        'id': row['id'],
+                        'name': row['name'],
+                        'columns': json.loads(row['columns_json']),
+                        'sidebarItemId': row['sidebar_item_id'],
+                        'createdAt': row['created_at'],
+                    },
+                )
+                return
 
         if path.startswith('/api/dynamic-tables/') and path.endswith('/rows'):
             parts = path.strip('/').split('/')

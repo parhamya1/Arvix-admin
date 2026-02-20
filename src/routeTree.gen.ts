@@ -43,6 +43,7 @@ import { Route as AuthenticatedSettingsCategoryManagementRouteImport } from './r
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
+import { Route as AuthenticatedDynamicTablesTableIdRouteImport } from './routes/_authenticated/dynamic-tables/$tableId'
 import { Route as AuthenticatedReportingDomainHistoryRouteImport } from './routes/_authenticated/reporting/$domain/history'
 import { Route as AuthenticatedReportingDomainRawVendorRouteImport } from './routes/_authenticated/reporting/$domain/raw/$vendor'
 
@@ -226,6 +227,12 @@ const AuthenticatedErrorsErrorRoute =
     path: '/errors/$error',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDynamicTablesTableIdRoute =
+  AuthenticatedDynamicTablesTableIdRouteImport.update({
+    id: '/dynamic-tables/$tableId',
+    path: '/dynamic-tables/$tableId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedReportingDomainHistoryRoute =
   AuthenticatedReportingDomainHistoryRouteImport.update({
     id: '/reporting/$domain/history',
@@ -253,6 +260,7 @@ export interface FileRoutesByFullPath {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/': typeof AuthenticatedIndexRoute
+  '/dynamic-tables/$tableId': typeof AuthenticatedDynamicTablesTableIdRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
@@ -287,6 +295,7 @@ export interface FileRoutesByTo {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/': typeof AuthenticatedIndexRoute
+  '/dynamic-tables/$tableId': typeof AuthenticatedDynamicTablesTableIdRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
@@ -326,6 +335,7 @@ export interface FileRoutesById {
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/dynamic-tables/$tableId': typeof AuthenticatedDynamicTablesTableIdRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
@@ -363,6 +373,7 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/'
+    | '/dynamic-tables/$tableId'
     | '/errors/$error'
     | '/settings/account'
     | '/settings/appearance'
@@ -397,6 +408,7 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/'
+    | '/dynamic-tables/$tableId'
     | '/errors/$error'
     | '/settings/account'
     | '/settings/appearance'
@@ -435,6 +447,7 @@ export interface FileRouteTypes {
     | '/(errors)/500'
     | '/(errors)/503'
     | '/_authenticated/'
+    | '/_authenticated/dynamic-tables/$tableId'
     | '/_authenticated/errors/$error'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/appearance'
@@ -712,6 +725,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dynamic-tables/$tableId': {
+      id: '/_authenticated/dynamic-tables/$tableId'
+      path: '/dynamic-tables/$tableId'
+      fullPath: '/dynamic-tables/$tableId'
+      preLoaderRoute: typeof AuthenticatedDynamicTablesTableIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/reporting/$domain/history': {
       id: '/_authenticated/reporting/$domain/history'
       path: '/reporting/$domain/history'
@@ -761,6 +781,7 @@ const AuthenticatedSettingsRouteRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedDynamicTablesTableIdRoute: typeof AuthenticatedDynamicTablesTableIdRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
   AuthenticatedAppsIndexRoute: typeof AuthenticatedAppsIndexRoute
   AuthenticatedChatsIndexRoute: typeof AuthenticatedChatsIndexRoute
@@ -776,6 +797,8 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedDynamicTablesTableIdRoute:
+    AuthenticatedDynamicTablesTableIdRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
   AuthenticatedAppsIndexRoute: AuthenticatedAppsIndexRoute,
   AuthenticatedChatsIndexRoute: AuthenticatedChatsIndexRoute,

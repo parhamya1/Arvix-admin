@@ -149,6 +149,7 @@ export function TableManagement() {
     setColumns([{ key: 'name', label: 'Name', type: 'text' }])
     setTargetSidebarItemId('none')
     await loadTables()
+    window.dispatchEvent(new Event('sidebar-config-updated'))
   }
 
   const updateAssignment = async (tableId: string, sidebarItemId: string) => {
@@ -159,6 +160,7 @@ export function TableManagement() {
     })
     if (!res.ok) return
     await loadTables()
+    window.dispatchEvent(new Event('sidebar-config-updated'))
   }
 
   const deleteTable = async (tableId: string) => {
@@ -168,6 +170,7 @@ export function TableManagement() {
     if (!res.ok) return
     await loadTables()
     if (selectedTableId === tableId) setSelectedTableId('')
+    window.dispatchEvent(new Event('sidebar-config-updated'))
   }
 
   const saveRow = async () => {
