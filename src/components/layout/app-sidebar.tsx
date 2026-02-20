@@ -34,7 +34,18 @@ export function AppSidebar() {
         const data = (await response.json()) as { navGroups?: NavGroupType[] }
 
         if (Array.isArray(data.navGroups) && data.navGroups.length > 0) {
-          setNavGroups(data.navGroups)
+          const merged = sidebarData.navGroups.map((group) => ({ ...group, items: [...group.items] }))
+
+          data.navGroups.forEach((remoteGroup) => {
+            const target = merged.find((group) => group.title === remoteGroup.title)
+            if (target) {
+              target.items = [...target.items, ...remoteGroup.items]
+            } else {
+              merged.push(remoteGroup)
+            }
+          })
+
+          setNavGroups(merged)
         }
       } catch {
         // fallback to static sidebar config
