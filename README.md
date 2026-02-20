@@ -117,3 +117,87 @@ Crafted with 🤍 by [@satnaing](https://github.com/satnaing)
 ## License
 
 Licensed under the [MIT License](https://choosealicense.com/licenses/mit/)
+
+## Dynamic backend for Sidebar + Flexible Tables
+
+This project includes a lightweight backend API so you can manage sidebar categories/menus and dynamic tables at runtime.
+
+### Run backend with Docker
+
+```bash
+docker compose -f docker-compose.backend.yml up -d
+```
+
+Backend API will be available at `http://localhost:4000`.
+
+### Run backend locally
+
+```bash
+pnpm backend:dev
+```
+
+### Environment variables
+
+Backend env (`.env.backend.example`):
+
+- `BACKEND_HOST=0.0.0.0`
+- `BACKEND_PORT=4000`
+- `BACKEND_DB_PATH=./backend/arvix.db`
+
+Frontend env (`.env.example`):
+
+- `VITE_BACKEND_URL=http://localhost:4000`
+
+### Health check
+
+```bash
+curl http://localhost:4000/health
+```
+
+Expected response:
+
+```json
+{"ok": true}
+```
+
+### Main endpoints
+
+#### Sidebar/category management
+
+- `GET /api/sidebar-config` (hierarchical tree)
+- `GET /api/sidebar-items` (flat list)
+- `POST /api/sidebar-items`
+- `DELETE /api/sidebar-items/:id`
+
+`displayMode` supports:
+
+- `hierarchy` (sidebar-style nested menu)
+- `vertical` (in-page vertical list style)
+
+#### Dynamic tables
+
+- `GET /api/dynamic-tables`
+- `POST /api/dynamic-tables`
+- `PATCH /api/dynamic-tables/:id/assignment`
+- `DELETE /api/dynamic-tables/:id`
+- `GET /api/dynamic-tables/:id/rows`
+- `POST /api/dynamic-tables/:id/rows`
+- `DELETE /api/dynamic-table-rows/:id`
+
+### In-dashboard admin UI
+
+Use **Settings** in the sidebar. Existing settings pages remain unchanged, and two new pages are added:
+
+- **Category Management** (`/settings/category-management`)
+  - Create/delete categories, subcategories, and menu items
+  - Choose `displayMode` (`hierarchy` or `vertical`) per item
+- **Table Management** (`/settings/table-management`)
+  - Create/delete dynamic tables with custom columns
+  - Add/delete rows
+  - Assign each table to a menu item created in Category Management
+
+### Stop Docker backend
+
+```bash
+docker compose -f docker-compose.backend.yml down
+```
