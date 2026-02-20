@@ -11,12 +11,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 type ColumnType = 'text' | 'number' | 'boolean' | 'date'
 type TableColumn = { key: string; label: string; type: ColumnType }
+type EditableColumn = TableColumn & { uid: string }
 type DynamicTab = { id: string; name: string; columns: TableColumn[]; pageId?: string | null }
 type DynamicPage = { id: string; name: string; sidebarItemId?: string | null }
 type DynamicRow = { id: string; data: Record<string, unknown> }
 type SidebarItem = { id: string; groupTitle: string; title: string }
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
+
+const createColumn = (index = 1): EditableColumn => ({
+  uid: crypto.randomUUID(),
+  key: index === 1 ? 'name' : `field_${index}`,
+  label: index === 1 ? 'Name' : `Field ${index}`,
+  type: 'text',
+})
 
 export function TableManagement() {
   const [selectedPageId, setSelectedPageId] = useState('')
@@ -25,8 +33,9 @@ export function TableManagement() {
   const [pageName, setPageName] = useState('')
   const [tabName, setTabName] = useState('')
   const [targetSidebarItemId, setTargetSidebarItemId] = useState('none')
+  const [notice, setNotice] = useState('')
 
-  const [columns, setColumns] = useState<TableColumn[]>([{ key: 'name', label: 'Name', type: 'text' }])
+  const [columns, setColumns] = useState<EditableColumn[]>([createColumn(1)])
   const [newRow, setNewRow] = useState<Record<string, unknown>>({})
 
   const pagesQuery = useQuery({
@@ -60,7 +69,7 @@ export function TableManagement() {
     },
   })
 
-  const tabs = tabsQuery.data ?? []
+  const tabs = useMemo(() => tabsQuery.data ?? [], [tabsQuery.data])
   const resolvedTabId = tabs.find((tab) => tab.id === selectedTabId)?.id ?? tabs[0]?.id ?? ''
 
   const rowsQuery = useQuery({
@@ -80,6 +89,7 @@ export function TableManagement() {
 
   const createPage = async () => {
     if (!pageName.trim()) return
+    setNotice('')
     const res = await fetch(`${backendBaseUrl}/api/dynamic-pages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -88,24 +98,40 @@ export function TableManagement() {
         sidebarItemId: targetSidebarItemId === 'none' ? null : targetSidebarItemId,
       }),
     })
-    if (!res.ok) return
+    if (!res.ok) {
+      setNotice('Create page failed. Please check name uniqueness and assignment.')
+      return
+    }
+    const created = (await res.json()) as { id: string }
     setPageName('')
     setTargetSidebarItemId('none')
+    setSelectedPageId(created.id)
+    setSelectedTabId('')
     await pagesQuery.refetch()
+    await tabsQuery.refetch()
     window.dispatchEvent(new Event('sidebar-config-updated'))
   }
 
   const createTab = async () => {
     if (!resolvedPageId || !tabName.trim() || columns.length === 0) return
+    setNotice('')
+    const payloadColumns: TableColumn[] = columns.map(({ key, label, type }) => ({ key, label, type }))
     const res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${resolvedPageId}/tabs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: tabName.trim(), columns }),
+      body: JSON.stringify({ name: tabName.trim(), columns: payloadColumns }),
     })
-    if (!res.ok) return
+    if (!res.ok) {
+      setNotice('Add tab failed. Check tab name uniqueness and column fields.')
+      return
+    }
+    const created = (await res.json()) as { id: string }
     setTabName('')
-    setColumns([{ key: 'name', label: 'Name', type: 'text' }])
+    setColumns([createColumn(1)])
+    setSelectedPageId(resolvedPageId)
+    setSelectedTabId(created.id)
     await tabsQuery.refetch()
+    setNotice('Tab added successfully.')
   }
 
   const updatePageAssignment = async (pageId: string, sidebarItemId: string) => {
@@ -135,10 +161,7 @@ export function TableManagement() {
   }
 
   const addColumn = () => {
-    setColumns((prev) => [
-      ...prev,
-      { key: `field_${prev.length + 1}`, label: `Field ${prev.length + 1}`, type: 'text' },
-    ])
+    setColumns((prev) => [...prev, createColumn(prev.length + 1)])
   }
 
   const updateColumn = (index: number, field: keyof TableColumn, value: string) => {
@@ -175,7 +198,9 @@ export function TableManagement() {
   }
 
   return (
-    <div className='space-y-4'>
+    <div className='space-y-4 pb-8'>
+      {notice && <p className='rounded-md border px-3 py-2 text-sm text-muted-foreground'>{notice}</p>}
+
       <Card>
         <CardHeader>
           <CardTitle>Create Page</CardTitle>
@@ -272,7 +297,7 @@ export function TableManagement() {
                   </Button>
                 </div>
                 {columns.map((column, index) => (
-                  <div key={`${column.key}-${index}`} className='grid grid-cols-1 gap-2 md:grid-cols-4'>
+                  <div key={column.uid} className='grid grid-cols-1 gap-2 md:grid-cols-4'>
                     <Input
                       placeholder='key'
                       value={column.key}
@@ -297,7 +322,7 @@ export function TableManagement() {
                     <Button
                       type='button'
                       variant='destructive'
-                      onClick={() => setColumns((prev) => prev.filter((_, i) => i !== index))}
+                      onClick={() => setColumns((prev) => prev.filter((entry) => entry.uid !== column.uid))}
                       disabled={columns.length === 1}
                     >
                       Remove

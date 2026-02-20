@@ -75,7 +75,7 @@ export function Settings() {
           <aside className='top-0 lg:sticky lg:w-1/5'>
             <SidebarNav items={sidebarNavItems} />
           </aside>
-          <div className='flex w-full overflow-y-hidden p-1'>
+          <div className='flex w-full overflow-y-auto p-1 pr-3'>
             <Outlet />
           </div>
         </div>
