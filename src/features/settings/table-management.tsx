@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 type ColumnType = 'text' | 'number' | 'boolean' | 'date'
 type TableColumn = { key: string; label: string; type: ColumnType }
-type EditableColumn = TableColumn & { uid: string }
+type EditableColumn = TableColumn & { uid: string; isLabelManual?: boolean }
 type DynamicTab = { id: string; name: string; columns: TableColumn[]; pageId?: string | null }
 type DynamicPage = { id: string; name: string; sidebarItemId?: string | null }
 type DynamicRow = { id: string; data: Record<string, unknown> }
@@ -25,8 +25,9 @@ const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:400
 const createColumn = (index = 1): EditableColumn => ({
   uid: crypto.randomUUID(),
   key: index === 1 ? 'name' : `field_${index}`,
-  label: index === 1 ? 'Name' : `Field ${index}`,
+  label: index === 1 ? 'name' : `field_${index}`,
   type: 'text',
+  isLabelManual: false,
 })
 
 export function TableManagement() {
@@ -153,7 +154,12 @@ export function TableManagement() {
     setEditingTabId(tab.id)
     setEditTabName(tab.name)
     setEditColumns(
-      tab.columns.map((column, index) => ({ uid: crypto.randomUUID(), ...column, key: column.key || `field_${index + 1}` }))
+      tab.columns.map((column, index) => ({
+        uid: crypto.randomUUID(),
+        ...column,
+        key: column.key || `field_${index + 1}`,
+        isLabelManual: true,
+      }))
     )
   }
 
@@ -179,12 +185,42 @@ export function TableManagement() {
 
   const addColumn = () => setColumns((prev) => [...prev, createColumn(prev.length + 1)])
   const updateColumn = (index: number, field: keyof TableColumn, value: string) => {
-    setColumns((prev) => prev.map((column, i) => (i === index ? { ...column, [field]: value } : column)))
+    setColumns((prev) =>
+      prev.map((column, i) => {
+        if (i !== index) return column
+        if (field === 'key') {
+          return {
+            ...column,
+            key: value,
+            label: column.isLabelManual ? column.label : value,
+          }
+        }
+        if (field === 'label') {
+          return { ...column, label: value, isLabelManual: true }
+        }
+        return { ...column, type: value as ColumnType }
+      })
+    )
   }
 
   const addEditColumn = () => setEditColumns((prev) => [...prev, createColumn(prev.length + 1)])
   const updateEditColumn = (index: number, field: keyof TableColumn, value: string) => {
-    setEditColumns((prev) => prev.map((column, i) => (i === index ? { ...column, [field]: value } : column)))
+    setEditColumns((prev) =>
+      prev.map((column, i) => {
+        if (i !== index) return column
+        if (field === 'key') {
+          return {
+            ...column,
+            key: value,
+            label: column.isLabelManual ? column.label : value,
+          }
+        }
+        if (field === 'label') {
+          return { ...column, label: value, isLabelManual: true }
+        }
+        return { ...column, type: value as ColumnType }
+      })
+    )
   }
 
   const saveRow = async () => {
@@ -212,7 +248,7 @@ export function TableManagement() {
 
   return (
     <div className='space-y-4 pb-8'>
-      <Card>
+      <Card className='border-border/60 shadow-sm transition-all duration-300 hover:shadow-md'>
         <CardHeader>
           <CardTitle>Category selector</CardTitle>
         </CardHeader>
@@ -267,7 +303,7 @@ export function TableManagement() {
       </Card>
 
       {selectedCategory && !selectedPage && (
-        <Card>
+        <Card className='border-border/60 shadow-sm transition-all duration-300 hover:shadow-md'>
           <CardHeader>
             <CardTitle>No page assigned for selected category</CardTitle>
           </CardHeader>
@@ -279,7 +315,7 @@ export function TableManagement() {
 
       {selectedPage && (
         <>
-          <Card>
+          <Card className='border-border/60 shadow-sm transition-all duration-300 hover:shadow-md'>
             <CardHeader>
               <CardTitle>Create Tab for selected category page</CardTitle>
             </CardHeader>
@@ -328,13 +364,13 @@ export function TableManagement() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className='border-border/60 shadow-sm transition-all duration-300 hover:shadow-md'>
             <CardHeader>
               <CardTitle>Tabs of selected category</CardTitle>
             </CardHeader>
             <CardContent className='space-y-3'>
               {tabs.map((tab) => (
-                <div key={tab.id} className='rounded-md border p-3'>
+                <div key={tab.id} className='animate-in fade-in-0 slide-in-from-bottom-2 rounded-xl border bg-card/60 p-3 backdrop-blur-sm transition-all duration-300 hover:border-primary/30 hover:shadow-sm'>
                   <div className='mb-2 flex items-center justify-between'>
                     <p className='font-medium'>{tab.name}</p>
                     <div className='flex gap-2'>
@@ -363,7 +399,7 @@ export function TableManagement() {
       )}
 
       {editingTabId && (
-        <Card>
+        <Card className='border-border/60 shadow-sm transition-all duration-300 hover:shadow-md'>
           <CardHeader>
             <CardTitle>Edit Tab</CardTitle>
           </CardHeader>
@@ -424,7 +460,7 @@ export function TableManagement() {
         </Card>
       )}
 
-      <Card>
+      <Card className='border-border/60 shadow-sm transition-all duration-300 hover:shadow-md'>
         <CardHeader>
           <CardTitle>Rows (selected tab only)</CardTitle>
         </CardHeader>
@@ -457,6 +493,7 @@ export function TableManagement() {
               </div>
               <Button onClick={saveRow}>Save row</Button>
 
+              <div className='overflow-hidden rounded-xl border bg-card/40 shadow-sm'>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -486,6 +523,7 @@ export function TableManagement() {
                   )}
                 </TableBody>
               </Table>
+            </div>
             </>
           )}
         </CardContent>
