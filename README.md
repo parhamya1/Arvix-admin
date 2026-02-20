@@ -117,3 +117,65 @@ Crafted with 🤍 by [@satnaing](https://github.com/satnaing)
 ## License
 
 Licensed under the [MIT License](https://choosealicense.com/licenses/mit/)
+
+## Dynamic backend for Sidebar + Flexible Tables
+
+A lightweight backend API has been added so you can:
+
+- Add/remove sidebar menu items dynamically.
+- Create/remove tables with any number of columns and custom headers.
+- Insert/delete rows for each dynamic table.
+
+### 1) Run backend with Docker
+
+```bash
+docker compose -f docker-compose.backend.yml up -d
+```
+
+This starts **Backend API** on `localhost:4000` and uses SQLite at `backend/arvix.db` (no separate DB container required).
+
+> If later you want PostgreSQL in Docker too, we can switch this backend to Postgres quickly.
+
+### 2) Environment variables
+
+Copy `.env.backend.example` to your env values:
+
+- `BACKEND_HOST=0.0.0.0`
+- `BACKEND_PORT=4000`
+- `BACKEND_DB_PATH=./backend/arvix.db`
+
+For frontend, set:
+
+- `VITE_BACKEND_URL=http://localhost:4000`
+
+The sidebar now tries to load dynamic config from `/api/sidebar-config` and falls back to static data if backend is unavailable.
+
+### 3) Main API endpoints
+
+#### Sidebar
+
+- `GET /api/sidebar-config`
+- `POST /api/sidebar-items`
+- `DELETE /api/sidebar-items/:id`
+
+#### Dynamic tables (schema + rows)
+
+- `GET /api/dynamic-tables`
+- `POST /api/dynamic-tables`
+- `DELETE /api/dynamic-tables/:id`
+- `GET /api/dynamic-tables/:id/rows`
+- `POST /api/dynamic-tables/:id/rows`
+- `DELETE /api/dynamic-table-rows/:id`
+
+Create table with custom columns:
+
+```bash
+curl -X POST http://localhost:4000/api/dynamic-tables   -H "Content-Type: application/json"   -d '{
+    "name": "site_inventory",
+    "columns": [
+      { "key": "site_name", "label": "Site Name", "type": "text" },
+      { "key": "region", "label": "Region", "type": "text" },
+      { "key": "active", "label": "Active", "type": "boolean" }
+    ]
+  }'
+```
