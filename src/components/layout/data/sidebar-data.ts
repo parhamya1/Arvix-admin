@@ -82,6 +82,11 @@ export const sidebarData: SidebarData = {
           icon: Users,
         },
         {
+          title: 'Table Manager',
+          url: '/table-manager',
+          icon: Package,
+        },
+        {
           title: 'Reporting',
           icon: FileBarChart2,
           items: [
