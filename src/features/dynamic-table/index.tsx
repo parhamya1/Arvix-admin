@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Filter, Plus, RotateCcw } from 'lucide-react'
+import { Filter, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
@@ -28,6 +28,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
 
@@ -41,6 +48,9 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
   const [newRow, setNewRow] = useState<Record<string, unknown>>({})
   const [filterDialogOpen, setFilterDialogOpen] = useState(false)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [draftFilters, setDraftFilters] = useState<Record<string, string>>({})
+  const [selectedRowIdToDelete, setSelectedRowIdToDelete] = useState<string>('')
 
   const tableQuery = useQuery({
     queryKey: ['dynamic-table', tableId],
@@ -74,6 +84,23 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length
 
+
+  const openFilterDialog = () => {
+    setDraftFilters(filters)
+    setFilterDialogOpen(true)
+  }
+
+  const applyFilters = () => {
+    setFilters(draftFilters)
+    setFilterDialogOpen(false)
+  }
+
+  const openDeleteDialog = () => {
+    const firstRowId = (filteredRows[0]?.id ?? '') as string
+    setSelectedRowIdToDelete(firstRowId)
+    setDeleteDialogOpen(true)
+  }
+
   const addRow = async () => {
     const res = await fetch(`${backendBaseUrl}/api/dynamic-tables/${tableId}/rows`, {
       method: 'POST',
@@ -88,8 +115,15 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
     rowsQuery.refetch()
   }
 
-  const removeRow = async (rowId: string) => {
-    await fetch(`${backendBaseUrl}/api/dynamic-table-rows/${rowId}`, { method: 'DELETE' })
+  const deleteSelectedRow = async () => {
+    if (!selectedRowIdToDelete) return
+
+    await fetch(`${backendBaseUrl}/api/dynamic-table-rows/${selectedRowIdToDelete}`, {
+      method: 'DELETE',
+    })
+
+    setDeleteDialogOpen(false)
+    setSelectedRowIdToDelete('')
     rowsQuery.refetch()
   }
 
@@ -120,7 +154,7 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <DialogTrigger asChild>
-                      <Button size='icon' variant='outline'>
+                      <Button size='icon' variant='outline' onClick={openFilterDialog}>
                         <Filter className='size-4' />
                       </Button>
                     </DialogTrigger>
@@ -141,23 +175,30 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                         <Label>{column.label}</Label>
                         <Input
                           placeholder={`Filter ${column.label}`}
-                          value={filters[column.key] ?? ''}
+                          value={draftFilters[column.key] ?? ''}
                           onChange={(e) =>
-                            setFilters((prev) => ({ ...prev, [column.key]: e.target.value }))
+                            setDraftFilters((prev) => ({ ...prev, [column.key]: e.target.value }))
                           }
                         />
                       </div>
                     ))}
                   </div>
-                  <div className='flex justify-end'>
+                  <div className='flex items-center justify-between gap-2'>
                     <Button
                       variant='outline'
-                      onClick={() => setFilters({})}
+                      onClick={() => setDraftFilters({})}
                       className='gap-2'
                     >
                       <RotateCcw className='size-4' />
                       Reset filters
                     </Button>
+
+                    <div className='flex items-center gap-2'>
+                      <Button variant='outline' onClick={() => setFilterDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={applyFilters}>Apply</Button>
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -212,6 +253,53 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                   </div>
                 </DialogContent>
               </Dialog>
+
+              <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DialogTrigger asChild>
+                      <Button size='icon' variant='outline' onClick={openDeleteDialog}>
+                        <Trash2 className='size-4' />
+                      </Button>
+                    </DialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete row</TooltipContent>
+                </Tooltip>
+
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Delete Row</DialogTitle>
+                    <DialogDescription>
+                      Select one row from the current filtered table and delete it.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className='space-y-2'>
+                    <Label>Row</Label>
+                    <Select value={selectedRowIdToDelete} onValueChange={setSelectedRowIdToDelete}>
+                      <SelectTrigger>
+                        <SelectValue placeholder='Select a row' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredRows.map((row, index) => (
+                          <SelectItem key={row.id} value={row.id}>
+                            Row {index + 1} - {row.id.slice(0, 8)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className='flex justify-end gap-2'>
+                    <Button variant='outline' onClick={() => setDeleteDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button variant='destructive' onClick={deleteSelectedRow} disabled={!selectedRowIdToDelete}>
+                      Delete
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </TooltipProvider>
         </div>
@@ -244,7 +332,6 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                     {tableQuery.data.columns.map((column) => (
                       <TableHead key={column.key}>{column.label}</TableHead>
                     ))}
-                    <TableHead className='w-[120px]'>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -255,16 +342,11 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                           {String(row.data[column.key] ?? '')}
                         </TableCell>
                       ))}
-                      <TableCell>
-                        <Button variant='destructive' size='sm' onClick={() => removeRow(row.id)}>
-                          Remove
-                        </Button>
-                      </TableCell>
                     </TableRow>
                   ))}
                   {filteredRows.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={tableQuery.data.columns.length + 1}>
+                      <TableCell colSpan={tableQuery.data.columns.length}>
                         No data for active filters.
                       </TableCell>
                     </TableRow>
