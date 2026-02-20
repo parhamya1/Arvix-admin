@@ -75,6 +75,17 @@ export function CategoryManagement() {
 
     if (!res.ok) return
 
+    const createdItem = (await res.json()) as { id: string }
+
+    await fetch(`${backendBaseUrl}/api/dynamic-pages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: `${groupTitle.trim()} / ${title.trim()}`,
+        sidebarItemId: createdItem.id,
+      }),
+    })
+
     setTitle('')
     setUrl('')
     setSortOrder('0')

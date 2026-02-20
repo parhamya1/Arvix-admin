@@ -512,6 +512,42 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 400, {'message': 'Invalid JSON'})
             return
 
+
+        if path.startswith('/api/dynamic-tables/') and len(path.strip('/').split('/')) == 3:
+            table_id = path.strip('/').split('/')[2]
+            name = body.get('name')
+            columns = body.get('columns')
+            if not name or not isinstance(columns, list) or len(columns) == 0:
+                send_json(self, 400, {'message': 'name and columns[] are required'})
+                return
+            try:
+                with _db_lock:
+                    conn = get_conn()
+                    existing = conn.execute('SELECT id, page_id FROM dynamic_tables WHERE id=?', (table_id,)).fetchone()
+                    if not existing:
+                        conn.close()
+                        send_json(self, 404, {'message': 'Table not found'})
+                        return
+                    duplicate = conn.execute(
+                        'SELECT id FROM dynamic_tables WHERE page_id=? AND LOWER(name)=LOWER(?) AND id<>?',
+                        (existing['page_id'], name, table_id),
+                    ).fetchone()
+                    if duplicate:
+                        conn.close()
+                        send_json(self, 409, {'message': 'Tab name must be unique within the selected page'})
+                        return
+                    conn.execute(
+                        'UPDATE dynamic_tables SET name=?, columns_json=? WHERE id=?',
+                        (name, json.dumps(columns), table_id),
+                    )
+                    conn.commit()
+                    conn.close()
+            except sqlite3.IntegrityError:
+                send_json(self, 400, {'message': 'Invalid update payload'})
+                return
+            send_json(self, 200, {'ok': True})
+            return
+
         if path.startswith('/api/dynamic-tables/') and path.endswith('/assignment'):
             parts = path.strip('/').split('/')
             if len(parts) == 4:
