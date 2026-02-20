@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Filter, Plus, RotateCcw, Trash2, X } from 'lucide-react'
+import { Download, Filter, Plus, RotateCcw, Trash2, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -29,6 +30,7 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { type ExportFormat, exportTableData } from '@/lib/table-export'
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
 
@@ -50,6 +52,8 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [addTabDialogOpen, setAddTabDialogOpen] = useState(false)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('csv')
 
   const pagesQuery = useQuery({
     queryKey: ['dynamic-pages-all'],
@@ -159,6 +163,20 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
     setFilters({})
     setDraftFilters({})
     setNewRow({})
+  }
+
+
+  const exportActiveRows = () => {
+    if (!activeTable) return
+    exportTableData({
+      columns: activeTable.columns.map((column) => ({ key: column.key, label: column.label })),
+      rows: filteredRows.map((row) => row.data),
+      format: exportFormat,
+      fileBaseName: `${page?.name ?? 'dynamic-page'}-${activeTable.name}`
+        .toLowerCase()
+        .replace(/\s+/g, '-'),
+    })
+    setExportDialogOpen(false)
   }
 
   const deleteCurrentTab = async () => {
@@ -373,6 +391,49 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                       Cancel
                     </Button>
                     <Button onClick={addTab}>Create tab</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+
+              <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DialogTrigger asChild>
+                      <Button size='icon' variant='outline' disabled={!activeTable}>
+                        <Download className='size-4' />
+                      </Button>
+                    </DialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Export data</TooltipContent>
+                </Tooltip>
+
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Export table data</DialogTitle>
+                    <DialogDescription>
+                      Choose format, then click Apply to export current table data.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className='space-y-2'>
+                    <Label>Export format</Label>
+                    <Select value={exportFormat} onValueChange={(value: ExportFormat) => setExportFormat(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='csv'>CSV</SelectItem>
+                        <SelectItem value='excel'>Excel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className='flex justify-end gap-2'>
+                    <Button variant='outline' onClick={() => setExportDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={exportActiveRows}>Apply</Button>
                   </div>
                 </DialogContent>
               </Dialog>

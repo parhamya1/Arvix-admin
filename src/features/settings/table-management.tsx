@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { type ExportFormat, exportTableData } from '@/lib/table-export'
 
 type ColumnType = 'text' | 'number' | 'boolean' | 'date'
 type TableColumn = { key: string; label: string; type: ColumnType }
@@ -37,6 +38,7 @@ export function TableManagement() {
 
   const [tabName, setTabName] = useState('')
   const [notice, setNotice] = useState('')
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('csv')
   const [columns, setColumns] = useState<EditableColumn[]>([createColumn(1)])
   const [newRow, setNewRow] = useState<Record<string, unknown>>({})
 
@@ -221,6 +223,19 @@ export function TableManagement() {
         return { ...column, type: value as ColumnType }
       })
     )
+  }
+
+
+  const exportSelectedRows = () => {
+    if (!selectedTab) return
+    exportTableData({
+      columns: selectedTab.columns.map((column) => ({ key: column.key, label: column.label })),
+      rows: rows.map((row) => row.data),
+      format: exportFormat,
+      fileBaseName: `${selectedCategory?.title ?? 'category'}-${selectedTab.name}`
+        .toLowerCase()
+        .replace(/\s+/g, '-'),
+    })
   }
 
   const saveRow = async () => {
@@ -491,7 +506,24 @@ export function TableManagement() {
                   </div>
                 ))}
               </div>
-              <Button onClick={saveRow}>Save row</Button>
+              <div className='flex flex-wrap items-center justify-between gap-3'>
+                <Button onClick={saveRow}>Save row</Button>
+
+                <div className='flex items-center gap-2'>
+                  <Select value={exportFormat} onValueChange={(value: ExportFormat) => setExportFormat(value)}>
+                    <SelectTrigger className='w-[140px]'>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='csv'>CSV</SelectItem>
+                      <SelectItem value='excel'>Excel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant='outline' onClick={exportSelectedRows}>
+                    Apply Export
+                  </Button>
+                </div>
+              </div>
 
               <div className='overflow-hidden rounded-xl border bg-card/40 shadow-sm'>
               <Table>
