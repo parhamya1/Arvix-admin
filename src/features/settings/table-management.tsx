@@ -29,6 +29,7 @@ const createColumn = (index = 1): EditableColumn => ({
 export function TableManagement() {
   const [selectedPageId, setSelectedPageId] = useState('')
   const [selectedTabId, setSelectedTabId] = useState('')
+  const [tabTargetPageId, setTabTargetPageId] = useState('')
 
   const [pageName, setPageName] = useState('')
   const [tabName, setTabName] = useState('')
@@ -107,6 +108,7 @@ export function TableManagement() {
     setPageName('')
     setTargetSidebarItemId('none')
     setSelectedPageId(created.id)
+    setTabTargetPageId(created.id)
     setSelectedTabId('')
     await pagesQuery.refetch()
     await tabsQuery.refetch()
@@ -114,10 +116,10 @@ export function TableManagement() {
   }
 
   const createTab = async () => {
-    if (!resolvedPageId || !tabName.trim() || columns.length === 0) return
+    if (!tabTargetPageId || !tabName.trim() || columns.length === 0) return
     setNotice('')
     const payloadColumns: TableColumn[] = columns.map(({ key, label, type }) => ({ key, label, type }))
-    const res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${resolvedPageId}/tabs`, {
+    const res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${tabTargetPageId}/tabs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: tabName.trim(), columns: payloadColumns }),
@@ -132,19 +134,19 @@ export function TableManagement() {
       id: created.id,
       name: tabName.trim(),
       columns: payloadColumns,
-      pageId: resolvedPageId,
+      pageId: tabTargetPageId,
     }
 
-    queryClient.setQueryData<DynamicTab[]>(['dynamic-page-tabs', resolvedPageId], (prev) => [
+    queryClient.setQueryData<DynamicTab[]>(['dynamic-page-tabs', tabTargetPageId], (prev) => [
       ...(prev ?? []),
       newTab,
     ])
 
     setTabName('')
     setColumns([createColumn(1)])
-    setSelectedPageId(resolvedPageId)
+    setSelectedPageId(tabTargetPageId)
     setSelectedTabId(created.id)
-    await tabsQuery.refetch()
+    await queryClient.invalidateQueries({ queryKey: ['dynamic-page-tabs', tabTargetPageId] })
     setNotice('Tab added successfully.')
   }
 
@@ -257,7 +259,14 @@ export function TableManagement() {
                   <p className='text-xs text-muted-foreground'>Linked menu: {sidebarLabel(page.sidebarItemId)}</p>
                 </div>
                 <div className='flex items-center gap-2'>
-                  <Button variant='outline' size='sm' onClick={() => setSelectedPageId(page.id)}>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={() => {
+                      setSelectedPageId(page.id)
+                      setTabTargetPageId(page.id)
+                    }}
+                  >
                     Open
                   </Button>
                   <Button variant='destructive' size='sm' onClick={() => deletePage(page.id)}>
@@ -294,13 +303,38 @@ export function TableManagement() {
           <CardTitle>Create Tab (inside selected page)</CardTitle>
         </CardHeader>
         <CardContent className='space-y-4'>
-          {!resolvedPageId && <p className='text-sm text-muted-foreground'>Open a page first.</p>}
-          {resolvedPageId && (
+          {pages.length === 0 && <p className='text-sm text-muted-foreground'>Create a page first.</p>}
+          {pages.length > 0 && (
             <>
+              <div className='space-y-2'>
+                <Label>Target page for tab</Label>
+                <Select
+                  value={tabTargetPageId || 'none'}
+                  onValueChange={(value) => setTabTargetPageId(value === 'none' ? '' : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder='Select page' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='none'>Select page...</SelectItem>
+                    {pages.map((page) => (
+                      <SelectItem key={page.id} value={page.id}>
+                        {page.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {!tabTargetPageId && (
+                <p className='text-sm text-muted-foreground'>Please select a page for this tab.</p>
+              )}
+
               <div className='space-y-2'>
                 <Label>Tab name</Label>
                 <Input value={tabName} onChange={(e) => setTabName(e.target.value)} />
               </div>
+
               <div className='space-y-3'>
                 <div className='flex items-center justify-between'>
                   <Label>Columns</Label>
@@ -342,7 +376,10 @@ export function TableManagement() {
                   </div>
                 ))}
               </div>
-              <Button onClick={createTab}>Create tab</Button>
+
+              <Button onClick={createTab} disabled={!tabTargetPageId}>
+                Create tab
+              </Button>
               {notice && <p className='text-sm text-muted-foreground'>{notice}</p>}
             </>
           )}
