@@ -34,16 +34,13 @@ const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:400
 
 type ColumnType = 'text' | 'number' | 'boolean' | 'date'
 type TableColumn = { key: string; label: string; type: ColumnType }
-type DynamicTable = {
-  id: string
-  name: string
-  columns: TableColumn[]
-  sidebarItemId?: string | null
-}
+type DynamicTable = { id: string; name: string; columns: TableColumn[]; pageId?: string | null }
 type DynamicRow = { id: string; data: Record<string, unknown> }
+type DynamicPage = { id: string; name: string; sidebarItemId?: string | null }
 
 export function DynamicTableViewer({ tableId }: { tableId: string }) {
-  const [activeTableId, setActiveTableId] = useState(tableId)
+  const pageId = tableId
+  const [activeTableId, setActiveTableId] = useState('')
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [draftFilters, setDraftFilters] = useState<Record<string, string>>({})
   const [newRow, setNewRow] = useState<Record<string, unknown>>({})
@@ -54,39 +51,33 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [addTabDialogOpen, setAddTabDialogOpen] = useState(false)
 
-  const tablesQuery = useQuery({
-    queryKey: ['dynamic-tables-all'],
+  const pagesQuery = useQuery({
+    queryKey: ['dynamic-pages-all'],
     queryFn: async () => {
-      const res = await fetch(`${backendBaseUrl}/api/dynamic-tables`)
-      if (!res.ok) throw new Error('Failed to load tables')
+      const res = await fetch(`${backendBaseUrl}/api/dynamic-pages`)
+      if (!res.ok) throw new Error('Failed to load pages')
+      return (await res.json()) as DynamicPage[]
+    },
+  })
+
+  const tabsQuery = useQuery({
+    queryKey: ['dynamic-page-tabs', pageId],
+    enabled: Boolean(pageId),
+    queryFn: async () => {
+      const res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs`)
+      if (!res.ok) throw new Error('Failed to load tabs')
       return (await res.json()) as DynamicTable[]
     },
   })
 
-  const initialTable = useMemo(
-    () => (tablesQuery.data ?? []).find((table) => table.id === tableId),
-    [tablesQuery.data, tableId]
+  const page = useMemo(
+    () => (pagesQuery.data ?? []).find((entry) => entry.id === pageId),
+    [pagesQuery.data, pageId]
   )
 
-  const siblingTables = useMemo(() => {
-    const allTables = tablesQuery.data ?? []
-    if (!initialTable) return allTables.filter((table) => table.id === activeTableId)
-
-    if (!initialTable.sidebarItemId) {
-      return allTables.filter((table) => table.id === initialTable.id)
-    }
-
-    return allTables.filter((table) => table.sidebarItemId === initialTable.sidebarItemId)
-  }, [tablesQuery.data, initialTable, activeTableId])
-
-  const resolvedActiveTableId =
-    siblingTables.find((table) => table.id === activeTableId)?.id ?? siblingTables[0]?.id ?? ''
-
-  const activeTable = useMemo(
-    () => siblingTables.find((table) => table.id === resolvedActiveTableId),
-    [siblingTables, resolvedActiveTableId]
-  )
-
+  const tabs = useMemo(() => tabsQuery.data ?? [], [tabsQuery.data])
+  const resolvedActiveTableId = tabs.find((tab) => tab.id === activeTableId)?.id ?? tabs[0]?.id ?? ''
+  const activeTable = tabs.find((table) => table.id === resolvedActiveTableId)
 
   const rowsQuery = useQuery({
     queryKey: ['dynamic-table-rows', resolvedActiveTableId],
@@ -97,7 +88,6 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
       return (await res.json()) as DynamicRow[]
     },
   })
-
 
   const filteredRows = useMemo(() => {
     const rows = rowsQuery.data ?? []
@@ -150,13 +140,12 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
     if (!newTabName.trim()) return
 
     const columns = activeTable?.columns ?? [{ key: 'name', label: 'Name', type: 'text' as const }]
-    const res = await fetch(`${backendBaseUrl}/api/dynamic-tables`, {
+    const res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: newTabName.trim(),
         columns,
-        sidebarItemId: initialTable?.sidebarItemId ?? null,
       }),
     })
 
@@ -165,20 +154,18 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
     const created = (await res.json()) as { id: string }
     setNewTabName('')
     setAddTabDialogOpen(false)
-    await tablesQuery.refetch()
+    await tabsQuery.refetch()
     setActiveTableId(created.id)
     setFilters({})
     setDraftFilters({})
     setNewRow({})
-    window.dispatchEvent(new Event('sidebar-config-updated'))
   }
 
   const deleteCurrentTab = async () => {
     if (!activeTable) return
     await fetch(`${backendBaseUrl}/api/dynamic-tables/${activeTable.id}`, { method: 'DELETE' })
-    await tablesQuery.refetch()
+    await tabsQuery.refetch()
     setDeleteDialogOpen(false)
-    window.dispatchEvent(new Event('sidebar-config-updated'))
   }
 
   return (
@@ -194,12 +181,8 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
       <Main className='flex flex-1 flex-col gap-4 sm:gap-6'>
         <div className='flex flex-wrap items-start justify-between gap-3'>
           <div>
-            <h2 className='text-2xl font-bold tracking-tight'>
-              {initialTable?.name ?? activeTable?.name ?? 'Dynamic Table'}
-            </h2>
-            <p className='text-muted-foreground'>
-              Runtime table view with horizontal tabs and quick actions.
-            </p>
+            <h2 className='text-2xl font-bold tracking-tight'>{page?.name ?? 'Dynamic Page'}</h2>
+            <p className='text-muted-foreground'>Runtime table view with quick actions.</p>
           </div>
 
           <TooltipProvider>
@@ -219,9 +202,7 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                 <DialogContent className='max-w-3xl'>
                   <DialogHeader>
                     <DialogTitle>Column Filters</DialogTitle>
-                    <DialogDescription>
-                      Apply filter values per column. Results update after Apply.
-                    </DialogDescription>
+                    <DialogDescription>Apply filter values per column. Results update after Apply.</DialogDescription>
                   </DialogHeader>
                   <div className='grid grid-cols-1 gap-3 md:grid-cols-3'>
                     {activeTable?.columns.map((column) => (
@@ -268,9 +249,7 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                 <DialogContent className='max-w-3xl'>
                   <DialogHeader>
                     <DialogTitle>Add row</DialogTitle>
-                    <DialogDescription>
-                      Fill row data and save. Data is added to active tab only.
-                    </DialogDescription>
+                    <DialogDescription>Fill row data and save. Data is added to active tab only.</DialogDescription>
                   </DialogHeader>
 
                   <div className='grid grid-cols-1 gap-3 md:grid-cols-3'>
@@ -319,9 +298,7 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                 <DialogContent className='max-w-5xl'>
                   <DialogHeader>
                     <DialogTitle>Delete Rows</DialogTitle>
-                    <DialogDescription>
-                      Full table view for active tab. Use row-level Delete actions.
-                    </DialogDescription>
+                    <DialogDescription>Full table view for active tab. Use row-level Delete actions.</DialogDescription>
                   </DialogHeader>
 
                   <div className='max-h-[60vh] overflow-auto rounded-md border'>
@@ -383,9 +360,7 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Add table tab</DialogTitle>
-                    <DialogDescription>
-                      Create a new table tab under this same category context.
-                    </DialogDescription>
+                    <DialogDescription>Create a new table tab under this page.</DialogDescription>
                   </DialogHeader>
 
                   <div className='space-y-2'>
@@ -404,12 +379,7 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
 
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    size='icon'
-                    variant='outline'
-                    onClick={deleteCurrentTab}
-                    disabled={!activeTable}
-                  >
+                  <Button size='icon' variant='outline' onClick={deleteCurrentTab} disabled={!activeTable}>
                     <X className='size-4' />
                   </Button>
                 </TooltipTrigger>
@@ -419,19 +389,19 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
           </TooltipProvider>
         </div>
 
-        {!activeTable && <p className='text-sm text-muted-foreground'>No table available in this context.</p>}
+        {!activeTable && <p className='text-sm text-muted-foreground'>No tab available in this page.</p>}
 
         {activeTable && (
-          <>
-            <Card>
-              <CardHeader className='space-y-3'>
-                <CardTitle className='flex items-center justify-between'>
-                  <span>Data Grid</span>
-                  <span className='text-sm font-normal text-muted-foreground'>
-                    {filteredRows.length} rows • {activeFilterCount} active filters
-                  </span>
-                </CardTitle>
+          <Card>
+            <CardHeader className='space-y-3'>
+              <CardTitle className='flex items-center justify-between'>
+                <span>Data Grid</span>
+                <span className='text-sm font-normal text-muted-foreground'>
+                  {filteredRows.length} rows • {activeFilterCount} active filters
+                </span>
+              </CardTitle>
 
+              {tabs.length > 1 && (
                 <Tabs
                   value={resolvedActiveTableId}
                   onValueChange={(value) => {
@@ -442,52 +412,52 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                   }}
                 >
                   <TabsList className='h-auto flex-wrap justify-start'>
-                    {siblingTables.map((table) => (
+                    {tabs.map((table) => (
                       <TabsTrigger key={table.id} value={table.id}>
                         {table.name}
                       </TabsTrigger>
                     ))}
                   </TabsList>
                 </Tabs>
+              )}
 
-                <div className='flex flex-wrap gap-2'>
-                  {activeTable.columns.map((column) => (
-                    <Badge key={column.key} variant='secondary'>
-                      {column.label}
-                    </Badge>
-                  ))}
-                </div>
-              </CardHeader>
+              <div className='flex flex-wrap gap-2'>
+                {activeTable.columns.map((column) => (
+                  <Badge key={column.key} variant='secondary'>
+                    {column.label}
+                  </Badge>
+                ))}
+              </div>
+            </CardHeader>
 
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {activeTable.columns.map((column) => (
+                      <TableHead key={column.key}>{column.label}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRows.map((row) => (
+                    <TableRow key={row.id}>
                       {activeTable.columns.map((column) => (
-                        <TableHead key={column.key}>{column.label}</TableHead>
+                        <TableCell key={`${row.id}-${column.key}`}>
+                          {String(row.data[column.key] ?? '')}
+                        </TableCell>
                       ))}
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredRows.map((row) => (
-                      <TableRow key={row.id}>
-                        {activeTable.columns.map((column) => (
-                          <TableCell key={`${row.id}-${column.key}`}>
-                            {String(row.data[column.key] ?? '')}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                    {filteredRows.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={activeTable.columns.length}>No data for active filters.</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </>
+                  ))}
+                  {filteredRows.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={activeTable.columns.length}>No data for active filters.</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         )}
       </Main>
     </>

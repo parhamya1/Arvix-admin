@@ -57,6 +57,14 @@ def init_db() -> None:
               name TEXT NOT NULL UNIQUE,
               columns_json TEXT NOT NULL,
               sidebar_item_id TEXT REFERENCES sidebar_items(id) ON DELETE SET NULL,
+              page_id TEXT REFERENCES dynamic_pages(id) ON DELETE CASCADE,
+              created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS dynamic_pages (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL UNIQUE,
+              sidebar_item_id TEXT REFERENCES sidebar_items(id) ON DELETE SET NULL,
               created_at TEXT NOT NULL
             );
 
@@ -70,6 +78,7 @@ def init_db() -> None:
         )
         ensure_column(conn, 'sidebar_items', 'display_mode', "TEXT NOT NULL DEFAULT 'hierarchy'")
         ensure_column(conn, 'dynamic_tables', 'sidebar_item_id', 'TEXT REFERENCES sidebar_items(id) ON DELETE SET NULL')
+        ensure_column(conn, 'dynamic_tables', 'page_id', 'TEXT REFERENCES dynamic_pages(id) ON DELETE CASCADE')
         conn.commit()
         conn.close()
 
@@ -93,7 +102,7 @@ def send_json(handler: BaseHTTPRequestHandler, status: int, payload: dict | list
         handler.wfile.write(json.dumps(payload).encode('utf-8'))
 
 
-def build_sidebar_tree(rows: list[sqlite3.Row], assigned_tables: list[sqlite3.Row]) -> list[dict]:
+def build_sidebar_tree(rows: list[sqlite3.Row]) -> list[dict]:
     groups: dict[str, dict] = {}
     items: dict[str, dict] = {}
 
@@ -111,24 +120,6 @@ def build_sidebar_tree(rows: list[sqlite3.Row], assigned_tables: list[sqlite3.Ro
         }
         items[row['id']] = node
         groups.setdefault(row['group_title'], {'title': row['group_title'], 'items': []})
-
-    # inject assigned table links as child menu items
-    for table in assigned_tables:
-        parent_id = table['sidebar_item_id']
-        if not parent_id or parent_id not in items:
-            continue
-        items[parent_id]['items'].append(
-            {
-                'id': f"table-{table['id']}",
-                'title': table['name'],
-                'url': f"/dynamic-tables/{table['id']}",
-                'displayMode': 'vertical',
-                'parentId': parent_id,
-                'sortOrder': 10_000,
-                'items': [],
-                'groupTitle': items[parent_id]['groupTitle'],
-            }
-        )
 
     for node in items.values():
         parent_id = node['parentId']
@@ -197,21 +188,62 @@ class Handler(BaseHTTPRequestHandler):
                 rows = conn.execute(
                     'SELECT id, group_title, parent_id, title, url, badge, sort_order, display_mode, created_at FROM sidebar_items ORDER BY group_title, sort_order, created_at'
                 ).fetchall()
-                assigned_tables = conn.execute(
-                    'SELECT id, name, sidebar_item_id FROM dynamic_tables WHERE sidebar_item_id IS NOT NULL ORDER BY created_at'
-                ).fetchall()
                 conn.close()
             if path == '/api/sidebar-config':
-                send_json(self, 200, {'navGroups': build_sidebar_tree(rows, assigned_tables)})
+                send_json(self, 200, {'navGroups': build_sidebar_tree(rows)})
             else:
                 send_json(self, 200, flatten_sidebar(rows))
+            return
+
+        if path == '/api/dynamic-pages':
+            with _db_lock:
+                conn = get_conn()
+                rows = conn.execute(
+                    'SELECT id, name, sidebar_item_id, created_at FROM dynamic_pages ORDER BY created_at DESC'
+                ).fetchall()
+                conn.close()
+            payload = [
+                {
+                    'id': row['id'],
+                    'name': row['name'],
+                    'sidebarItemId': row['sidebar_item_id'],
+                    'createdAt': row['created_at'],
+                }
+                for row in rows
+            ]
+            send_json(self, 200, payload)
+            return
+
+        if path.startswith('/api/dynamic-pages/') and path.endswith('/tabs'):
+            page_id = path.strip('/').split('/')[2]
+            with _db_lock:
+                conn = get_conn()
+                rows = conn.execute(
+                    'SELECT id, name, columns_json, page_id, created_at FROM dynamic_tables WHERE page_id=? ORDER BY created_at ASC',
+                    (page_id,),
+                ).fetchall()
+                conn.close()
+            send_json(
+                self,
+                200,
+                [
+                    {
+                        'id': row['id'],
+                        'name': row['name'],
+                        'columns': json.loads(row['columns_json']),
+                        'pageId': row['page_id'],
+                        'createdAt': row['created_at'],
+                    }
+                    for row in rows
+                ],
+            )
             return
 
         if path == '/api/dynamic-tables':
             with _db_lock:
                 conn = get_conn()
                 rows = conn.execute(
-                    'SELECT id, name, columns_json, sidebar_item_id, created_at FROM dynamic_tables ORDER BY created_at DESC'
+                    'SELECT id, name, columns_json, sidebar_item_id, page_id, created_at FROM dynamic_tables ORDER BY created_at DESC'
                 ).fetchall()
                 conn.close()
             payload = [
@@ -220,6 +252,7 @@ class Handler(BaseHTTPRequestHandler):
                     'name': row['name'],
                     'columns': json.loads(row['columns_json']),
                     'sidebarItemId': row['sidebar_item_id'],
+                    'pageId': row['page_id'],
                     'createdAt': row['created_at'],
                 }
                 for row in rows
@@ -234,7 +267,7 @@ class Handler(BaseHTTPRequestHandler):
                 with _db_lock:
                     conn = get_conn()
                     row = conn.execute(
-                        'SELECT id, name, columns_json, sidebar_item_id, created_at FROM dynamic_tables WHERE id=?',
+                        'SELECT id, name, columns_json, sidebar_item_id, page_id, created_at FROM dynamic_tables WHERE id=?',
                         (table_id,),
                     ).fetchone()
                     conn.close()
@@ -249,6 +282,7 @@ class Handler(BaseHTTPRequestHandler):
                         'name': row['name'],
                         'columns': json.loads(row['columns_json']),
                         'sidebarItemId': row['sidebar_item_id'],
+                        'pageId': row['page_id'],
                         'createdAt': row['created_at'],
                     },
                 )
@@ -317,24 +351,72 @@ class Handler(BaseHTTPRequestHandler):
             if not body.get('name') or not isinstance(body.get('columns'), list) or len(body['columns']) == 0:
                 send_json(self, 400, {'message': 'name and columns[] are required'})
                 return
+            if not body.get('pageId'):
+                send_json(self, 400, {'message': 'pageId is required'})
+                return
             table_id = str(uuid.uuid4())
             try:
                 with _db_lock:
                     conn = get_conn()
                     conn.execute(
-                        'INSERT INTO dynamic_tables (id, name, columns_json, sidebar_item_id, created_at) VALUES (?, ?, ?, ?, ?)',
+                        'INSERT INTO dynamic_tables (id, name, columns_json, sidebar_item_id, page_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
                         (
                             table_id,
                             body['name'],
                             json.dumps(body['columns']),
-                            body.get('sidebarItemId'),
+                            None,
+                            body['pageId'],
                             utc_now(),
                         ),
                     )
                     conn.commit()
                     conn.close()
             except sqlite3.IntegrityError:
-                send_json(self, 409, {'message': 'Table name must be unique and sidebarItemId must be valid'})
+                send_json(self, 409, {'message': 'Table name must be unique and pageId must be valid'})
+                return
+            send_json(self, 201, {'id': table_id})
+            return
+
+        if path == '/api/dynamic-pages':
+            if not body.get('name'):
+                send_json(self, 400, {'message': 'name is required'})
+                return
+            page_id = str(uuid.uuid4())
+            sidebar_item_id = body.get('sidebarItemId')
+            try:
+                with _db_lock:
+                    conn = get_conn()
+                    conn.execute(
+                        'INSERT INTO dynamic_pages (id, name, sidebar_item_id, created_at) VALUES (?, ?, ?, ?)',
+                        (page_id, body['name'], sidebar_item_id, utc_now()),
+                    )
+                    if sidebar_item_id:
+                        conn.execute('UPDATE sidebar_items SET url=? WHERE id=?', (f'/dynamic-tables/{page_id}', sidebar_item_id))
+                    conn.commit()
+                    conn.close()
+            except sqlite3.IntegrityError:
+                send_json(self, 409, {'message': 'Page name must be unique and sidebarItemId must be valid'})
+                return
+            send_json(self, 201, {'id': page_id})
+            return
+
+        if path.startswith('/api/dynamic-pages/') and path.endswith('/tabs'):
+            page_id = path.strip('/').split('/')[2]
+            if not body.get('name') or not isinstance(body.get('columns'), list) or len(body['columns']) == 0:
+                send_json(self, 400, {'message': 'name and columns[] are required'})
+                return
+            table_id = str(uuid.uuid4())
+            try:
+                with _db_lock:
+                    conn = get_conn()
+                    conn.execute(
+                        'INSERT INTO dynamic_tables (id, name, columns_json, sidebar_item_id, page_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+                        (table_id, body['name'], json.dumps(body['columns']), None, page_id, utc_now()),
+                    )
+                    conn.commit()
+                    conn.close()
+            except sqlite3.IntegrityError:
+                send_json(self, 409, {'message': 'Tab name must be unique and page must be valid'})
                 return
             send_json(self, 201, {'id': table_id})
             return
@@ -396,6 +478,31 @@ class Handler(BaseHTTPRequestHandler):
                 send_json(self, 200, {'ok': True})
                 return
 
+        if path.startswith('/api/dynamic-pages/') and path.endswith('/assignment'):
+            page_id = path.strip('/').split('/')[2]
+            sidebar_item_id = body.get('sidebarItemId')
+            try:
+                with _db_lock:
+                    conn = get_conn()
+                    previous = conn.execute('SELECT sidebar_item_id FROM dynamic_pages WHERE id=?', (page_id,)).fetchone()
+                    if not previous:
+                        conn.close()
+                        send_json(self, 404, {'message': 'Page not found'})
+                        return
+                    old_sidebar_item_id = previous['sidebar_item_id']
+                    conn.execute('UPDATE dynamic_pages SET sidebar_item_id=? WHERE id=?', (sidebar_item_id, page_id))
+                    if old_sidebar_item_id:
+                        conn.execute('UPDATE sidebar_items SET url=NULL WHERE id=?', (old_sidebar_item_id,))
+                    if sidebar_item_id:
+                        conn.execute('UPDATE sidebar_items SET url=? WHERE id=?', (f'/dynamic-tables/{page_id}', sidebar_item_id))
+                    conn.commit()
+                    conn.close()
+            except sqlite3.IntegrityError:
+                send_json(self, 400, {'message': 'Invalid sidebarItemId'})
+                return
+            send_json(self, 200, {'ok': True})
+            return
+
         send_json(self, 404, {'message': 'Not found'})
 
     def do_DELETE(self):
@@ -423,6 +530,22 @@ class Handler(BaseHTTPRequestHandler):
                 conn.close()
             if cur.rowcount == 0:
                 send_json(self, 404, {'message': 'Table not found'})
+            else:
+                send_json(self, 204)
+            return
+
+        if path.startswith('/api/dynamic-pages/'):
+            page_id = path.split('/')[-1]
+            with _db_lock:
+                conn = get_conn()
+                previous = conn.execute('SELECT sidebar_item_id FROM dynamic_pages WHERE id=?', (page_id,)).fetchone()
+                cur = conn.execute('DELETE FROM dynamic_pages WHERE id=?', (page_id,))
+                if previous and previous['sidebar_item_id']:
+                    conn.execute('UPDATE sidebar_items SET url=NULL WHERE id=?', (previous['sidebar_item_id'],))
+                conn.commit()
+                conn.close()
+            if cur.rowcount == 0:
+                send_json(self, 404, {'message': 'Page not found'})
             else:
                 send_json(self, 204)
             return

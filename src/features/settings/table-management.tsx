@@ -1,123 +1,138 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 type ColumnType = 'text' | 'number' | 'boolean' | 'date'
-
-type TableColumn = {
-  key: string
-  label: string
-  type: ColumnType
-}
-
-type DynamicTable = {
-  id: string
-  name: string
-  columns: TableColumn[]
-  sidebarItemId?: string | null
-}
-
-type DynamicRow = {
-  id: string
-  data: Record<string, unknown>
-}
-
-type SidebarItem = {
-  id: string
-  groupTitle: string
-  title: string
-}
+type TableColumn = { key: string; label: string; type: ColumnType }
+type DynamicTab = { id: string; name: string; columns: TableColumn[]; pageId?: string | null }
+type DynamicPage = { id: string; name: string; sidebarItemId?: string | null }
+type DynamicRow = { id: string; data: Record<string, unknown> }
+type SidebarItem = { id: string; groupTitle: string; title: string }
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
 
 export function TableManagement() {
-  const [tables, setTables] = useState<DynamicTable[]>([])
-  const [sidebarItems, setSidebarItems] = useState<SidebarItem[]>([])
-  const [selectedTableId, setSelectedTableId] = useState('')
-  const [rows, setRows] = useState<DynamicRow[]>([])
-  const [tableName, setTableName] = useState('')
+  const [selectedPageId, setSelectedPageId] = useState('')
+  const [selectedTabId, setSelectedTabId] = useState('')
+
+  const [pageName, setPageName] = useState('')
+  const [tabName, setTabName] = useState('')
   const [targetSidebarItemId, setTargetSidebarItemId] = useState('none')
+
   const [columns, setColumns] = useState<TableColumn[]>([{ key: 'name', label: 'Name', type: 'text' }])
   const [newRow, setNewRow] = useState<Record<string, unknown>>({})
 
-  const selectedTable = useMemo(
-    () => tables.find((table) => table.id === selectedTableId),
-    [selectedTableId, tables]
-  )
+  const pagesQuery = useQuery({
+    queryKey: ['dynamic-pages'],
+    queryFn: async () => {
+      const res = await fetch(`${backendBaseUrl}/api/dynamic-pages`)
+      if (!res.ok) throw new Error('failed')
+      return (await res.json()) as DynamicPage[]
+    },
+  })
 
-  const loadTables = async () => {
-    const res = await fetch(`${backendBaseUrl}/api/dynamic-tables`)
+  const sidebarItemsQuery = useQuery({
+    queryKey: ['sidebar-items'],
+    queryFn: async () => {
+      const res = await fetch(`${backendBaseUrl}/api/sidebar-items`)
+      if (!res.ok) throw new Error('failed')
+      return (await res.json()) as SidebarItem[]
+    },
+  })
+
+  const resolvedPageId =
+    (pagesQuery.data ?? []).find((page) => page.id === selectedPageId)?.id ?? pagesQuery.data?.[0]?.id ?? ''
+
+  const tabsQuery = useQuery({
+    queryKey: ['dynamic-page-tabs', resolvedPageId],
+    enabled: Boolean(resolvedPageId),
+    queryFn: async () => {
+      const res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${resolvedPageId}/tabs`)
+      if (!res.ok) throw new Error('failed')
+      return (await res.json()) as DynamicTab[]
+    },
+  })
+
+  const tabs = tabsQuery.data ?? []
+  const resolvedTabId = tabs.find((tab) => tab.id === selectedTabId)?.id ?? tabs[0]?.id ?? ''
+
+  const rowsQuery = useQuery({
+    queryKey: ['dynamic-tab-rows', resolvedTabId],
+    enabled: Boolean(resolvedTabId),
+    queryFn: async () => {
+      const res = await fetch(`${backendBaseUrl}/api/dynamic-tables/${resolvedTabId}/rows`)
+      if (!res.ok) throw new Error('failed')
+      return (await res.json()) as DynamicRow[]
+    },
+  })
+
+  const selectedTab = useMemo(() => tabs.find((tab) => tab.id === resolvedTabId), [tabs, resolvedTabId])
+  const pages = pagesQuery.data ?? []
+  const sidebarItems = sidebarItemsQuery.data ?? []
+  const rows = rowsQuery.data ?? []
+
+  const createPage = async () => {
+    if (!pageName.trim()) return
+    const res = await fetch(`${backendBaseUrl}/api/dynamic-pages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: pageName.trim(),
+        sidebarItemId: targetSidebarItemId === 'none' ? null : targetSidebarItemId,
+      }),
+    })
     if (!res.ok) return
-    const data = (await res.json()) as DynamicTable[]
-    setTables(data)
-    if (!selectedTableId && data.length > 0) setSelectedTableId(data[0].id)
+    setPageName('')
+    setTargetSidebarItemId('none')
+    await pagesQuery.refetch()
+    window.dispatchEvent(new Event('sidebar-config-updated'))
   }
 
-  const loadRows = async (tableId: string) => {
-    if (!tableId) return
-    const res = await fetch(`${backendBaseUrl}/api/dynamic-tables/${tableId}/rows`)
+  const createTab = async () => {
+    if (!resolvedPageId || !tabName.trim() || columns.length === 0) return
+    const res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${resolvedPageId}/tabs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: tabName.trim(), columns }),
+    })
     if (!res.ok) return
-    setRows((await res.json()) as DynamicRow[])
+    setTabName('')
+    setColumns([{ key: 'name', label: 'Name', type: 'text' }])
+    await tabsQuery.refetch()
   }
 
-  useEffect(() => {
-    const controller = new AbortController()
+  const updatePageAssignment = async (pageId: string, sidebarItemId: string) => {
+    const res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}/assignment`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sidebarItemId: sidebarItemId === 'none' ? null : sidebarItemId }),
+    })
+    if (!res.ok) return
+    await pagesQuery.refetch()
+    window.dispatchEvent(new Event('sidebar-config-updated'))
+  }
 
-    const bootstrap = async () => {
-      const [sidebarRes, tablesRes] = await Promise.all([
-        fetch(`${backendBaseUrl}/api/sidebar-items`, { signal: controller.signal }),
-        fetch(`${backendBaseUrl}/api/dynamic-tables`, { signal: controller.signal }),
-      ])
+  const deletePage = async (pageId: string) => {
+    const res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}`, { method: 'DELETE' })
+    if (!res.ok) return
+    await pagesQuery.refetch()
+    await tabsQuery.refetch()
+    window.dispatchEvent(new Event('sidebar-config-updated'))
+  }
 
-      if (sidebarRes.ok) setSidebarItems((await sidebarRes.json()) as SidebarItem[])
-      if (tablesRes.ok) {
-        const data = (await tablesRes.json()) as DynamicTable[]
-        setTables(data)
-        if (data.length > 0) setSelectedTableId((prev) => prev || data[0].id)
-      }
-    }
-
-    bootstrap()
-    return () => controller.abort()
-  }, [])
-
-  useEffect(() => {
-    const controller = new AbortController()
-
-    const syncRows = async () => {
-      if (!selectedTableId) {
-        setRows([])
-        return
-      }
-      const res = await fetch(`${backendBaseUrl}/api/dynamic-tables/${selectedTableId}/rows`, {
-        signal: controller.signal,
-      })
-      if (!res.ok) return
-      setRows((await res.json()) as DynamicRow[])
-    }
-
-    syncRows()
-    return () => controller.abort()
-  }, [selectedTableId])
+  const deleteTab = async (tabId: string) => {
+    const res = await fetch(`${backendBaseUrl}/api/dynamic-tables/${tabId}`, { method: 'DELETE' })
+    if (!res.ok) return
+    await tabsQuery.refetch()
+    await rowsQuery.refetch()
+  }
 
   const addColumn = () => {
     setColumns((prev) => [
@@ -127,90 +142,31 @@ export function TableManagement() {
   }
 
   const updateColumn = (index: number, field: keyof TableColumn, value: string) => {
-    setColumns((prev) =>
-      prev.map((column, i) => (i === index ? { ...column, [field]: value } : column))
-    )
-  }
-
-  const createTable = async () => {
-    if (!tableName.trim()) return
-    const res = await fetch(`${backendBaseUrl}/api/dynamic-tables`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: tableName.trim(),
-        columns,
-        sidebarItemId: targetSidebarItemId === 'none' ? null : targetSidebarItemId,
-      }),
-    })
-    if (!res.ok) return
-
-    setTableName('')
-    setColumns([{ key: 'name', label: 'Name', type: 'text' }])
-    setTargetSidebarItemId('none')
-    await loadTables()
-    window.dispatchEvent(new Event('sidebar-config-updated'))
-  }
-
-  const updateAssignment = async (tableId: string, sidebarItemId: string) => {
-    const res = await fetch(`${backendBaseUrl}/api/dynamic-tables/${tableId}/assignment`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sidebarItemId: sidebarItemId === 'none' ? null : sidebarItemId }),
-    })
-    if (!res.ok) return
-    await loadTables()
-    window.dispatchEvent(new Event('sidebar-config-updated'))
-  }
-
-  const deleteTable = async (tableId: string) => {
-    const res = await fetch(`${backendBaseUrl}/api/dynamic-tables/${tableId}`, {
-      method: 'DELETE',
-    })
-    if (!res.ok) return
-    await loadTables()
-    if (selectedTableId === tableId) setSelectedTableId('')
-    window.dispatchEvent(new Event('sidebar-config-updated'))
+    setColumns((prev) => prev.map((column, i) => (i === index ? { ...column, [field]: value } : column)))
   }
 
   const saveRow = async () => {
-    if (!selectedTableId || !selectedTable) return
+    if (!selectedTab) return
     const payload: Record<string, unknown> = {}
-    selectedTable.columns.forEach((column) => {
+    selectedTab.columns.forEach((column) => {
       const value = newRow[column.key]
       payload[column.key] = column.type === 'number' ? Number(value ?? 0) : value ?? ''
     })
-    const res = await fetch(`${backendBaseUrl}/api/dynamic-tables/${selectedTableId}/rows`, {
+    const res = await fetch(`${backendBaseUrl}/api/dynamic-tables/${selectedTab.id}/rows`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: payload }),
     })
     if (!res.ok) return
     setNewRow({})
-    await loadRows(selectedTableId)
+    await rowsQuery.refetch()
   }
 
   const deleteRow = async (rowId: string) => {
-    if (!selectedTableId) return
-    const res = await fetch(`${backendBaseUrl}/api/dynamic-table-rows/${rowId}`, {
-      method: 'DELETE',
-    })
+    const res = await fetch(`${backendBaseUrl}/api/dynamic-table-rows/${rowId}`, { method: 'DELETE' })
     if (!res.ok) return
-    await loadRows(selectedTableId)
+    await rowsQuery.refetch()
   }
-
-
-  const assignmentPreview = useMemo(() => {
-    const groups = sidebarItems.map((item) => ({
-      id: item.id,
-      label: `${item.groupTitle} / ${item.title}`,
-      tables: tables.filter((table) => table.sidebarItemId === item.id),
-    }))
-
-    const unassigned = tables.filter((table) => !table.sidebarItemId)
-
-    return { groups, unassigned }
-  }, [sidebarItems, tables])
 
   const sidebarLabel = (id?: string | null) => {
     if (!id) return 'Unassigned'
@@ -222,106 +178,60 @@ export function TableManagement() {
     <div className='space-y-4'>
       <Card>
         <CardHeader>
-          <CardTitle>Create Table</CardTitle>
+          <CardTitle>Create Page</CardTitle>
         </CardHeader>
-        <CardContent className='space-y-4'>
-          <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
-            <div className='space-y-2'>
-              <Label>Table name</Label>
-              <Input value={tableName} onChange={(e) => setTableName(e.target.value)} />
-            </div>
-            <div className='space-y-2'>
-              <Label>Attach to menu item</Label>
-              <Select value={targetSidebarItemId} onValueChange={setTargetSidebarItemId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='none'>Unassigned</SelectItem>
-                  {sidebarItems.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.groupTitle} / {item.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <CardContent className='grid grid-cols-1 gap-3 md:grid-cols-3'>
+          <div className='space-y-2 md:col-span-2'>
+            <Label>Page name</Label>
+            <Input value={pageName} onChange={(e) => setPageName(e.target.value)} />
           </div>
-
-          <div className='space-y-3'>
-            <div className='flex items-center justify-between'>
-              <Label>Columns</Label>
-              <Button type='button' variant='outline' onClick={addColumn}>
-                Add column
-              </Button>
-            </div>
-            {columns.map((column, index) => (
-              <div key={`${column.key}-${index}`} className='grid grid-cols-1 gap-2 md:grid-cols-4'>
-                <Input
-                  placeholder='key'
-                  value={column.key}
-                  onChange={(e) => updateColumn(index, 'key', e.target.value)}
-                />
-                <Input
-                  placeholder='label'
-                  value={column.label}
-                  onChange={(e) => updateColumn(index, 'label', e.target.value)}
-                />
-                <Select
-                  value={column.type}
-                  onValueChange={(value) => updateColumn(index, 'type', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value='text'>text</SelectItem>
-                    <SelectItem value='number'>number</SelectItem>
-                    <SelectItem value='boolean'>boolean</SelectItem>
-                    <SelectItem value='date'>date</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  type='button'
-                  variant='destructive'
-                  onClick={() => setColumns((prev) => prev.filter((_, i) => i !== index))}
-                  disabled={columns.length === 1}
-                >
-                  Remove
-                </Button>
-              </div>
-            ))}
+          <div className='space-y-2'>
+            <Label>Attach page to menu</Label>
+            <Select value={targetSidebarItemId} onValueChange={setTargetSidebarItemId}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='none'>Unassigned</SelectItem>
+                {sidebarItems.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.groupTitle} / {item.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-
-          <Button onClick={createTable}>Create table</Button>
+          <div>
+            <Button onClick={createPage}>Create page</Button>
+          </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Tables</CardTitle>
+          <CardTitle>Pages</CardTitle>
         </CardHeader>
         <CardContent className='space-y-2'>
-          {tables.map((table) => (
-            <div key={table.id} className='rounded-md border p-3'>
+          {pages.map((page) => (
+            <div key={page.id} className='rounded-md border p-3'>
               <div className='flex flex-wrap items-center justify-between gap-2'>
                 <div>
-                  <p className='font-medium'>{table.name}</p>
-                  <p className='text-xs text-muted-foreground'>Linked menu: {sidebarLabel(table.sidebarItemId)}</p>
+                  <p className='font-medium'>{page.name}</p>
+                  <p className='text-xs text-muted-foreground'>Linked menu: {sidebarLabel(page.sidebarItemId)}</p>
                 </div>
                 <div className='flex items-center gap-2'>
-                  <Button variant='outline' size='sm' onClick={() => setSelectedTableId(table.id)}>
+                  <Button variant='outline' size='sm' onClick={() => setSelectedPageId(page.id)}>
                     Open
                   </Button>
-                  <Button variant='destructive' size='sm' onClick={() => deleteTable(table.id)}>
+                  <Button variant='destructive' size='sm' onClick={() => deletePage(page.id)}>
                     Delete
                   </Button>
                 </div>
               </div>
               <div className='mt-3'>
                 <Select
-                  value={table.sidebarItemId ?? 'none'}
-                  onValueChange={(value) => updateAssignment(table.id, value)}
+                  value={page.sidebarItemId ?? 'none'}
+                  onValueChange={(value) => updatePageAssignment(page.id, value)}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -338,45 +248,97 @@ export function TableManagement() {
               </div>
             </div>
           ))}
-          {tables.length === 0 && <p className='text-sm text-muted-foreground'>No tables created yet.</p>}
+          {pages.length === 0 && <p className='text-sm text-muted-foreground'>No pages created yet.</p>}
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Create Tab (inside selected page)</CardTitle>
+        </CardHeader>
+        <CardContent className='space-y-4'>
+          {!resolvedPageId && <p className='text-sm text-muted-foreground'>Open a page first.</p>}
+          {resolvedPageId && (
+            <>
+              <div className='space-y-2'>
+                <Label>Tab name</Label>
+                <Input value={tabName} onChange={(e) => setTabName(e.target.value)} />
+              </div>
+              <div className='space-y-3'>
+                <div className='flex items-center justify-between'>
+                  <Label>Columns</Label>
+                  <Button type='button' variant='outline' onClick={addColumn}>
+                    Add column
+                  </Button>
+                </div>
+                {columns.map((column, index) => (
+                  <div key={`${column.key}-${index}`} className='grid grid-cols-1 gap-2 md:grid-cols-4'>
+                    <Input
+                      placeholder='key'
+                      value={column.key}
+                      onChange={(e) => updateColumn(index, 'key', e.target.value)}
+                    />
+                    <Input
+                      placeholder='label'
+                      value={column.label}
+                      onChange={(e) => updateColumn(index, 'label', e.target.value)}
+                    />
+                    <Select value={column.type} onValueChange={(value) => updateColumn(index, 'type', value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='text'>text</SelectItem>
+                        <SelectItem value='number'>number</SelectItem>
+                        <SelectItem value='boolean'>boolean</SelectItem>
+                        <SelectItem value='date'>date</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type='button'
+                      variant='destructive'
+                      onClick={() => setColumns((prev) => prev.filter((_, i) => i !== index))}
+                      disabled={columns.length === 1}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button onClick={createTab}>Create tab</Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Assignment Preview</CardTitle>
+          <CardTitle>Tabs in selected page</CardTitle>
         </CardHeader>
-        <CardContent className='space-y-3'>
-          {assignmentPreview.groups.map((group) => (
-            <div key={group.id} className='rounded-md border p-3'>
-              <p className='mb-2 text-sm font-medium'>{group.label}</p>
-              {group.tables.length > 0 ? (
-                <div className='flex flex-wrap gap-2'>
-                  {group.tables.map((table) => (
-                    <Badge key={table.id} variant='secondary'>
-                      {table.name}
+        <CardContent className='space-y-2'>
+          {tabs.map((tab) => (
+            <div key={tab.id} className='flex items-center justify-between rounded-md border p-3'>
+              <div>
+                <p className='font-medium'>{tab.name}</p>
+                <div className='mt-2 flex flex-wrap gap-2'>
+                  {tab.columns.map((column) => (
+                    <Badge key={column.key} variant='secondary'>
+                      {column.label} ({column.type})
                     </Badge>
                   ))}
                 </div>
-              ) : (
-                <p className='text-xs text-muted-foreground'>No table assigned to this menu item.</p>
-              )}
+              </div>
+              <div className='flex items-center gap-2'>
+                <Button variant='outline' size='sm' onClick={() => setSelectedTabId(tab.id)}>
+                  Open
+                </Button>
+                <Button variant='destructive' size='sm' onClick={() => deleteTab(tab.id)}>
+                  Delete
+                </Button>
+              </div>
             </div>
           ))}
-
-          <div className='rounded-md border p-3'>
-            <p className='mb-2 text-sm font-medium'>Unassigned tables</p>
-            {assignmentPreview.unassigned.length > 0 ? (
-              <div className='flex flex-wrap gap-2'>
-                {assignmentPreview.unassigned.map((table) => (
-                  <Badge key={table.id}>{table.name}</Badge>
-                ))}
-              </div>
-            ) : (
-              <p className='text-xs text-muted-foreground'>All tables are assigned.</p>
-            )}
-          </div>
+          {tabs.length === 0 && <p className='text-sm text-muted-foreground'>No tabs in this page yet.</p>}
         </CardContent>
       </Card>
 
@@ -385,20 +347,12 @@ export function TableManagement() {
           <CardTitle>Rows</CardTitle>
         </CardHeader>
         <CardContent className='space-y-4'>
-          {!selectedTable && <p className='text-sm text-muted-foreground'>Open a table to manage rows.</p>}
+          {!selectedTab && <p className='text-sm text-muted-foreground'>Open a tab to manage rows.</p>}
 
-          {selectedTable && (
+          {selectedTab && (
             <>
-              <div className='flex flex-wrap gap-2'>
-                {selectedTable.columns.map((column) => (
-                  <Badge key={column.key} variant='secondary'>
-                    {column.label} ({column.type})
-                  </Badge>
-                ))}
-              </div>
-
               <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
-                {selectedTable.columns.map((column) => (
+                {selectedTab.columns.map((column) => (
                   <div key={column.key} className='space-y-2'>
                     <Label>{column.label}</Label>
                     {column.type === 'boolean' ? (
@@ -414,9 +368,7 @@ export function TableManagement() {
                       <Input
                         type={column.type === 'number' ? 'number' : column.type === 'date' ? 'date' : 'text'}
                         value={(newRow[column.key] as string | number | undefined) ?? ''}
-                        onChange={(e) =>
-                          setNewRow((prev) => ({ ...prev, [column.key]: e.target.value }))
-                        }
+                        onChange={(e) => setNewRow((prev) => ({ ...prev, [column.key]: e.target.value }))}
                       />
                     )}
                   </div>
@@ -427,7 +379,7 @@ export function TableManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {selectedTable.columns.map((column) => (
+                    {selectedTab.columns.map((column) => (
                       <TableHead key={column.key}>{column.label}</TableHead>
                     ))}
                     <TableHead className='w-[120px]'>Actions</TableHead>
@@ -436,10 +388,8 @@ export function TableManagement() {
                 <TableBody>
                   {rows.map((row) => (
                     <TableRow key={row.id}>
-                      {selectedTable.columns.map((column) => (
-                        <TableCell key={`${row.id}-${column.key}`}>
-                          {String(row.data[column.key] ?? '')}
-                        </TableCell>
+                      {selectedTab.columns.map((column) => (
+                        <TableCell key={`${row.id}-${column.key}`}>{String(row.data[column.key] ?? '')}</TableCell>
                       ))}
                       <TableCell>
                         <Button variant='destructive' size='sm' onClick={() => deleteRow(row.id)}>
@@ -450,7 +400,7 @@ export function TableManagement() {
                   ))}
                   {rows.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={selectedTable.columns.length + 1}>No rows created yet.</TableCell>
+                      <TableCell colSpan={selectedTab.columns.length + 1}>No rows created yet.</TableCell>
                     </TableRow>
                   )}
                 </TableBody>

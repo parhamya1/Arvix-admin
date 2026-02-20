@@ -192,14 +192,14 @@ curl http://localhost:4000/api/sidebar-items
 3. Click **Create table**.
 4. Open created table and add rows using the generated form.
 5. After assignment, verify the table appears immediately in the sidebar as a child menu item under the assigned category.
-6. Click that sidebar table item and verify it opens `/dynamic-tables/<TABLE_ID>` with:
+6. Click that sidebar page item and verify it opens `/dynamic-tables/<PAGE_ID>` with:
    - a final user-facing table page
-   - horizontal tabs to switch between sibling tables in the same category context
+   - horizontal tabs to switch between tabs of that page (only shown when page has more than one tab)
    - top icons for Filter, Add Row, Delete Row, Add Tab, and Delete Tab
    - per-column filters applied from the filter icon dialog
    - add row via top icon dialog for the active tab
    - delete row via top delete icon that opens full table with per-row delete buttons
-   - add/delete tab support where deleting a tab also deletes its underlying table
+   - add/delete tab support where each tab can have its own columns and deleting a tab also deletes its underlying table
 7. Refresh page and verify table and rows are still present.
 8. Validate via API:
 
@@ -208,7 +208,9 @@ curl http://localhost:4000/api/dynamic-tables
 ```
 
 ```bash
-curl http://localhost:4000/api/dynamic-tables/<TABLE_ID>/rows
+curl http://localhost:4000/api/dynamic-pages
+curl http://localhost:4000/api/dynamic-pages/<PAGE_ID>/tabs
+curl http://localhost:4000/api/dynamic-tables/<TAB_ID>/rows
 ```
 
 9. Re-assign table to another menu item using the assignment selector and verify **Assignment Preview** updates immediately on the same page.
@@ -228,11 +230,16 @@ curl http://localhost:4000/api/dynamic-tables/<TABLE_ID>/rows
 - `hierarchy` (sidebar-like nested menu)
 - `vertical` (in-page vertical list style)
 
-#### Dynamic tables
+#### Dynamic pages and tabs
 
+- `GET /api/dynamic-pages`
+- `POST /api/dynamic-pages`
+- `PATCH /api/dynamic-pages/:id/assignment`
+- `DELETE /api/dynamic-pages/:id`
+- `GET /api/dynamic-pages/:id/tabs`
+- `POST /api/dynamic-pages/:id/tabs`
 - `GET /api/dynamic-tables`
 - `POST /api/dynamic-tables`
-- `PATCH /api/dynamic-tables/:id/assignment`
 - `DELETE /api/dynamic-tables/:id`
 - `GET /api/dynamic-tables/:id/rows`
 - `POST /api/dynamic-tables/:id/rows`
