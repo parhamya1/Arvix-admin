@@ -193,9 +193,10 @@ curl http://localhost:4000/api/sidebar-items
 4. Open created table and add rows using the generated form.
 5. After assignment, verify the table appears immediately in the sidebar as a child menu item under the assigned category.
 6. Click that sidebar table item and verify it opens `/dynamic-tables/<TABLE_ID>` with:
-   - visible table data
-   - per-column filters
-   - add/remove row actions
+   - a final user-facing table page
+   - small top action icons (Filter and Add Row)
+   - per-column filters applied from the filter icon dialog
+   - add/remove row actions applied to the grid
 7. Refresh page and verify table and rows are still present.
 8. Validate via API:
 
