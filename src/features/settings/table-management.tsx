@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check, ChevronsUpDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +8,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 type ColumnType = 'text' | 'number' | 'boolean' | 'date'
@@ -28,7 +31,7 @@ const createColumn = (index = 1): EditableColumn => ({
 
 export function TableManagement() {
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
-  const [draggingCategoryId, setDraggingCategoryId] = useState('')
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false)
   const [selectedTabId, setSelectedTabId] = useState('')
 
   const [tabName, setTabName] = useState('')
@@ -61,7 +64,13 @@ export function TableManagement() {
   })
 
   const pages = pagesQuery.data ?? []
-  const categories = sidebarItemsQuery.data ?? []
+  const categories = useMemo(
+    () =>
+      (sidebarItemsQuery.data ?? [])
+        .slice()
+        .sort((a, b) => `${a.groupTitle} / ${a.title}`.localeCompare(`${b.groupTitle} / ${b.title}`)),
+    [sidebarItemsQuery.data]
+  )
 
   const selectedCategory = categories.find((item) => item.id === selectedCategoryId)
   const selectedPage = pages.find((page) => page.sidebarItemId === selectedCategoryId)
@@ -205,38 +214,55 @@ export function TableManagement() {
     <div className='space-y-4 pb-8'>
       <Card>
         <CardHeader>
-          <CardTitle>Category selector (Drag & Drop)</CardTitle>
+          <CardTitle>Category selector</CardTitle>
         </CardHeader>
-        <CardContent className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
-          <div className='space-y-2'>
-            {categories.map((item) => (
-              <div
-                key={item.id}
-                draggable
-                onDragStart={() => setDraggingCategoryId(item.id)}
-                className='cursor-grab rounded-md border bg-muted/30 p-2 text-sm'
+        <CardContent className='space-y-2'>
+          <Label>Select category</Label>
+          <Popover open={categoryPickerOpen} onOpenChange={setCategoryPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant='outline'
+                role='combobox'
+                aria-expanded={categoryPickerOpen}
+                className='w-full justify-between'
               >
-                {item.groupTitle} / {item.title}
-              </div>
-            ))}
-            {categories.length === 0 && <p className='text-sm text-muted-foreground'>No categories found.</p>}
-          </div>
-
-          <div
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => {
-              if (!draggingCategoryId) return
-              setSelectedCategoryId(draggingCategoryId)
-              setDraggingCategoryId('')
-              setSelectedTabId('')
-              setNotice('')
-            }}
-            className='flex min-h-28 items-center justify-center rounded-md border border-dashed p-4 text-sm'
-          >
-            {selectedCategory
-              ? `Selected: ${selectedCategory.groupTitle} / ${selectedCategory.title}`
-              : 'Drag a category here to manage its tabs'}
-          </div>
+                {selectedCategory
+                  ? `${selectedCategory.groupTitle} / ${selectedCategory.title}`
+                  : 'Select category...'}
+                <ChevronsUpDown className='ml-2 size-4 shrink-0 opacity-50' />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className='w-[420px] p-0'>
+              <Command>
+                <CommandInput placeholder='Search category...' />
+                <CommandList>
+                  <CommandEmpty>No category found.</CommandEmpty>
+                  <CommandGroup>
+                    {categories.map((item) => {
+                      const label = `${item.groupTitle} / ${item.title}`
+                      return (
+                        <CommandItem
+                          key={item.id}
+                          value={label}
+                          onSelect={() => {
+                            setSelectedCategoryId(item.id)
+                            setSelectedTabId('')
+                            setNotice('')
+                            setCategoryPickerOpen(false)
+                          }}
+                        >
+                          <Check
+                            className={`mr-2 size-4 ${selectedCategoryId === item.id ? 'opacity-100' : 'opacity-0'}`}
+                          />
+                          {label}
+                        </CommandItem>
+                      )
+                    })}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </CardContent>
       </Card>
 
