@@ -128,21 +128,29 @@ const parsePersistedOrder = (payload: unknown): PersistedSidebarOrder | null => 
 const saveSidebarOrderToServer = async (payload: PersistedSidebarOrder) => {
   const body = JSON.stringify(payload)
 
-  const patchResponse = await fetch(`${backendBaseUrl}/api/sidebar-order`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-  })
+  try {
+    const patchResponse = await fetch(`${backendBaseUrl}/api/sidebar-order`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    })
 
-  if (patchResponse.ok) return true
+    if (patchResponse.ok) return true
+  } catch {
+    // fall through to POST fallback
+  }
 
-  const postResponse = await fetch(`${backendBaseUrl}/api/sidebar-order`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-  })
+  try {
+    const postResponse = await fetch(`${backendBaseUrl}/api/sidebar-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    })
 
-  return postResponse.ok
+    return postResponse.ok
+  } catch {
+    return false
+  }
 }
 
 export function AppSidebar() {
