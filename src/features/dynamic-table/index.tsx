@@ -196,11 +196,19 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
         fileContentBase64,
       }
 
-      let res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs/import`, {
+      let res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
+
+      if (res.status === 404) {
+        res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+      }
 
       if (res.status === 404) {
         res = await fetch(`${backendBaseUrl}/api/dynamic-tables/import`, {
