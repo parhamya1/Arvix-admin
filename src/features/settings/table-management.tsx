@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { parseImportFile } from '@/lib/table-import'
 import { type ExportFormat, exportTableData } from '@/lib/table-export'
 
 type ColumnType = 'text' | 'number' | 'boolean' | 'date'
@@ -37,6 +38,9 @@ export function TableManagement() {
   const [selectedTabId, setSelectedTabId] = useState('')
 
   const [tabName, setTabName] = useState('')
+  const [createTabMode, setCreateTabMode] = useState<'manual' | 'import'>('manual')
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importLoading, setImportLoading] = useState(false)
   const [notice, setNotice] = useState('')
   const [exportFormat, setExportFormat] = useState<ExportFormat>('csv')
   const [columns, setColumns] = useState<EditableColumn[]>([createColumn(1)])
@@ -143,6 +147,61 @@ export function TableManagement() {
     setSelectedTabId(created.id)
     await queryClient.invalidateQueries({ queryKey: ['dynamic-page-tabs', selectedPage.id] })
     setNotice('Tab added successfully.')
+  }
+
+  const createTabByImport = async () => {
+    if (!selectedPage?.id || !tabName.trim() || !importFile) return
+    setNotice('')
+    setImportLoading(true)
+
+    try {
+      const imported = await parseImportFile(importFile)
+      const createRes = await fetch(`${backendBaseUrl}/api/dynamic-pages/${selectedPage.id}/tabs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: tabName.trim(),
+          columns: imported.columns,
+        }),
+      })
+
+      if (!createRes.ok) {
+        const body = (await createRes.json().catch(() => null)) as { message?: string } | null
+        setNotice(body?.message ?? 'Tab creation from import failed.')
+        return
+      }
+
+      const created = (await createRes.json()) as { id: string }
+
+      for (const row of imported.rows) {
+        const rowRes = await fetch(`${backendBaseUrl}/api/dynamic-tables/${created.id}/rows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: row }),
+        })
+
+        if (!rowRes.ok) {
+          const body = (await rowRes.json().catch(() => null)) as { message?: string } | null
+          setNotice(body?.message ?? 'Tab was created, but row import failed.')
+          await tabsQuery.refetch()
+          setSelectedTabId(created.id)
+          return
+        }
+      }
+
+      setTabName('')
+      setImportFile(null)
+      setColumns([createColumn(1)])
+      setSelectedTabId(created.id)
+      await queryClient.invalidateQueries({ queryKey: ['dynamic-page-tabs', selectedPage.id] })
+      await rowsQuery.refetch()
+      setNotice('Tab imported successfully.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Import parsing failed.'
+      setNotice(message)
+    } finally {
+      setImportLoading(false)
+    }
   }
 
   const deleteTab = async (tabId: string) => {
@@ -336,45 +395,83 @@ export function TableManagement() {
             </CardHeader>
             <CardContent className='space-y-4'>
               <div className='space-y-2'>
+                <Label>Create mode</Label>
+                <Select
+                  value={createTabMode}
+                  onValueChange={(value: 'manual' | 'import') => {
+                    setCreateTabMode(value)
+                    setNotice('')
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='manual'>Manual</SelectItem>
+                    <SelectItem value='import'>Import CSV / Excel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className='space-y-2'>
                 <Label>Tab name</Label>
                 <Input value={tabName} onChange={(e) => setTabName(e.target.value)} />
               </div>
 
-              <div className='space-y-3'>
-                <div className='flex items-center justify-between'>
-                  <Label>Columns</Label>
-                  <Button type='button' variant='outline' onClick={addColumn}>
-                    Add column
-                  </Button>
-                </div>
-                {columns.map((column, index) => (
-                  <div key={column.uid} className='grid grid-cols-1 gap-2 md:grid-cols-4'>
-                    <Input value={column.key} onChange={(e) => updateColumn(index, 'key', e.target.value)} />
-                    <Input value={column.label} onChange={(e) => updateColumn(index, 'label', e.target.value)} />
-                    <Select value={column.type} onValueChange={(value) => updateColumn(index, 'type', value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value='text'>text</SelectItem>
-                        <SelectItem value='number'>number</SelectItem>
-                        <SelectItem value='boolean'>boolean</SelectItem>
-                        <SelectItem value='date'>date</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      type='button'
-                      variant='destructive'
-                      onClick={() => setColumns((prev) => prev.filter((entry) => entry.uid !== column.uid))}
-                      disabled={columns.length === 1}
-                    >
-                      Remove
+              {createTabMode === 'manual' ? (
+                <div className='space-y-3'>
+                  <div className='flex items-center justify-between'>
+                    <Label>Columns</Label>
+                    <Button type='button' variant='outline' onClick={addColumn}>
+                      Add column
                     </Button>
                   </div>
-                ))}
-              </div>
+                  {columns.map((column, index) => (
+                    <div key={column.uid} className='grid grid-cols-1 gap-2 md:grid-cols-4'>
+                      <Input value={column.key} onChange={(e) => updateColumn(index, 'key', e.target.value)} />
+                      <Input value={column.label} onChange={(e) => updateColumn(index, 'label', e.target.value)} />
+                      <Select value={column.type} onValueChange={(value) => updateColumn(index, 'type', value)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value='text'>text</SelectItem>
+                          <SelectItem value='number'>number</SelectItem>
+                          <SelectItem value='boolean'>boolean</SelectItem>
+                          <SelectItem value='date'>date</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type='button'
+                        variant='destructive'
+                        onClick={() => setColumns((prev) => prev.filter((entry) => entry.uid !== column.uid))}
+                        disabled={columns.length === 1}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className='space-y-2'>
+                  <Label>CSV / Excel file</Label>
+                  <Input
+                    type='file'
+                    accept='.csv,.xlsx'
+                    onChange={(e) => {
+                      setImportFile(e.target.files?.[0] ?? null)
+                      setNotice('')
+                    }}
+                  />
+                  <p className='text-xs text-muted-foreground'>
+                    For CSV, row 1 is headers. For Excel, the first sheet and row 1 are used as headers.
+                  </p>
+                </div>
+              )}
 
-              <Button onClick={createTab}>Create tab</Button>
+              <Button onClick={createTabMode === 'manual' ? createTab : createTabByImport} disabled={importLoading}>
+                {createTabMode === 'manual' ? 'Create tab' : importLoading ? 'Importing...' : 'Import & create tab'}
+              </Button>
               {notice && <p className='text-sm text-muted-foreground'>{notice}</p>}
             </CardContent>
           </Card>
