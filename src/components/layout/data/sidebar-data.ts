@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   Monitor,
-  HelpCircle,
   Bell,
   Palette,
   Settings,
@@ -10,7 +9,6 @@ import {
   Users,
   FolderTree,
   Table2,
-  MessagesSquare,
   FileBarChart2,
   AudioWaveform,
   Command,
@@ -49,12 +47,6 @@ export const sidebarData: SidebarData = {
           title: 'Dashboard',
           url: '/',
           icon: LayoutDashboard,
-        },
-        {
-          title: 'Chats',
-          url: '/chats',
-          badge: '3',
-          icon: MessagesSquare,
         },
         {
           title: 'Users',
@@ -202,11 +194,6 @@ export const sidebarData: SidebarData = {
               icon: Monitor,
             },
           ],
-        },
-        {
-          title: 'Help Center',
-          url: '/help-center',
-          icon: HelpCircle,
         },
       ],
     },
