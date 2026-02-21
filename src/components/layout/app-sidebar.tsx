@@ -14,6 +14,7 @@ import { useAuthStore } from '@/stores/auth-store'
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
 const PENDING_SIDEBAR_ORDER_KEY = 'pending_sidebar_order_payload'
+const SIDEBAR_ORDER_CACHE_KEY = 'global_sidebar_order_cache'
 
 const adminOnlyTitles = new Set(['User Management', 'Category Management', 'Table Management'])
 
@@ -159,7 +160,19 @@ export function AppSidebar() {
   const userRoles = user?.role ?? []
   const isAdmin = userRoles.includes('admin')
   const [remoteNavGroups, setRemoteNavGroups] = useState<NavGroupType[] | null>(null)
-  const [sidebarOrder, setSidebarOrder] = useState<PersistedSidebarOrder | null>(null)
+  const [sidebarOrder, setSidebarOrder] = useState<PersistedSidebarOrder | null>(() => {
+    if (typeof window === 'undefined') return null
+
+    const cachedOrder = window.localStorage.getItem(SIDEBAR_ORDER_CACHE_KEY)
+    if (!cachedOrder) return null
+
+    try {
+      return parsePersistedOrder(JSON.parse(cachedOrder))
+    } catch {
+      window.localStorage.removeItem(SIDEBAR_ORDER_CACHE_KEY)
+      return null
+    }
+  })
 
   const filteredNavGroups = useMemo(
     () => filterAdminOnlyItems(remoteNavGroups ?? sidebarData.navGroups, isAdmin),
@@ -185,6 +198,7 @@ export function AppSidebar() {
       }
 
       window.localStorage.removeItem(PENDING_SIDEBAR_ORDER_KEY)
+      window.localStorage.setItem(SIDEBAR_ORDER_CACHE_KEY, JSON.stringify(payload))
       window.dispatchEvent(new Event('sidebar-order-updated'))
     } catch {
       window.localStorage.setItem(PENDING_SIDEBAR_ORDER_KEY, JSON.stringify(payload))
@@ -226,7 +240,14 @@ export function AppSidebar() {
 
         if (orderResponse.ok) {
           const orderData = (await orderResponse.json()) as unknown
-          setSidebarOrder(parsePersistedOrder(orderData))
+          const parsedOrder = parsePersistedOrder(orderData)
+          setSidebarOrder(parsedOrder)
+
+          if (parsedOrder) {
+            window.localStorage.setItem(SIDEBAR_ORDER_CACHE_KEY, JSON.stringify(parsedOrder))
+          } else {
+            window.localStorage.removeItem(SIDEBAR_ORDER_CACHE_KEY)
+          }
         }
 
         if (isAdmin) {
@@ -238,6 +259,7 @@ export function AppSidebar() {
                 const isSaved = await saveSidebarOrderToServer(pendingPayload)
                 if (isSaved) {
                   window.localStorage.removeItem(PENDING_SIDEBAR_ORDER_KEY)
+                  window.localStorage.setItem(SIDEBAR_ORDER_CACHE_KEY, JSON.stringify(pendingPayload))
                   setSidebarOrder(pendingPayload)
                 }
               }
