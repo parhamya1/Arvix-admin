@@ -196,31 +196,36 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
         fileContentBase64,
       }
 
-      let res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
+      const endpoints = [
+        `${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs`,
+        `${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs/import`,
+        `${backendBaseUrl}/api/dynamic-tables/import`,
+      ]
 
-      if (res.status === 404) {
-        res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs/import`, {
+      let res: Response | null = null
+      let lastMessage = ''
+
+      for (const endpoint of endpoints) {
+        res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
+
+        if (res.ok) break
+
+        const errorPayload = (await res.json().catch(() => null)) as { message?: string } | null
+        lastMessage = errorPayload?.message ?? ''
+
+        const shouldTryNextEndpoint =
+          res.status === 404 ||
+          lastMessage.toLowerCase().includes('name and columns[] are required')
+
+        if (!shouldTryNextEndpoint) break
       }
 
-      if (res.status === 404) {
-        res = await fetch(`${backendBaseUrl}/api/dynamic-tables/import`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-      }
-
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as { message?: string } | null
-        setImportError(payload?.message ?? `Import failed (HTTP ${res.status}).`)
+      if (!res || !res.ok) {
+        setImportError(lastMessage || `Import failed (HTTP ${res?.status ?? 'unknown'}).`)
         return
       }
 
