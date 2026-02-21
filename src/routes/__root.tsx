@@ -1,6 +1,5 @@
 import { type QueryClient } from '@tanstack/react-query'
 import { Link, createRootRouteWithContext, Outlet } from '@tanstack/react-router'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { MessageCircle } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import { Button } from '@/components/ui/button'
@@ -34,11 +33,6 @@ export const Route = createRootRouteWithContext<{
             <TooltipContent>Do you need support?</TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        {import.meta.env.MODE === 'development' && (
-          <>
-            <ReactQueryDevtools buttonPosition='bottom-left' />
-          </>
-        )}
       </>
     )
   },

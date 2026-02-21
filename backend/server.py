@@ -118,6 +118,12 @@ def init_db() -> None:
               data_json TEXT NOT NULL,
               created_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS sidebar_layout (
+              id TEXT PRIMARY KEY,
+              layout_json TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
             """
         )
         ensure_column(conn, 'sidebar_items', 'display_mode', "TEXT NOT NULL DEFAULT 'hierarchy'")
@@ -216,6 +222,53 @@ def flatten_sidebar(rows: list[sqlite3.Row]) -> list[dict]:
         }
         for row in rows
     ]
+
+
+
+def is_valid_sidebar_layout(payload: object) -> bool:
+    if not isinstance(payload, dict):
+        return False
+
+    group_order = payload.get('groupOrder')
+    item_order_by_group = payload.get('itemOrderByGroup')
+
+    if not isinstance(group_order, list) or not all(isinstance(item, str) for item in group_order):
+        return False
+
+    if not isinstance(item_order_by_group, dict):
+        return False
+
+    for key, value in item_order_by_group.items():
+        if not isinstance(key, str):
+            return False
+        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+            return False
+
+    return True
+
+
+def normalize_sidebar_layout(payload: dict) -> dict:
+    return {
+        'groupOrder': payload.get('groupOrder', []),
+        'itemOrderByGroup': payload.get('itemOrderByGroup', {}),
+    }
+
+
+def upsert_sidebar_layout(payload: dict) -> None:
+    with _db_lock:
+        conn = get_conn()
+        conn.execute(
+            '''
+            INSERT INTO sidebar_layout (id, layout_json, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              layout_json=excluded.layout_json,
+              updated_at=excluded.updated_at
+            ''',
+            ('global', json.dumps(payload), utc_now()),
+        )
+        conn.commit()
+        conn.close()
 
 
 def normalize_column_key(label: str, index: int) -> str:
@@ -434,6 +487,27 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 200, {'ok': True})
             return
 
+        if path == '/api/sidebar-order':
+            with _db_lock:
+                conn = get_conn()
+                row = conn.execute(
+                    'SELECT layout_json FROM sidebar_layout WHERE id=?',
+                    ('global',),
+                ).fetchone()
+                conn.close()
+
+            if not row:
+                send_json(self, 200, {'groupOrder': [], 'itemOrderByGroup': {}})
+                return
+
+            try:
+                payload = json.loads(row['layout_json'])
+            except json.JSONDecodeError:
+                payload = {'groupOrder': [], 'itemOrderByGroup': {}}
+
+            send_json(self, 200, normalize_sidebar_layout(payload if isinstance(payload, dict) else {}))
+            return
+
         if path in ('/api/sidebar-config', '/api/sidebar-items'):
             with _db_lock:
                 conn = get_conn()
@@ -568,6 +642,16 @@ class Handler(BaseHTTPRequestHandler):
             body = parse_json(self)
         except json.JSONDecodeError:
             send_json(self, 400, {'message': 'Invalid JSON'})
+            return
+
+        if path == '/api/sidebar-order':
+            if not is_valid_sidebar_layout(body):
+                send_json(self, 400, {'message': 'Invalid sidebar order payload'})
+                return
+
+            payload = normalize_sidebar_layout(body)
+            upsert_sidebar_layout(payload)
+            send_json(self, 200, {'ok': True})
             return
 
         if path == '/api/sidebar-items':
@@ -744,6 +828,15 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 400, {'message': 'Invalid JSON'})
             return
 
+        if path == '/api/sidebar-order':
+            if not is_valid_sidebar_layout(body):
+                send_json(self, 400, {'message': 'Invalid sidebar order payload'})
+                return
+
+            payload = normalize_sidebar_layout(body)
+            upsert_sidebar_layout(payload)
+            send_json(self, 200, {'ok': True})
+            return
 
         if path.startswith('/api/dynamic-tables/') and len(path.strip('/').split('/')) == 3:
             table_id = path.strip('/').split('/')[2]
