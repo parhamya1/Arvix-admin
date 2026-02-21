@@ -16,6 +16,11 @@ const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:400
 
 const adminOnlyTitles = new Set(['User Management', 'Category Management', 'Table Management'])
 
+type PersistedSidebarOrder = {
+  groupOrder: string[]
+  itemOrderByGroup: Record<string, string[]>
+}
+
 const isCollapsible = (item: NavItem): item is NavCollapsible =>
   Array.isArray((item as { items?: unknown }).items)
 
@@ -50,65 +55,163 @@ const moveArrayItem = <T,>(list: T[], fromIndex: number, toIndex: number): T[] =
   return next
 }
 
+const buildPersistedOrder = (groups: NavGroupType[]): PersistedSidebarOrder => ({
+  groupOrder: groups.map((group) => group.title),
+  itemOrderByGroup: Object.fromEntries(
+    groups.map((group) => [group.title, group.items.map((item) => item.title)])
+  ),
+})
+
+const reorderByTitle = <T extends { title: string }>(items: T[], orderedTitles: string[]) => {
+  if (orderedTitles.length === 0) return items
+
+  const grouped = new Map<string, T[]>()
+  items.forEach((item) => {
+    const list = grouped.get(item.title)
+    if (list) {
+      list.push(item)
+      return
+    }
+    grouped.set(item.title, [item])
+  })
+
+  const orderedItems: T[] = []
+  orderedTitles.forEach((title) => {
+    const list = grouped.get(title)
+    if (!list || list.length === 0) return
+    orderedItems.push(...list)
+    grouped.delete(title)
+  })
+
+  grouped.forEach((remaining) => orderedItems.push(...remaining))
+
+  return orderedItems
+}
+
+const applyPersistedOrder = (
+  groups: NavGroupType[],
+  persistedOrder: PersistedSidebarOrder
+): NavGroupType[] => {
+  const orderedGroups = reorderByTitle(groups, persistedOrder.groupOrder)
+
+  return orderedGroups.map((group) => ({
+    ...group,
+    items: reorderByTitle(group.items, persistedOrder.itemOrderByGroup[group.title] ?? []),
+  }))
+}
+
+const parsePersistedOrder = (payload: unknown): PersistedSidebarOrder | null => {
+  if (!payload || typeof payload !== 'object') return null
+
+  const maybeOrder = payload as {
+    groupOrder?: unknown
+    itemOrderByGroup?: unknown
+  }
+
+  if (!Array.isArray(maybeOrder.groupOrder)) return null
+  if (!maybeOrder.groupOrder.every((item) => typeof item === 'string')) return null
+
+  if (!maybeOrder.itemOrderByGroup || typeof maybeOrder.itemOrderByGroup !== 'object') return null
+  const entryValues = Object.values(maybeOrder.itemOrderByGroup)
+  if (!entryValues.every((value) => Array.isArray(value) && value.every((item) => typeof item === 'string'))) {
+    return null
+  }
+
+  return {
+    groupOrder: maybeOrder.groupOrder,
+    itemOrderByGroup: maybeOrder.itemOrderByGroup as Record<string, string[]>,
+  }
+}
+
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
   const userRoles = useAuthStore((state) => state.auth.user?.role ?? [])
   const isAdmin = userRoles.includes('admin')
   const [remoteNavGroups, setRemoteNavGroups] = useState<NavGroupType[] | null>(null)
-  const [orderedNavGroups, setOrderedNavGroups] = useState<NavGroupType[] | null>(null)
+  const [sidebarOrder, setSidebarOrder] = useState<PersistedSidebarOrder | null>(null)
 
   const filteredNavGroups = useMemo(
     () => filterAdminOnlyItems(remoteNavGroups ?? sidebarData.navGroups, isAdmin),
     [isAdmin, remoteNavGroups]
   )
 
-  const navGroups = isAdmin ? orderedNavGroups ?? filteredNavGroups : filteredNavGroups
+  const navGroups = useMemo(() => {
+    if (!sidebarOrder) return filteredNavGroups
+    return applyPersistedOrder(filteredNavGroups, sidebarOrder)
+  }, [filteredNavGroups, sidebarOrder])
+
+  const persistOrder = async (groups: NavGroupType[]) => {
+    if (!isAdmin) return
+
+    const payload = buildPersistedOrder(groups)
+    setSidebarOrder(payload)
+
+    try {
+      const response = await fetch(`${backendBaseUrl}/api/sidebar-order`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) return
+      window.dispatchEvent(new Event('sidebar-order-updated'))
+    } catch {
+      // keep optimistic order in current session if backend is unavailable
+    }
+  }
+
   useEffect(() => {
     const controller = new AbortController()
 
-    const loadSidebarConfig = async () => {
+    const loadSidebarState = async () => {
       try {
-        const response = await fetch(`${backendBaseUrl}/api/sidebar-config`, {
-          signal: controller.signal,
-        })
+        const [configResponse, orderResponse] = await Promise.all([
+          fetch(`${backendBaseUrl}/api/sidebar-config`, {
+            signal: controller.signal,
+          }),
+          fetch(`${backendBaseUrl}/api/sidebar-order`, {
+            signal: controller.signal,
+          }),
+        ])
 
-        if (!response.ok) return
+        if (configResponse.ok) {
+          const configData = (await configResponse.json()) as { navGroups?: NavGroupType[] }
 
-        const data = (await response.json()) as { navGroups?: NavGroupType[] }
+          if (Array.isArray(configData.navGroups) && configData.navGroups.length > 0) {
+            const merged = sidebarData.navGroups.map((group) => ({ ...group, items: [...group.items] }))
 
-        if (!Array.isArray(data.navGroups) || data.navGroups.length === 0) return
+            configData.navGroups.forEach((remoteGroup) => {
+              const target = merged.find((group) => group.title === remoteGroup.title)
+              if (target) {
+                target.items = [...target.items, ...remoteGroup.items]
+              } else {
+                merged.push(remoteGroup)
+              }
+            })
 
-        const merged = sidebarData.navGroups.map((group) => ({ ...group, items: [...group.items] }))
-
-        data.navGroups.forEach((remoteGroup) => {
-          const target = merged.find((group) => group.title === remoteGroup.title)
-          if (target) {
-            target.items = [...target.items, ...remoteGroup.items]
-          } else {
-            merged.push(remoteGroup)
+            setRemoteNavGroups(merged)
           }
-        })
+        }
 
-        setRemoteNavGroups(merged)
+        if (orderResponse.ok) {
+          const orderData = (await orderResponse.json()) as unknown
+          setSidebarOrder(parsePersistedOrder(orderData))
+        }
       } catch {
         // fallback to static sidebar config
       }
     }
 
-    const handleSidebarUpdate = () => {
-      loadSidebarConfig()
-    }
-
-    loadSidebarConfig()
-    window.addEventListener('sidebar-config-updated', handleSidebarUpdate)
+    loadSidebarState()
+    window.addEventListener('sidebar-config-updated', loadSidebarState)
+    window.addEventListener('sidebar-order-updated', loadSidebarState)
 
     return () => {
       controller.abort()
-      window.removeEventListener('sidebar-config-updated', handleSidebarUpdate)
+      window.removeEventListener('sidebar-config-updated', loadSidebarState)
+      window.removeEventListener('sidebar-order-updated', loadSidebarState)
     }
   }, [])
-
-  const ensureAdminGroups = () => orderedNavGroups ?? filteredNavGroups
 
   const handleGroupDrop = (event: DragEvent<HTMLDivElement>, targetIndex: number) => {
     if (!isAdmin) return
@@ -119,7 +222,8 @@ export function AppSidebar() {
     if (Number.isNaN(sourceIndex)) return
 
     event.preventDefault()
-    setOrderedNavGroups(moveArrayItem(ensureAdminGroups(), sourceIndex, targetIndex))
+    const nextGroups = moveArrayItem(navGroups, sourceIndex, targetIndex)
+    void persistOrder(nextGroups)
   }
 
   const handleItemMove = (
@@ -130,8 +234,7 @@ export function AppSidebar() {
   ) => {
     if (!isAdmin) return
 
-    const current = ensureAdminGroups()
-    const next = current.map((group) => ({ ...group, items: [...group.items] }))
+    const next = navGroups.map((group) => ({ ...group, items: [...group.items] }))
     const sourceGroup = next[sourceGroupIndex]
     const targetGroup = next[targetGroupIndex]
 
@@ -141,7 +244,7 @@ export function AppSidebar() {
     if (!movedItem) return
 
     targetGroup.items.splice(targetItemIndex, 0, movedItem)
-    setOrderedNavGroups(next)
+    void persistOrder(next)
   }
 
   return (
