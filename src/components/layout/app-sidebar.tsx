@@ -4,7 +4,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
-  SidebarRail,
 } from '@/components/ui/sidebar'
 // import { AppTitle } from './app-title'
 import { sidebarData } from './data/sidebar-data'
@@ -141,12 +140,7 @@ export function AppSidebar() {
     const [movedItem] = sourceGroup.items.splice(sourceItemIndex, 1)
     if (!movedItem) return
 
-    const insertIndex =
-      sourceGroupIndex === targetGroupIndex && sourceItemIndex < targetItemIndex
-        ? targetItemIndex - 1
-        : targetItemIndex
-
-    targetGroup.items.splice(insertIndex, 0, movedItem)
+    targetGroup.items.splice(targetItemIndex, 0, movedItem)
     setOrderedNavGroups(next)
   }
 
@@ -182,7 +176,6 @@ export function AppSidebar() {
           </div>
         ))}
       </SidebarContent>
-      <SidebarRail />
     </Sidebar>
   )
 }
