@@ -5,6 +5,12 @@ import os
 import sqlite3
 import threading
 import uuid
+import base64
+import csv
+import io
+import zipfile
+import xml.etree.ElementTree as ET
+import re
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
@@ -212,6 +218,151 @@ def flatten_sidebar(rows: list[sqlite3.Row]) -> list[dict]:
     ]
 
 
+def normalize_column_key(label: str, index: int) -> str:
+    normalized = re.sub(r'[^a-zA-Z0-9]+', '_', label.strip().lower()).strip('_')
+    return normalized or f'field_{index + 1}'
+
+
+def infer_column_type(values: list[object]) -> str:
+    non_empty = [value for value in values if value not in ('', None)]
+    if not non_empty:
+        return 'text'
+
+    if all(isinstance(value, bool) for value in non_empty):
+        return 'boolean'
+
+    def is_number(value: object) -> bool:
+        if isinstance(value, bool):
+            return False
+        if isinstance(value, (int, float)):
+            return True
+        if isinstance(value, str):
+            try:
+                float(value.strip())
+                return True
+            except ValueError:
+                return False
+        return False
+
+    if all(is_number(value) for value in non_empty):
+        return 'number'
+
+    def is_date(value: object) -> bool:
+        if not isinstance(value, str):
+            return False
+        text = value.strip()
+        if not text:
+            return False
+        if text.endswith('Z'):
+            text = text[:-1] + '+00:00'
+        try:
+            datetime.fromisoformat(text)
+            return True
+        except ValueError:
+            return False
+
+    if all(is_date(value) for value in non_empty):
+        return 'date'
+
+    return 'text'
+
+
+def parse_csv_content(content: bytes) -> tuple[list[str], list[dict[str, object]]]:
+    decoded = content.decode('utf-8-sig')
+    reader = csv.DictReader(io.StringIO(decoded))
+    headers = reader.fieldnames or []
+    rows = []
+    for row in reader:
+        rows.append({header: (row.get(header) or '').strip() for header in headers})
+    return headers, rows
+
+
+def parse_xlsx_content(content: bytes) -> tuple[list[str], list[dict[str, object]]]:
+    with zipfile.ZipFile(io.BytesIO(content)) as workbook:
+        shared_strings: list[str] = []
+        if 'xl/sharedStrings.xml' in workbook.namelist():
+            shared_tree = ET.fromstring(workbook.read('xl/sharedStrings.xml'))
+            ns = {'s': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+            for item in shared_tree.findall('s:si', ns):
+                text_parts = [node.text or '' for node in item.findall('.//s:t', ns)]
+                shared_strings.append(''.join(text_parts))
+
+        sheet_name = 'xl/worksheets/sheet1.xml'
+        if sheet_name not in workbook.namelist():
+            return [], []
+
+        tree = ET.fromstring(workbook.read(sheet_name))
+        ns = {'s': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+
+        matrix: list[list[object]] = []
+        for row_node in tree.findall('.//s:sheetData/s:row', ns):
+            row_values: list[object] = []
+            for cell in row_node.findall('s:c', ns):
+                cell_type = cell.attrib.get('t')
+                value_node = cell.find('s:v', ns)
+                value: object = ''
+                if value_node is not None and value_node.text is not None:
+                    raw_value = value_node.text
+                    if cell_type == 's':
+                        value = shared_strings[int(raw_value)] if raw_value.isdigit() else ''
+                    elif cell_type == 'b':
+                        value = raw_value == '1'
+                    else:
+                        value = raw_value
+                row_values.append(value)
+            matrix.append(row_values)
+
+    if not matrix:
+        return [], []
+
+    headers = [str(item).strip() for item in matrix[0] if str(item).strip()]
+    rows: list[dict[str, object]] = []
+    for raw_row in matrix[1:]:
+        if len(raw_row) < len(headers):
+            raw_row = raw_row + [''] * (len(headers) - len(raw_row))
+        row_payload = {}
+        for idx, header in enumerate(headers):
+            row_payload[header] = raw_row[idx] if idx < len(raw_row) else ''
+        rows.append(row_payload)
+    return headers, rows
+
+
+def build_columns_and_rows(headers: list[str], rows: list[dict[str, object]]) -> tuple[list[dict], list[dict]]:
+    if not headers:
+        return [], []
+
+    unique_keys: set[str] = set()
+    columns: list[dict] = []
+    row_payloads: list[dict] = []
+
+    for index, header in enumerate(headers):
+        label = header.strip() or f'Column {index + 1}'
+        key = normalize_column_key(label, index)
+        while key in unique_keys:
+            key = f'{key}_{index + 1}'
+        unique_keys.add(key)
+
+        values = [row.get(header, '') for row in rows]
+        col_type = infer_column_type(values)
+        columns.append({'key': key, 'label': label, 'type': col_type})
+
+    for row in rows:
+        mapped_row: dict[str, object] = {}
+        for index, header in enumerate(headers):
+            column = columns[index]
+            value = row.get(header, '')
+            if column['type'] == 'number' and value not in ('', None):
+                try:
+                    mapped_row[column['key']] = float(value)
+                except (ValueError, TypeError):
+                    mapped_row[column['key']] = value
+            else:
+                mapped_row[column['key']] = value
+        row_payloads.append(mapped_row)
+
+    return columns, row_payloads
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         send_json(self, 204)
@@ -351,6 +502,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        normalized_path = path.rstrip('/') or '/'
+        path_parts = normalized_path.strip('/').split('/') if normalized_path != '/' else []
         try:
             body = parse_json(self)
         except json.JSONDecodeError:
@@ -449,8 +602,8 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 201, {'id': page_id})
             return
 
-        if path.startswith('/api/dynamic-pages/') and path.endswith('/tabs'):
-            page_id = path.strip('/').split('/')[2]
+        if len(path_parts) == 4 and path_parts[0] == 'api' and path_parts[1] == 'dynamic-pages' and path_parts[3] == 'tabs':
+            page_id = path_parts[2]
             if not body.get('name') or not isinstance(body.get('columns'), list) or len(body['columns']) == 0:
                 send_json(self, 400, {'message': 'name and columns[] are required'})
                 return
@@ -476,6 +629,147 @@ class Handler(BaseHTTPRequestHandler):
                 send_json(self, 409, {'message': 'Tab name must be unique and page must be valid'})
                 return
             send_json(self, 201, {'id': table_id})
+            return
+
+        if len(path_parts) == 5 and path_parts[0] == 'api' and path_parts[1] == 'dynamic-pages' and path_parts[3] == 'tabs' and path_parts[4] == 'import':
+            page_id = path_parts[2]
+            name = (body.get('name') or '').strip()
+            file_name = (body.get('fileName') or '').strip().lower()
+            file_content = body.get('fileContentBase64')
+
+            if not name:
+                send_json(self, 400, {'message': 'name is required'})
+                return
+
+            if not file_content or not isinstance(file_content, str):
+                send_json(self, 400, {'message': 'fileContentBase64 is required'})
+                return
+
+            try:
+                binary = base64.b64decode(file_content)
+            except Exception:
+                send_json(self, 400, {'message': 'Invalid fileContentBase64'})
+                return
+
+            try:
+                if file_name.endswith('.csv'):
+                    headers, parsed_rows = parse_csv_content(binary)
+                elif file_name.endswith('.xlsx'):
+                    headers, parsed_rows = parse_xlsx_content(binary)
+                else:
+                    send_json(self, 400, {'message': 'Only CSV and XLSX files are supported'})
+                    return
+            except Exception:
+                send_json(self, 400, {'message': 'Failed to parse import file'})
+                return
+
+            columns, imported_rows = build_columns_and_rows(headers, parsed_rows)
+            if len(columns) == 0:
+                send_json(self, 400, {'message': 'File has no usable header columns'})
+                return
+
+            table_id = str(uuid.uuid4())
+            try:
+                with _db_lock:
+                    conn = get_conn()
+                    duplicate = conn.execute(
+                        'SELECT id FROM dynamic_tables WHERE page_id=? AND LOWER(name)=LOWER(?)',
+                        (page_id, name),
+                    ).fetchone()
+                    if duplicate:
+                        conn.close()
+                        send_json(self, 409, {'message': 'Tab name must be unique within the selected page'})
+                        return
+
+                    conn.execute(
+                        'INSERT INTO dynamic_tables (id, name, columns_json, sidebar_item_id, page_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+                        (table_id, name, json.dumps(columns), None, page_id, utc_now()),
+                    )
+
+                    for row in imported_rows:
+                        conn.execute(
+                            'INSERT INTO dynamic_table_rows (id, table_id, data_json, created_at) VALUES (?, ?, ?, ?)',
+                            (str(uuid.uuid4()), table_id, json.dumps(row), utc_now()),
+                        )
+                    conn.commit()
+                    conn.close()
+            except sqlite3.IntegrityError:
+                send_json(self, 409, {'message': 'Tab name must be unique and page must be valid'})
+                return
+
+            send_json(self, 201, {'id': table_id, 'importedRows': len(imported_rows)})
+            return
+
+        if normalized_path == '/api/dynamic-tables/import':
+            page_id = (body.get('pageId') or '').strip() if isinstance(body.get('pageId'), str) else body.get('pageId')
+            if not page_id:
+                send_json(self, 400, {'message': 'pageId is required'})
+                return
+            name = (body.get('name') or '').strip()
+            file_name = (body.get('fileName') or '').strip().lower()
+            file_content = body.get('fileContentBase64')
+
+            if not name:
+                send_json(self, 400, {'message': 'name is required'})
+                return
+
+            if not file_content or not isinstance(file_content, str):
+                send_json(self, 400, {'message': 'fileContentBase64 is required'})
+                return
+
+            try:
+                binary = base64.b64decode(file_content)
+            except Exception:
+                send_json(self, 400, {'message': 'Invalid fileContentBase64'})
+                return
+
+            try:
+                if file_name.endswith('.csv'):
+                    headers, parsed_rows = parse_csv_content(binary)
+                elif file_name.endswith('.xlsx'):
+                    headers, parsed_rows = parse_xlsx_content(binary)
+                else:
+                    send_json(self, 400, {'message': 'Only CSV and XLSX files are supported'})
+                    return
+            except Exception:
+                send_json(self, 400, {'message': 'Failed to parse import file'})
+                return
+
+            columns, imported_rows = build_columns_and_rows(headers, parsed_rows)
+            if len(columns) == 0:
+                send_json(self, 400, {'message': 'File has no usable header columns'})
+                return
+
+            table_id = str(uuid.uuid4())
+            try:
+                with _db_lock:
+                    conn = get_conn()
+                    duplicate = conn.execute(
+                        'SELECT id FROM dynamic_tables WHERE page_id=? AND LOWER(name)=LOWER(?)',
+                        (page_id, name),
+                    ).fetchone()
+                    if duplicate:
+                        conn.close()
+                        send_json(self, 409, {'message': 'Tab name must be unique within the selected page'})
+                        return
+
+                    conn.execute(
+                        'INSERT INTO dynamic_tables (id, name, columns_json, sidebar_item_id, page_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+                        (table_id, name, json.dumps(columns), None, page_id, utc_now()),
+                    )
+
+                    for row in imported_rows:
+                        conn.execute(
+                            'INSERT INTO dynamic_table_rows (id, table_id, data_json, created_at) VALUES (?, ?, ?, ?)',
+                            (str(uuid.uuid4()), table_id, json.dumps(row), utc_now()),
+                        )
+                    conn.commit()
+                    conn.close()
+            except sqlite3.IntegrityError:
+                send_json(self, 409, {'message': 'Tab name must be unique and page must be valid'})
+                return
+
+            send_json(self, 201, {'id': table_id, 'importedRows': len(imported_rows)})
             return
 
         if path.startswith('/api/dynamic-tables/') and path.endswith('/rows'):
