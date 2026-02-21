@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { parseImportFile } from '@/lib/table-import'
 import { type ExportFormat, exportTableData } from '@/lib/table-export'
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
@@ -169,67 +170,45 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
     setNewRow({})
   }
 
-  const fileToBase64 = async (file: File) => {
-    const arrayBuffer = await file.arrayBuffer()
-    let binary = ''
-    const bytes = new Uint8Array(arrayBuffer)
-    const chunkSize = 0x8000
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.subarray(i, i + chunkSize)
-      binary += String.fromCharCode(...chunk)
-    }
-    return btoa(binary)
-  }
-
   const importTabFromFile = async () => {
     if (!newTabName.trim() || !importFile) return
 
     try {
       setImportLoading(true)
       setImportError('')
-      const fileContentBase64 = await fileToBase64(importFile)
+      const imported = await parseImportFile(importFile)
 
-      const payload = {
-        pageId,
-        name: newTabName.trim(),
-        fileName: importFile.name,
-        fileContentBase64,
-      }
+      const createTabResponse = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newTabName.trim(),
+          columns: imported.columns,
+        }),
+      })
 
-      const endpoints = [
-        `${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs`,
-        `${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs/import`,
-        `${backendBaseUrl}/api/dynamic-tables/import`,
-      ]
-
-      let res: Response | null = null
-      let lastMessage = ''
-
-      for (const endpoint of endpoints) {
-        res = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-
-        if (res.ok) break
-
-        const errorPayload = (await res.json().catch(() => null)) as { message?: string } | null
-        lastMessage = errorPayload?.message ?? ''
-
-        const shouldTryNextEndpoint =
-          res.status === 404 ||
-          lastMessage.toLowerCase().includes('name and columns[] are required')
-
-        if (!shouldTryNextEndpoint) break
-      }
-
-      if (!res || !res.ok) {
-        setImportError(lastMessage || `Import failed (HTTP ${res?.status ?? 'unknown'}).`)
+      if (!createTabResponse.ok) {
+        const errorPayload = (await createTabResponse.json().catch(() => null)) as { message?: string } | null
+        setImportError(errorPayload?.message ?? `Create tab failed (HTTP ${createTabResponse.status}).`)
         return
       }
 
-      const created = (await res.json()) as { id: string }
+      const created = (await createTabResponse.json()) as { id: string }
+
+      for (const row of imported.rows) {
+        const saveRowResponse = await fetch(`${backendBaseUrl}/api/dynamic-tables/${created.id}/rows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: row }),
+        })
+
+        if (!saveRowResponse.ok) {
+          const errorPayload = (await saveRowResponse.json().catch(() => null)) as { message?: string } | null
+          setImportError(errorPayload?.message ?? `Row insert failed (HTTP ${saveRowResponse.status}).`)
+          return
+        }
+      }
+
       setNewTabName('')
       setImportFile(null)
       setAddTabDialogOpen(false)
