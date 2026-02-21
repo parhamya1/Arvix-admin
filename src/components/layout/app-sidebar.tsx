@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLayout } from '@/context/layout-provider'
 import {
   Sidebar,
@@ -10,15 +10,51 @@ import {
 // import { AppTitle } from './app-title'
 import { sidebarData } from './data/sidebar-data'
 import { NavGroup } from './nav-group'
-import { type NavGroup as NavGroupType } from './types'
+import { type NavCollapsible, type NavGroup as NavGroupType, type NavItem } from './types'
 import { NavUser } from './nav-user'
 import { TeamSwitcher } from './team-switcher'
+import { useAuthStore } from '@/stores/auth-store'
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
 
+const adminOnlyTitles = new Set(['User Management', 'Category Management', 'Table Management'])
+
+const isCollapsible = (item: NavItem): item is NavCollapsible =>
+  Array.isArray((item as { items?: unknown }).items)
+
+const filterAdminOnlyItems = (groups: NavGroupType[], isAdmin: boolean): NavGroupType[] => {
+  if (isAdmin) return groups
+
+  const filterItems = (items: NavItem[]): NavItem[] =>
+    items
+      .filter((item) => !adminOnlyTitles.has(item.title))
+      .map((item) => {
+        if (!isCollapsible(item)) return item
+        return {
+          ...item,
+          items: filterItems(item.items),
+        }
+      })
+      .filter((item) => !isCollapsible(item) || item.items.length > 0)
+
+  return groups
+    .map((group) => ({
+      ...group,
+      items: filterItems(group.items),
+    }))
+    .filter((group) => group.items.length > 0)
+}
+
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
-  const [navGroups, setNavGroups] = useState<NavGroupType[]>(sidebarData.navGroups)
+  const userRoles = useAuthStore((state) => state.auth.user?.role ?? [])
+  const isAdmin = userRoles.includes('admin')
+  const [remoteNavGroups, setRemoteNavGroups] = useState<NavGroupType[] | null>(null)
+
+  const navGroups = useMemo(
+    () => filterAdminOnlyItems(remoteNavGroups ?? sidebarData.navGroups, isAdmin),
+    [isAdmin, remoteNavGroups]
+  )
 
   useEffect(() => {
     const controller = new AbortController()
@@ -46,7 +82,7 @@ export function AppSidebar() {
           }
         })
 
-        setNavGroups(merged)
+        setRemoteNavGroups(merged)
       } catch {
         // fallback to static sidebar config
       }
