@@ -64,7 +64,7 @@ export function UserAuthForm({
 
     const mockUser = {
       accountNo: 'ACC001',
-      email: `${data.username}@local.dev`,
+      email: `${data.username}@arvix.com`,
       role: [record.role],
       exp: 4102444800000,
     }
