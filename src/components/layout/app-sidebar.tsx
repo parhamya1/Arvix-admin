@@ -16,26 +16,6 @@ const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:400
 
 const adminOnlyTitles = new Set(['User Management', 'Category Management', 'Table Management'])
 
-type SidebarOrderPreference = {
-  groupOrder: string[]
-  itemOrders: Record<string, string[]>
-}
-
-const isValidSidebarOrderPreference = (value: unknown): value is SidebarOrderPreference => {
-  if (!value || typeof value !== 'object') return false
-
-  const candidate = value as {
-    groupOrder?: unknown
-    itemOrders?: unknown
-  }
-
-  if (!Array.isArray(candidate.groupOrder) || typeof candidate.itemOrders !== 'object') {
-    return false
-  }
-
-  return candidate.groupOrder.every((title) => typeof title === 'string')
-}
-
 const isCollapsible = (item: NavItem): item is NavCollapsible =>
   Array.isArray((item as { items?: unknown }).items)
 
@@ -70,91 +50,16 @@ const moveArrayItem = <T,>(list: T[], fromIndex: number, toIndex: number): T[] =
   return next
 }
 
-const buildOrderPreference = (groups: NavGroupType[]): SidebarOrderPreference => ({
-  groupOrder: groups.map((group) => group.title),
-  itemOrders: Object.fromEntries(
-    groups.map((group) => [group.title, group.items.map((item) => item.title)])
-  ),
-})
-
-const applyOrderPreference = (
-  groups: NavGroupType[],
-  preference: SidebarOrderPreference | null
-): NavGroupType[] => {
-  if (!preference) return groups
-
-  const groupMap = new Map(groups.map((group) => [group.title, group]))
-  const orderedGroups = preference.groupOrder
-    .map((title) => groupMap.get(title))
-    .filter((group): group is NavGroupType => Boolean(group))
-
-  groups.forEach((group) => {
-    if (!preference.groupOrder.includes(group.title)) {
-      orderedGroups.push(group)
-    }
-  })
-
-  return orderedGroups.map((group) => {
-    const itemOrder = preference.itemOrders[group.title]
-    if (!Array.isArray(itemOrder) || itemOrder.length === 0) {
-      return group
-    }
-
-    const itemMap = new Map(group.items.map((item) => [item.title, item]))
-    const orderedItems = itemOrder
-      .map((title) => itemMap.get(title))
-      .filter((item): item is NavItem => Boolean(item))
-
-    group.items.forEach((item) => {
-      if (!itemOrder.includes(item.title)) {
-        orderedItems.push(item)
-      }
-    })
-
-    return {
-      ...group,
-      items: orderedItems,
-    }
-  })
-}
-
-const readSidebarOrderPreference = (storageKey: string | null): SidebarOrderPreference | null => {
-  if (!storageKey || typeof window === 'undefined') return null
-
-  try {
-    const raw = window.localStorage.getItem(storageKey)
-    if (!raw) return null
-
-    const parsed = JSON.parse(raw) as unknown
-    return isValidSidebarOrderPreference(parsed) ? parsed : null
-  } catch {
-    return null
-  }
-}
-
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
-  const user = useAuthStore((state) => state.auth.user)
-  const userRoles = user?.role ?? []
+  const userRoles = useAuthStore((state) => state.auth.user?.role ?? [])
   const isAdmin = userRoles.includes('admin')
-  const canReorder = Boolean(user)
   const [remoteNavGroups, setRemoteNavGroups] = useState<NavGroupType[] | null>(null)
-  const [sidebarOrderPreference, setSidebarOrderPreference] = useState<SidebarOrderPreference | null>(null)
+  const [orderedNavGroups, setOrderedNavGroups] = useState<NavGroupType[] | null>(null)
 
   const filteredNavGroups = useMemo(
     () => filterAdminOnlyItems(remoteNavGroups ?? sidebarData.navGroups, isAdmin),
     [isAdmin, remoteNavGroups]
-  )
-
-  const sidebarOrderStorageKey = user?.email ? `sidebar-order:${user.email}` : null
-
-  useEffect(() => {
-    setSidebarOrderPreference(readSidebarOrderPreference(sidebarOrderStorageKey))
-  }, [sidebarOrderStorageKey])
-
-  const navGroups = useMemo(
-    () => applyOrderPreference(filteredNavGroups, sidebarOrderPreference),
-    [filteredNavGroups, sidebarOrderPreference]
   )
 
   const navGroups = isAdmin ? orderedNavGroups ?? filteredNavGroups : filteredNavGroups
@@ -203,16 +108,10 @@ export function AppSidebar() {
     }
   }, [])
 
-  const saveSidebarOrderPreference = (groups: NavGroupType[]) => {
-    if (!sidebarOrderStorageKey || typeof window === 'undefined') return
-
-    const nextPreference = buildOrderPreference(groups)
-    window.localStorage.setItem(sidebarOrderStorageKey, JSON.stringify(nextPreference))
-    setSidebarOrderPreference(nextPreference)
-  }
+  const ensureAdminGroups = () => orderedNavGroups ?? filteredNavGroups
 
   const handleGroupDrop = (event: DragEvent<HTMLDivElement>, targetIndex: number) => {
-    if (!canReorder) return
+    if (!isAdmin) return
     const payload = event.dataTransfer.getData('application/sidebar-group')
     if (!payload) return
 
@@ -220,8 +119,7 @@ export function AppSidebar() {
     if (Number.isNaN(sourceIndex)) return
 
     event.preventDefault()
-    const next = moveArrayItem(navGroups, sourceIndex, targetIndex)
-    saveSidebarOrderPreference(next)
+    setOrderedNavGroups(moveArrayItem(ensureAdminGroups(), sourceIndex, targetIndex))
   }
 
   const handleItemMove = (
@@ -230,9 +128,10 @@ export function AppSidebar() {
     targetGroupIndex: number,
     targetItemIndex: number
   ) => {
-    if (!canReorder) return
+    if (!isAdmin) return
 
-    const next = navGroups.map((group) => ({ ...group, items: [...group.items] }))
+    const current = ensureAdminGroups()
+    const next = current.map((group) => ({ ...group, items: [...group.items] }))
     const sourceGroup = next[sourceGroupIndex]
     const targetGroup = next[targetGroupIndex]
 
@@ -242,7 +141,7 @@ export function AppSidebar() {
     if (!movedItem) return
 
     targetGroup.items.splice(targetItemIndex, 0, movedItem)
-    saveSidebarOrderPreference(next)
+    setOrderedNavGroups(next)
   }
 
   return (
@@ -258,19 +157,19 @@ export function AppSidebar() {
         {navGroups.map((group, groupIndex) => (
           <div
             key={group.title}
-            draggable={canReorder}
+            draggable={isAdmin}
             onDragStart={(event) => {
-              if (!canReorder) return
+              if (!isAdmin) return
               event.dataTransfer.setData('application/sidebar-group', String(groupIndex))
             }}
             onDragOver={(event) => {
-              if (canReorder) event.preventDefault()
+              if (isAdmin) event.preventDefault()
             }}
             onDrop={(event) => handleGroupDrop(event, groupIndex)}
           >
             <NavGroup
               {...group}
-              draggableItems={canReorder}
+              draggableItems={isAdmin}
               groupIndex={groupIndex}
               onMoveItem={handleItemMove}
             />
