@@ -13,6 +13,7 @@ import { TeamSwitcher } from './team-switcher'
 import { useAuthStore } from '@/stores/auth-store'
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
+const SIDEBAR_ORDER_STORAGE_KEY = 'sidebar_order_admin'
 
 const adminOnlyTitles = new Set(['User Management', 'Category Management', 'Table Management'])
 
@@ -125,7 +126,8 @@ const parsePersistedOrder = (payload: unknown): PersistedSidebarOrder | null => 
 
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
-  const userRoles = useAuthStore((state) => state.auth.user?.role ?? [])
+  const user = useAuthStore((state) => state.auth.user)
+  const userRoles = user?.role ?? []
   const isAdmin = userRoles.includes('admin')
   const [remoteNavGroups, setRemoteNavGroups] = useState<NavGroupType[] | null>(null)
   const [sidebarOrder, setSidebarOrder] = useState<PersistedSidebarOrder | null>(null)
