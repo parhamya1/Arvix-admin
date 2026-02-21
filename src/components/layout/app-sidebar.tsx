@@ -155,7 +155,8 @@ const saveSidebarOrderToServer = async (payload: PersistedSidebarOrder) => {
 
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
-  const userRoles = useAuthStore((state) => state.auth.user?.role ?? [])
+  const user = useAuthStore((state) => state.auth.user)
+  const userRoles = user?.role ?? []
   const isAdmin = userRoles.includes('admin')
   const [remoteNavGroups, setRemoteNavGroups] = useState<NavGroupType[] | null>(null)
   const [sidebarOrder, setSidebarOrder] = useState<PersistedSidebarOrder | null>(null)
