@@ -47,6 +47,10 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
   const [draftFilters, setDraftFilters] = useState<Record<string, string>>({})
   const [newRow, setNewRow] = useState<Record<string, unknown>>({})
   const [newTabName, setNewTabName] = useState('')
+  const [newTabMode, setNewTabMode] = useState<'manual' | 'import'>('manual')
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importError, setImportError] = useState('')
+  const [importLoading, setImportLoading] = useState(false)
 
   const [filterDialogOpen, setFilterDialogOpen] = useState(false)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
@@ -163,6 +167,75 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
     setFilters({})
     setDraftFilters({})
     setNewRow({})
+  }
+
+  const fileToBase64 = async (file: File) => {
+    const arrayBuffer = await file.arrayBuffer()
+    let binary = ''
+    const bytes = new Uint8Array(arrayBuffer)
+    const chunkSize = 0x8000
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize)
+      binary += String.fromCharCode(...chunk)
+    }
+    return btoa(binary)
+  }
+
+  const importTabFromFile = async () => {
+    if (!newTabName.trim() || !importFile) return
+
+    try {
+      setImportLoading(true)
+      setImportError('')
+      const fileContentBase64 = await fileToBase64(importFile)
+
+      const payload = {
+        pageId,
+        name: newTabName.trim(),
+        fileName: importFile.name,
+        fileContentBase64,
+      }
+
+      let res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (res.status === 404) {
+        res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+      }
+
+      if (res.status === 404) {
+        res = await fetch(`${backendBaseUrl}/api/dynamic-tables/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+      }
+
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { message?: string } | null
+        setImportError(payload?.message ?? `Import failed (HTTP ${res.status}).`)
+        return
+      }
+
+      const created = (await res.json()) as { id: string }
+      setNewTabName('')
+      setImportFile(null)
+      setAddTabDialogOpen(false)
+      await tabsQuery.refetch()
+      setActiveTableId(created.id)
+      setFilters({})
+      setDraftFilters({})
+      setNewRow({})
+    } finally {
+      setImportLoading(false)
+    }
   }
 
 
@@ -378,19 +451,65 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Add table tab</DialogTitle>
-                    <DialogDescription>Create a new table tab under this page.</DialogDescription>
+                    <DialogDescription>Create manually or import CSV/Excel.</DialogDescription>
                   </DialogHeader>
+
+                  <div className='space-y-2'>
+                    <Label>Creation mode</Label>
+                    <Select
+                      value={newTabMode}
+                      onValueChange={(value: 'manual' | 'import') => {
+                        setNewTabMode(value)
+                        setImportError('')
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='manual'>Manual (copy active tab columns)</SelectItem>
+                        <SelectItem value='import'>Import CSV / Excel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
                   <div className='space-y-2'>
                     <Label>Table name</Label>
                     <Input value={newTabName} onChange={(e) => setNewTabName(e.target.value)} />
                   </div>
 
+                  {newTabMode === 'import' && (
+                    <div className='space-y-2'>
+                      <Label>CSV / Excel file</Label>
+                      <Input
+                        type='file'
+                        accept='.csv,.xlsx'
+                        onChange={(e) => {
+                          setImportFile(e.target.files?.[0] ?? null)
+                          setImportError('')
+                        }}
+                      />
+                      <p className='text-xs text-muted-foreground'>
+                        Header row is detected automatically and rows will be inserted into the new tab.
+                      </p>
+                      {importError && <p className='text-xs text-destructive'>{importError}</p>}
+                    </div>
+                  )}
+
                   <div className='flex justify-end gap-2'>
                     <Button variant='outline' onClick={() => setAddTabDialogOpen(false)}>
                       Cancel
                     </Button>
-                    <Button onClick={addTab}>Create tab</Button>
+                    <Button
+                      onClick={newTabMode === 'import' ? importTabFromFile : addTab}
+                      disabled={importLoading}
+                    >
+                      {newTabMode === 'import'
+                        ? importLoading
+                          ? 'Importing...'
+                          : 'Import & create tab'
+                        : 'Create tab'}
+                    </Button>
                   </div>
                 </DialogContent>
               </Dialog>
