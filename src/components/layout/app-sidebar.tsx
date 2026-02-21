@@ -157,6 +157,7 @@ export function AppSidebar() {
     [filteredNavGroups, sidebarOrderPreference]
   )
 
+  const navGroups = isAdmin ? orderedNavGroups ?? filteredNavGroups : filteredNavGroups
   useEffect(() => {
     const controller = new AbortController()
 
