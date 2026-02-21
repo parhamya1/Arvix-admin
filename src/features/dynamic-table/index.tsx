@@ -31,6 +31,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { parseImportFile } from '@/lib/table-import'
+import { useAuthStore } from '@/stores/auth-store'
 import { type ExportFormat, exportTableData } from '@/lib/table-export'
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
@@ -43,6 +44,7 @@ type DynamicPage = { id: string; name: string; sidebarItemId?: string | null }
 
 export function DynamicTableViewer({ tableId }: { tableId: string }) {
   const pageId = tableId
+  const isAdmin = (useAuthStore((state) => state.auth.user?.role) ?? []).includes('admin')
   const [activeTableId, setActiveTableId] = useState('')
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [draftFilters, setDraftFilters] = useState<Record<string, string>>({})
@@ -309,19 +311,20 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                 </DialogContent>
               </Dialog>
 
-              <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DialogTrigger asChild>
-                      <Button size='icon'>
-                        <Plus className='size-4' />
-                      </Button>
-                    </DialogTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>Add row</TooltipContent>
-                </Tooltip>
+              {isAdmin && (
+                <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DialogTrigger asChild>
+                        <Button size='icon'>
+                          <Plus className='size-4' />
+                        </Button>
+                      </DialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Add row</TooltipContent>
+                  </Tooltip>
 
-                <DialogContent className='max-w-3xl'>
+                  <DialogContent className='max-w-3xl'>
                   <DialogHeader>
                     <DialogTitle>Add row</DialogTitle>
                     <DialogDescription>Fill row data and save. Data is added to active tab only.</DialogDescription>
@@ -355,10 +358,11 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                   <div className='flex justify-end'>
                     <Button onClick={addRow}>Save row</Button>
                   </div>
-                </DialogContent>
-              </Dialog>
+                  </DialogContent>
+                </Dialog>
+              )}
 
-              <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              {isAdmin && <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <DialogTrigger asChild>
@@ -418,9 +422,9 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                     </Button>
                   </div>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
 
-              <Dialog open={addTabDialogOpen} onOpenChange={setAddTabDialogOpen}>
+              {isAdmin && <Dialog open={addTabDialogOpen} onOpenChange={setAddTabDialogOpen}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <DialogTrigger asChild>
@@ -496,7 +500,7 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                     </Button>
                   </div>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
 
 
               <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
@@ -541,14 +545,14 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
                 </DialogContent>
               </Dialog>
 
-              <Tooltip>
+              {isAdmin && <Tooltip>
                 <TooltipTrigger asChild>
                   <Button size='icon' variant='outline' onClick={deleteCurrentTab} disabled={!activeTable}>
                     <X className='size-4' />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Delete active tab/table</TooltipContent>
-              </Tooltip>
+              </Tooltip>}
             </div>
           </TooltipProvider>
         </div>
