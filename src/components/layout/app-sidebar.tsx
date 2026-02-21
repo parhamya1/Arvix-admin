@@ -56,11 +56,6 @@ const moveArrayItem = <T,>(list: T[], fromIndex: number, toIndex: number): T[] =
   return next
 }
 
-const getAdminOrderStorageKey = (accountNo?: string, email?: string) => {
-  const userKey = accountNo ?? email ?? 'default'
-  return `${SIDEBAR_ORDER_STORAGE_KEY}:${userKey}`
-}
-
 const buildPersistedOrder = (groups: NavGroupType[]): PersistedSidebarOrder => ({
   groupOrder: groups.map((group) => group.title),
   itemOrderByGroup: Object.fromEntries(
@@ -106,15 +101,26 @@ const applyPersistedOrder = (
   }))
 }
 
-const parsePersistedOrder = (raw: string | null): PersistedSidebarOrder | null => {
-  if (!raw) return null
+const parsePersistedOrder = (payload: unknown): PersistedSidebarOrder | null => {
+  if (!payload || typeof payload !== 'object') return null
 
-  try {
-    const parsed = JSON.parse(raw) as PersistedSidebarOrder
-    if (!Array.isArray(parsed.groupOrder) || !parsed.itemOrderByGroup) return null
-    return parsed
-  } catch {
+  const maybeOrder = payload as {
+    groupOrder?: unknown
+    itemOrderByGroup?: unknown
+  }
+
+  if (!Array.isArray(maybeOrder.groupOrder)) return null
+  if (!maybeOrder.groupOrder.every((item) => typeof item === 'string')) return null
+
+  if (!maybeOrder.itemOrderByGroup || typeof maybeOrder.itemOrderByGroup !== 'object') return null
+  const entryValues = Object.values(maybeOrder.itemOrderByGroup)
+  if (!entryValues.every((value) => Array.isArray(value) && value.every((item) => typeof item === 'string'))) {
     return null
+  }
+
+  return {
+    groupOrder: maybeOrder.groupOrder,
+    itemOrderByGroup: maybeOrder.itemOrderByGroup as Record<string, string[]>,
   }
 }
 
@@ -124,90 +130,90 @@ export function AppSidebar() {
   const userRoles = user?.role ?? []
   const isAdmin = userRoles.includes('admin')
   const [remoteNavGroups, setRemoteNavGroups] = useState<NavGroupType[] | null>(null)
-  const [orderedNavState, setOrderedNavState] = useState<{
-    storageKey: string
-    groups: NavGroupType[]
-  } | null>(null)
+  const [sidebarOrder, setSidebarOrder] = useState<PersistedSidebarOrder | null>(null)
 
   const filteredNavGroups = useMemo(
     () => filterAdminOnlyItems(remoteNavGroups ?? sidebarData.navGroups, isAdmin),
     [isAdmin, remoteNavGroups]
   )
 
-  const storageKey = useMemo(
-    () => getAdminOrderStorageKey(user?.accountNo, user?.email),
-    [user?.accountNo, user?.email]
-  )
-
-  const persistedOrder = useMemo(() => {
-    if (!isAdmin || typeof window === 'undefined') return null
-    return parsePersistedOrder(window.localStorage.getItem(storageKey))
-  }, [isAdmin, storageKey])
-
   const navGroups = useMemo(() => {
-    if (!isAdmin) return filteredNavGroups
+    if (!sidebarOrder) return filteredNavGroups
+    return applyPersistedOrder(filteredNavGroups, sidebarOrder)
+  }, [filteredNavGroups, sidebarOrder])
 
-    if (orderedNavState && orderedNavState.storageKey === storageKey) {
-      return orderedNavState.groups
-    }
+  const persistOrder = async (groups: NavGroupType[]) => {
+    if (!isAdmin) return
 
-    if (!persistedOrder) return filteredNavGroups
-    return applyPersistedOrder(filteredNavGroups, persistedOrder)
-  }, [filteredNavGroups, isAdmin, orderedNavState, persistedOrder, storageKey])
-
-  const persistOrder = (groups: NavGroupType[]) => {
-    if (!isAdmin || typeof window === 'undefined') return
     const payload = buildPersistedOrder(groups)
-    window.localStorage.setItem(storageKey, JSON.stringify(payload))
-    setOrderedNavState({ storageKey, groups })
+    setSidebarOrder(payload)
+
+    try {
+      const response = await fetch(`${backendBaseUrl}/api/sidebar-order`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) return
+      window.dispatchEvent(new Event('sidebar-order-updated'))
+    } catch {
+      // keep optimistic order in current session if backend is unavailable
+    }
   }
 
   useEffect(() => {
     const controller = new AbortController()
 
-    const loadSidebarConfig = async () => {
+    const loadSidebarState = async () => {
       try {
-        const response = await fetch(`${backendBaseUrl}/api/sidebar-config`, {
-          signal: controller.signal,
-        })
+        const [configResponse, orderResponse] = await Promise.all([
+          fetch(`${backendBaseUrl}/api/sidebar-config`, {
+            signal: controller.signal,
+          }),
+          fetch(`${backendBaseUrl}/api/sidebar-order`, {
+            signal: controller.signal,
+          }),
+        ])
 
-        if (!response.ok) return
+        if (configResponse.ok) {
+          const configData = (await configResponse.json()) as { navGroups?: NavGroupType[] }
 
-        const data = (await response.json()) as { navGroups?: NavGroupType[] }
+          if (Array.isArray(configData.navGroups) && configData.navGroups.length > 0) {
+            const merged = sidebarData.navGroups.map((group) => ({ ...group, items: [...group.items] }))
 
-        if (!Array.isArray(data.navGroups) || data.navGroups.length === 0) return
+            configData.navGroups.forEach((remoteGroup) => {
+              const target = merged.find((group) => group.title === remoteGroup.title)
+              if (target) {
+                target.items = [...target.items, ...remoteGroup.items]
+              } else {
+                merged.push(remoteGroup)
+              }
+            })
 
-        const merged = sidebarData.navGroups.map((group) => ({ ...group, items: [...group.items] }))
-
-        data.navGroups.forEach((remoteGroup) => {
-          const target = merged.find((group) => group.title === remoteGroup.title)
-          if (target) {
-            target.items = [...target.items, ...remoteGroup.items]
-          } else {
-            merged.push(remoteGroup)
+            setRemoteNavGroups(merged)
           }
-        })
+        }
 
-        setRemoteNavGroups(merged)
+        if (orderResponse.ok) {
+          const orderData = (await orderResponse.json()) as unknown
+          setSidebarOrder(parsePersistedOrder(orderData))
+        }
       } catch {
         // fallback to static sidebar config
       }
     }
 
-    const handleSidebarUpdate = () => {
-      loadSidebarConfig()
-    }
-
-    loadSidebarConfig()
-    window.addEventListener('sidebar-config-updated', handleSidebarUpdate)
+    loadSidebarState()
+    window.addEventListener('sidebar-config-updated', loadSidebarState)
+    window.addEventListener('sidebar-order-updated', loadSidebarState)
 
     return () => {
       controller.abort()
-      window.removeEventListener('sidebar-config-updated', handleSidebarUpdate)
+      window.removeEventListener('sidebar-config-updated', loadSidebarState)
+      window.removeEventListener('sidebar-order-updated', loadSidebarState)
     }
   }, [])
-
-  const ensureAdminGroups = () => navGroups
 
   const handleGroupDrop = (event: DragEvent<HTMLDivElement>, targetIndex: number) => {
     if (!isAdmin) return
@@ -218,8 +224,8 @@ export function AppSidebar() {
     if (Number.isNaN(sourceIndex)) return
 
     event.preventDefault()
-    const nextGroups = moveArrayItem(ensureAdminGroups(), sourceIndex, targetIndex)
-    persistOrder(nextGroups)
+    const nextGroups = moveArrayItem(navGroups, sourceIndex, targetIndex)
+    void persistOrder(nextGroups)
   }
 
   const handleItemMove = (
@@ -230,8 +236,7 @@ export function AppSidebar() {
   ) => {
     if (!isAdmin) return
 
-    const current = ensureAdminGroups()
-    const next = current.map((group) => ({ ...group, items: [...group.items] }))
+    const next = navGroups.map((group) => ({ ...group, items: [...group.items] }))
     const sourceGroup = next[sourceGroupIndex]
     const targetGroup = next[targetGroupIndex]
 
@@ -241,7 +246,7 @@ export function AppSidebar() {
     if (!movedItem) return
 
     targetGroup.items.splice(targetItemIndex, 0, movedItem)
-    persistOrder(next)
+    void persistOrder(next)
   }
 
   return (
