@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import { type DragEvent, type ReactNode } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
 import {
@@ -42,6 +42,24 @@ type SortableNavGroupProps = NavGroupProps & {
 const isCollapsible = (item: NavItem): item is NavCollapsible =>
   Array.isArray((item as { items?: unknown }).items)
 
+
+const getDraggedSidebarItem = (
+  event: DragEvent<HTMLElement>
+): { groupIndex: number; itemIndex: number } | null => {
+  const payload = event.dataTransfer.getData('application/sidebar-item')
+  if (!payload) return null
+
+  try {
+    const parsed = JSON.parse(payload) as { groupIndex?: unknown; itemIndex?: unknown }
+    if (typeof parsed.groupIndex !== 'number' || typeof parsed.itemIndex !== 'number') {
+      return null
+    }
+    return { groupIndex: parsed.groupIndex, itemIndex: parsed.itemIndex }
+  } catch {
+    return null
+  }
+}
+
 export function NavGroup({
   title,
   items,
@@ -61,10 +79,10 @@ export function NavGroup({
         }}
         onDrop={(event) => {
           if (!draggableItems || !onMoveItem) return
-          const payload = event.dataTransfer.getData('application/sidebar-item')
-          if (!payload) return
-          const source = JSON.parse(payload) as { groupIndex: number; itemIndex: number }
+          const source = getDraggedSidebarItem(event)
+          if (!source) return
           event.preventDefault()
+          event.stopPropagation()
           onMoveItem(source.groupIndex, source.itemIndex, groupIndex, items.length)
         }}
       >
@@ -83,8 +101,9 @@ export function NavGroup({
             <div
               key={key}
               draggable={draggableItems}
-              onDragStart={(event) => {
+              onDragStartCapture={(event: DragEvent<HTMLDivElement>) => {
                 if (!draggableItems) return
+                event.dataTransfer.effectAllowed = 'move'
                 event.dataTransfer.setData(
                   'application/sidebar-item',
                   JSON.stringify({ groupIndex, itemIndex })
@@ -95,11 +114,11 @@ export function NavGroup({
               }}
               onDrop={(event) => {
                 if (!draggableItems || !onMoveItem) return
-                const payload = event.dataTransfer.getData('application/sidebar-item')
-                if (!payload) return
+                const source = getDraggedSidebarItem(event)
+                if (!source) return
 
-                const source = JSON.parse(payload) as { groupIndex: number; itemIndex: number }
                 event.preventDefault()
+                event.stopPropagation()
                 onMoveItem(source.groupIndex, source.itemIndex, groupIndex, itemIndex)
               }}
             >
@@ -125,7 +144,7 @@ function SidebarMenuLink({ item, href }: { item: Exclude<NavItem, NavCollapsible
         isActive={checkIsActive(href, item)}
         tooltip={item.title}
       >
-        <Link to={item.url} onClick={() => setOpenMobile(false)}>
+        <Link to={item.url} draggable={false} onClick={() => setOpenMobile(false)}>
           {item.icon && <item.icon />}
           <span>{item.title}</span>
           {item.badge && <NavBadge>{item.badge}</NavBadge>}
@@ -145,7 +164,7 @@ function RenderNestedItems({ items, href }: { items: NavItem[]; href: string }) 
           return (
             <SidebarMenuSubItem key={`${subItem.title}-${subItem.url}`}>
               <SidebarMenuSubButton asChild isActive={checkIsActive(href, subItem)}>
-                <Link to={subItem.url} onClick={() => setOpenMobile(false)}>
+                <Link to={subItem.url} draggable={false} onClick={() => setOpenMobile(false)}>
                   {subItem.icon && <subItem.icon />}
                   <span>{subItem.title}</span>
                   {subItem.badge && <NavBadge>{subItem.badge}</NavBadge>}
@@ -224,7 +243,11 @@ function SidebarMenuCollapsedDropdown({ item, href }: { item: NavCollapsible; hr
           <DropdownMenuSeparator />
           {links.map((sub) => (
             <DropdownMenuItem key={`${sub.title}-${sub.url}`} asChild>
-              <Link to={sub.url} className={`${checkIsActive(href, sub) ? 'bg-secondary' : ''}`}>
+              <Link
+                to={sub.url}
+                draggable={false}
+                className={`${checkIsActive(href, sub) ? 'bg-secondary' : ''}`}
+              >
                 {sub.icon && <sub.icon />}
                 <span className='max-w-52 text-wrap'>{sub.title}</span>
                 {sub.badge && <span className='ms-auto text-xs'>{sub.badge}</span>}
