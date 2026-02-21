@@ -144,7 +144,7 @@ function SidebarMenuLink({ item, href }: { item: Exclude<NavItem, NavCollapsible
         isActive={checkIsActive(href, item)}
         tooltip={item.title}
       >
-        <Link to={item.url} draggable={false} onClick={() => setOpenMobile(false)}>
+        <Link to={item.url} onClick={() => setOpenMobile(false)}>
           {item.icon && <item.icon />}
           <span>{item.title}</span>
           {item.badge && <NavBadge>{item.badge}</NavBadge>}
@@ -164,7 +164,7 @@ function RenderNestedItems({ items, href }: { items: NavItem[]; href: string }) 
           return (
             <SidebarMenuSubItem key={`${subItem.title}-${subItem.url}`}>
               <SidebarMenuSubButton asChild isActive={checkIsActive(href, subItem)}>
-                <Link to={subItem.url} draggable={false} onClick={() => setOpenMobile(false)}>
+                <Link to={subItem.url} onClick={() => setOpenMobile(false)}>
                   {subItem.icon && <subItem.icon />}
                   <span>{subItem.title}</span>
                   {subItem.badge && <NavBadge>{subItem.badge}</NavBadge>}
@@ -245,7 +245,6 @@ function SidebarMenuCollapsedDropdown({ item, href }: { item: NavCollapsible; hr
             <DropdownMenuItem key={`${sub.title}-${sub.url}`} asChild>
               <Link
                 to={sub.url}
-                draggable={false}
                 className={`${checkIsActive(href, sub) ? 'bg-secondary' : ''}`}
               >
                 {sub.icon && <sub.icon />}
