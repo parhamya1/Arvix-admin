@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type DragEvent, useEffect, useMemo, useState } from 'react'
 import { useLayout } from '@/context/layout-provider'
 import {
   Sidebar,
@@ -43,17 +43,27 @@ const filterAdminOnlyItems = (groups: NavGroupType[], isAdmin: boolean): NavGrou
     .filter((group) => group.items.length > 0)
 }
 
+const moveArrayItem = <T,>(list: T[], fromIndex: number, toIndex: number): T[] => {
+  if (fromIndex === toIndex) return list
+  const next = [...list]
+  const [moved] = next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, moved)
+  return next
+}
+
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
   const userRoles = useAuthStore((state) => state.auth.user?.role ?? [])
   const isAdmin = userRoles.includes('admin')
   const [remoteNavGroups, setRemoteNavGroups] = useState<NavGroupType[] | null>(null)
+  const [orderedNavGroups, setOrderedNavGroups] = useState<NavGroupType[] | null>(null)
 
-  const navGroups = useMemo(
+  const filteredNavGroups = useMemo(
     () => filterAdminOnlyItems(remoteNavGroups ?? sidebarData.navGroups, isAdmin),
     [isAdmin, remoteNavGroups]
   )
 
+  const navGroups = isAdmin ? orderedNavGroups ?? filteredNavGroups : filteredNavGroups
   useEffect(() => {
     const controller = new AbortController()
 
@@ -99,6 +109,47 @@ export function AppSidebar() {
     }
   }, [])
 
+  const ensureAdminGroups = () => orderedNavGroups ?? filteredNavGroups
+
+  const handleGroupDrop = (event: DragEvent<HTMLDivElement>, targetIndex: number) => {
+    if (!isAdmin) return
+    const payload = event.dataTransfer.getData('application/sidebar-group')
+    if (!payload) return
+
+    const sourceIndex = Number(payload)
+    if (Number.isNaN(sourceIndex)) return
+
+    event.preventDefault()
+    setOrderedNavGroups(moveArrayItem(ensureAdminGroups(), sourceIndex, targetIndex))
+  }
+
+  const handleItemMove = (
+    sourceGroupIndex: number,
+    sourceItemIndex: number,
+    targetGroupIndex: number,
+    targetItemIndex: number
+  ) => {
+    if (!isAdmin) return
+
+    const current = ensureAdminGroups()
+    const next = current.map((group) => ({ ...group, items: [...group.items] }))
+    const sourceGroup = next[sourceGroupIndex]
+    const targetGroup = next[targetGroupIndex]
+
+    if (!sourceGroup || !targetGroup) return
+
+    const [movedItem] = sourceGroup.items.splice(sourceItemIndex, 1)
+    if (!movedItem) return
+
+    const insertIndex =
+      sourceGroupIndex === targetGroupIndex && sourceItemIndex < targetItemIndex
+        ? targetItemIndex - 1
+        : targetItemIndex
+
+    targetGroup.items.splice(insertIndex, 0, movedItem)
+    setOrderedNavGroups(next)
+  }
+
   return (
     <Sidebar collapsible={collapsible} variant={variant}>
       <SidebarHeader>
@@ -109,8 +160,26 @@ export function AppSidebar() {
         {/* <AppTitle /> */}
       </SidebarHeader>
       <SidebarContent>
-        {navGroups.map((props) => (
-          <NavGroup key={props.title} {...props} />
+        {navGroups.map((group, groupIndex) => (
+          <div
+            key={group.title}
+            draggable={isAdmin}
+            onDragStart={(event) => {
+              if (!isAdmin) return
+              event.dataTransfer.setData('application/sidebar-group', String(groupIndex))
+            }}
+            onDragOver={(event) => {
+              if (isAdmin) event.preventDefault()
+            }}
+            onDrop={(event) => handleGroupDrop(event, groupIndex)}
+          >
+            <NavGroup
+              {...group}
+              draggableItems={isAdmin}
+              groupIndex={groupIndex}
+              onMoveItem={handleItemMove}
+            />
+          </div>
         ))}
       </SidebarContent>
       <SidebarRail />
