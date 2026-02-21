@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import { type DragEvent, type ReactNode } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
 import {
@@ -28,29 +28,103 @@ import {
 } from '../ui/dropdown-menu'
 import { type NavCollapsible, type NavItem, type NavGroup as NavGroupProps } from './types'
 
+type SortableNavGroupProps = NavGroupProps & {
+  draggableItems?: boolean
+  groupIndex?: number
+  onMoveItem?: (
+    sourceGroupIndex: number,
+    sourceItemIndex: number,
+    targetGroupIndex: number,
+    targetItemIndex: number
+  ) => void
+}
+
 const isCollapsible = (item: NavItem): item is NavCollapsible =>
   Array.isArray((item as { items?: unknown }).items)
 
-export function NavGroup({ title, items }: NavGroupProps) {
+
+const getDraggedSidebarItem = (
+  event: DragEvent<HTMLElement>
+): { groupIndex: number; itemIndex: number } | null => {
+  const payload = event.dataTransfer.getData('application/sidebar-item')
+  if (!payload) return null
+
+  try {
+    const parsed = JSON.parse(payload) as { groupIndex?: unknown; itemIndex?: unknown }
+    if (typeof parsed.groupIndex !== 'number' || typeof parsed.itemIndex !== 'number') {
+      return null
+    }
+    return { groupIndex: parsed.groupIndex, itemIndex: parsed.itemIndex }
+  } catch {
+    return null
+  }
+}
+
+export function NavGroup({
+  title,
+  items,
+  draggableItems = false,
+  groupIndex = 0,
+  onMoveItem,
+}: SortableNavGroupProps) {
   const { state, isMobile } = useSidebar()
   const href = useLocation({ select: (location) => location.href })
 
   return (
     <SidebarGroup>
       <SidebarGroupLabel>{title}</SidebarGroupLabel>
-      <SidebarMenu>
-        {items.map((item) => {
+      <SidebarMenu
+        onDragOver={(event) => {
+          if (draggableItems) event.preventDefault()
+        }}
+        onDrop={(event) => {
+          if (!draggableItems || !onMoveItem) return
+          const source = getDraggedSidebarItem(event)
+          if (!source) return
+          event.preventDefault()
+          event.stopPropagation()
+          onMoveItem(source.groupIndex, source.itemIndex, groupIndex, items.length)
+        }}
+      >
+        {items.map((item, itemIndex) => {
           const key = `${item.title}-${'url' in item ? item.url : 'group'}`
 
-          if (!isCollapsible(item)) {
-            return <SidebarMenuLink key={key} item={item} href={href} />
-          }
+          const itemNode = !isCollapsible(item) ? (
+            <SidebarMenuLink item={item} href={href} />
+          ) : state === 'collapsed' && !isMobile ? (
+            <SidebarMenuCollapsedDropdown item={item} href={href} />
+          ) : (
+            <SidebarMenuCollapsible item={item} href={href} />
+          )
 
-          if (state === 'collapsed' && !isMobile) {
-            return <SidebarMenuCollapsedDropdown key={key} item={item} href={href} />
-          }
+          return (
+            <div
+              key={key}
+              draggable={draggableItems}
+              onDragStartCapture={(event: DragEvent<HTMLDivElement>) => {
+                if (!draggableItems) return
+                event.dataTransfer.effectAllowed = 'move'
+                event.dataTransfer.setData(
+                  'application/sidebar-item',
+                  JSON.stringify({ groupIndex, itemIndex })
+                )
+              }}
+              onDragOver={(event) => {
+                if (draggableItems) event.preventDefault()
+              }}
+              onDrop={(event) => {
+                if (!draggableItems || !onMoveItem) return
+                const source = getDraggedSidebarItem(event)
+                if (!source) return
 
-          return <SidebarMenuCollapsible key={key} item={item} href={href} />
+                event.preventDefault()
+                event.stopPropagation()
+                onMoveItem(source.groupIndex, source.itemIndex, groupIndex, itemIndex)
+              }}
+            >
+              {itemNode}
+            </div>
+          )
         })}
       </SidebarMenu>
     </SidebarGroup>
@@ -70,7 +144,7 @@ function SidebarMenuLink({ item, href }: { item: Exclude<NavItem, NavCollapsible
         isActive={checkIsActive(href, item)}
         tooltip={item.title}
       >
-        <Link to={item.url} onClick={() => setOpenMobile(false)}>
+        <Link to={item.url} draggable={false} onClick={() => setOpenMobile(false)}>
           {item.icon && <item.icon />}
           <span>{item.title}</span>
           {item.badge && <NavBadge>{item.badge}</NavBadge>}
@@ -90,7 +164,7 @@ function RenderNestedItems({ items, href }: { items: NavItem[]; href: string }) 
           return (
             <SidebarMenuSubItem key={`${subItem.title}-${subItem.url}`}>
               <SidebarMenuSubButton asChild isActive={checkIsActive(href, subItem)}>
-                <Link to={subItem.url} onClick={() => setOpenMobile(false)}>
+                <Link to={subItem.url} draggable={false} onClick={() => setOpenMobile(false)}>
                   {subItem.icon && <subItem.icon />}
                   <span>{subItem.title}</span>
                   {subItem.badge && <NavBadge>{subItem.badge}</NavBadge>}
@@ -169,7 +243,11 @@ function SidebarMenuCollapsedDropdown({ item, href }: { item: NavCollapsible; hr
           <DropdownMenuSeparator />
           {links.map((sub) => (
             <DropdownMenuItem key={`${sub.title}-${sub.url}`} asChild>
-              <Link to={sub.url} className={`${checkIsActive(href, sub) ? 'bg-secondary' : ''}`}>
+              <Link
+                to={sub.url}
+                draggable={false}
+                className={`${checkIsActive(href, sub) ? 'bg-secondary' : ''}`}
+              >
                 {sub.icon && <sub.icon />}
                 <span className='max-w-52 text-wrap'>{sub.title}</span>
                 {sub.badge && <span className='ms-auto text-xs'>{sub.badge}</span>}
