@@ -21,6 +21,21 @@ type SidebarOrderPreference = {
   itemOrders: Record<string, string[]>
 }
 
+const isValidSidebarOrderPreference = (value: unknown): value is SidebarOrderPreference => {
+  if (!value || typeof value !== 'object') return false
+
+  const candidate = value as {
+    groupOrder?: unknown
+    itemOrders?: unknown
+  }
+
+  if (!Array.isArray(candidate.groupOrder) || typeof candidate.itemOrders !== 'object') {
+    return false
+  }
+
+  return candidate.groupOrder.every((title) => typeof title === 'string')
+}
+
 const isCollapsible = (item: NavItem): item is NavCollapsible =>
   Array.isArray((item as { items?: unknown }).items)
 
@@ -103,6 +118,20 @@ const applyOrderPreference = (
   })
 }
 
+const readSidebarOrderPreference = (storageKey: string | null): SidebarOrderPreference | null => {
+  if (!storageKey || typeof window === 'undefined') return null
+
+  try {
+    const raw = window.localStorage.getItem(storageKey)
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw) as unknown
+    return isValidSidebarOrderPreference(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
   const user = useAuthStore((state) => state.auth.user)
@@ -110,7 +139,7 @@ export function AppSidebar() {
   const isAdmin = userRoles.includes('admin')
   const canReorder = Boolean(user)
   const [remoteNavGroups, setRemoteNavGroups] = useState<NavGroupType[] | null>(null)
-  const [orderVersion, setOrderVersion] = useState(0)
+  const [sidebarOrderPreference, setSidebarOrderPreference] = useState<SidebarOrderPreference | null>(null)
 
   const filteredNavGroups = useMemo(
     () => filterAdminOnlyItems(remoteNavGroups ?? sidebarData.navGroups, isAdmin),
@@ -119,19 +148,9 @@ export function AppSidebar() {
 
   const sidebarOrderStorageKey = user?.email ? `sidebar-order:${user.email}` : null
 
-  const sidebarOrderPreference = (() => {
-    if (!sidebarOrderStorageKey || typeof window === 'undefined') return null
-
-    try {
-      const currentOrderVersion = orderVersion
-      if (currentOrderVersion < 0) return null
-      const raw = window.localStorage.getItem(sidebarOrderStorageKey)
-      if (!raw) return null
-      return JSON.parse(raw) as SidebarOrderPreference
-    } catch {
-      return null
-    }
-  })()
+  useEffect(() => {
+    setSidebarOrderPreference(readSidebarOrderPreference(sidebarOrderStorageKey))
+  }, [sidebarOrderStorageKey])
 
   const navGroups = useMemo(
     () => applyOrderPreference(filteredNavGroups, sidebarOrderPreference),
@@ -187,8 +206,9 @@ export function AppSidebar() {
   const saveSidebarOrderPreference = (groups: NavGroupType[]) => {
     if (!sidebarOrderStorageKey || typeof window === 'undefined') return
 
-    window.localStorage.setItem(sidebarOrderStorageKey, JSON.stringify(buildOrderPreference(groups)))
-    setOrderVersion((version) => version + 1)
+    const nextPreference = buildOrderPreference(groups)
+    window.localStorage.setItem(sidebarOrderStorageKey, JSON.stringify(nextPreference))
+    setSidebarOrderPreference(nextPreference)
   }
 
   const handleGroupDrop = (event: DragEvent<HTMLDivElement>, targetIndex: number) => {
