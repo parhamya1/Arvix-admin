@@ -13,7 +13,7 @@ import { TeamSwitcher } from './team-switcher'
 import { useAuthStore } from '@/stores/auth-store'
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
-const SIDEBAR_ORDER_STORAGE_KEY = 'sidebar_order_admin'
+const PENDING_SIDEBAR_ORDER_KEY = 'pending_sidebar_order_payload'
 
 const adminOnlyTitles = new Set(['User Management', 'Category Management', 'Table Management'])
 
@@ -124,6 +124,27 @@ const parsePersistedOrder = (payload: unknown): PersistedSidebarOrder | null => 
   }
 }
 
+
+const saveSidebarOrderToServer = async (payload: PersistedSidebarOrder) => {
+  const body = JSON.stringify(payload)
+
+  const patchResponse = await fetch(`${backendBaseUrl}/api/sidebar-order`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  })
+
+  if (patchResponse.ok) return true
+
+  const postResponse = await fetch(`${backendBaseUrl}/api/sidebar-order`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  })
+
+  return postResponse.ok
+}
+
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
   const user = useAuthStore((state) => state.auth.user)
@@ -149,16 +170,16 @@ export function AppSidebar() {
     setSidebarOrder(payload)
 
     try {
-      const response = await fetch(`${backendBaseUrl}/api/sidebar-order`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
+      const isSaved = await saveSidebarOrderToServer(payload)
+      if (!isSaved) {
+        window.localStorage.setItem(PENDING_SIDEBAR_ORDER_KEY, JSON.stringify(payload))
+        return
+      }
 
-      if (!response.ok) return
+      window.localStorage.removeItem(PENDING_SIDEBAR_ORDER_KEY)
       window.dispatchEvent(new Event('sidebar-order-updated'))
     } catch {
-      // keep optimistic order in current session if backend is unavailable
+      window.localStorage.setItem(PENDING_SIDEBAR_ORDER_KEY, JSON.stringify(payload))
     }
   }
 
@@ -199,6 +220,24 @@ export function AppSidebar() {
           const orderData = (await orderResponse.json()) as unknown
           setSidebarOrder(parsePersistedOrder(orderData))
         }
+
+        if (isAdmin) {
+          const pendingRaw = window.localStorage.getItem(PENDING_SIDEBAR_ORDER_KEY)
+          if (pendingRaw) {
+            try {
+              const pendingPayload = parsePersistedOrder(JSON.parse(pendingRaw))
+              if (pendingPayload) {
+                const isSaved = await saveSidebarOrderToServer(pendingPayload)
+                if (isSaved) {
+                  window.localStorage.removeItem(PENDING_SIDEBAR_ORDER_KEY)
+                  setSidebarOrder(pendingPayload)
+                }
+              }
+            } catch {
+              window.localStorage.removeItem(PENDING_SIDEBAR_ORDER_KEY)
+            }
+          }
+        }
       } catch {
         // fallback to static sidebar config
       }
@@ -213,7 +252,7 @@ export function AppSidebar() {
       window.removeEventListener('sidebar-config-updated', loadSidebarState)
       window.removeEventListener('sidebar-order-updated', loadSidebarState)
     }
-  }, [])
+  }, [isAdmin])
 
   const handleGroupDrop = (event: DragEvent<HTMLDivElement>, targetIndex: number) => {
     if (!isAdmin) return

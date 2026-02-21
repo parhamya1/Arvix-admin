@@ -254,6 +254,23 @@ def normalize_sidebar_layout(payload: dict) -> dict:
     }
 
 
+def upsert_sidebar_layout(payload: dict) -> None:
+    with _db_lock:
+        conn = get_conn()
+        conn.execute(
+            '''
+            INSERT INTO sidebar_layout (id, layout_json, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              layout_json=excluded.layout_json,
+              updated_at=excluded.updated_at
+            ''',
+            ('global', json.dumps(payload), utc_now()),
+        )
+        conn.commit()
+        conn.close()
+
+
 def normalize_column_key(label: str, index: int) -> str:
     normalized = re.sub(r'[^a-zA-Z0-9]+', '_', label.strip().lower()).strip('_')
     return normalized or f'field_{index + 1}'
@@ -627,6 +644,16 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 400, {'message': 'Invalid JSON'})
             return
 
+        if path == '/api/sidebar-order':
+            if not is_valid_sidebar_layout(body):
+                send_json(self, 400, {'message': 'Invalid sidebar order payload'})
+                return
+
+            payload = normalize_sidebar_layout(body)
+            upsert_sidebar_layout(payload)
+            send_json(self, 200, {'ok': True})
+            return
+
         if path == '/api/sidebar-items':
             required = ['groupTitle', 'title']
             if not all(body.get(field) for field in required):
@@ -807,21 +834,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             payload = normalize_sidebar_layout(body)
-            with _db_lock:
-                conn = get_conn()
-                conn.execute(
-                    '''
-                    INSERT INTO sidebar_layout (id, layout_json, updated_at)
-                    VALUES (?, ?, ?)
-                    ON CONFLICT(id) DO UPDATE SET
-                      layout_json=excluded.layout_json,
-                      updated_at=excluded.updated_at
-                    ''',
-                    ('global', json.dumps(payload), utc_now()),
-                )
-                conn.commit()
-                conn.close()
-
+            upsert_sidebar_layout(payload)
             send_json(self, 200, {'ok': True})
             return
 
