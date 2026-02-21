@@ -189,19 +189,30 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
       setImportError('')
       const fileContentBase64 = await fileToBase64(importFile)
 
-      const res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs/import`, {
+      const payload = {
+        pageId,
+        name: newTabName.trim(),
+        fileName: importFile.name,
+        fileContentBase64,
+      }
+
+      let res = await fetch(`${backendBaseUrl}/api/dynamic-pages/${pageId}/tabs/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newTabName.trim(),
-          fileName: importFile.name,
-          fileContentBase64,
-        }),
+        body: JSON.stringify(payload),
       })
+
+      if (res.status === 404) {
+        res = await fetch(`${backendBaseUrl}/api/dynamic-tables/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+      }
 
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as { message?: string } | null
-        setImportError(payload?.message ?? 'Import failed.')
+        setImportError(payload?.message ?? `Import failed (HTTP ${res.status}).`)
         return
       }
 

@@ -502,6 +502,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        normalized_path = path.rstrip('/') or '/'
+        path_parts = normalized_path.strip('/').split('/') if normalized_path != '/' else []
         try:
             body = parse_json(self)
         except json.JSONDecodeError:
@@ -600,8 +602,8 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 201, {'id': page_id})
             return
 
-        if path.startswith('/api/dynamic-pages/') and path.endswith('/tabs'):
-            page_id = path.strip('/').split('/')[2]
+        if len(path_parts) == 4 and path_parts[0] == 'api' and path_parts[1] == 'dynamic-pages' and path_parts[3] == 'tabs':
+            page_id = path_parts[2]
             if not body.get('name') or not isinstance(body.get('columns'), list) or len(body['columns']) == 0:
                 send_json(self, 400, {'message': 'name and columns[] are required'})
                 return
@@ -629,8 +631,80 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 201, {'id': table_id})
             return
 
-        if path.startswith('/api/dynamic-pages/') and path.endswith('/tabs/import'):
-            page_id = path.strip('/').split('/')[2]
+        if len(path_parts) == 5 and path_parts[0] == 'api' and path_parts[1] == 'dynamic-pages' and path_parts[3] == 'tabs' and path_parts[4] == 'import':
+            page_id = path_parts[2]
+            name = (body.get('name') or '').strip()
+            file_name = (body.get('fileName') or '').strip().lower()
+            file_content = body.get('fileContentBase64')
+
+            if not name:
+                send_json(self, 400, {'message': 'name is required'})
+                return
+
+            if not file_content or not isinstance(file_content, str):
+                send_json(self, 400, {'message': 'fileContentBase64 is required'})
+                return
+
+            try:
+                binary = base64.b64decode(file_content)
+            except Exception:
+                send_json(self, 400, {'message': 'Invalid fileContentBase64'})
+                return
+
+            try:
+                if file_name.endswith('.csv'):
+                    headers, parsed_rows = parse_csv_content(binary)
+                elif file_name.endswith('.xlsx'):
+                    headers, parsed_rows = parse_xlsx_content(binary)
+                else:
+                    send_json(self, 400, {'message': 'Only CSV and XLSX files are supported'})
+                    return
+            except Exception:
+                send_json(self, 400, {'message': 'Failed to parse import file'})
+                return
+
+            columns, imported_rows = build_columns_and_rows(headers, parsed_rows)
+            if len(columns) == 0:
+                send_json(self, 400, {'message': 'File has no usable header columns'})
+                return
+
+            table_id = str(uuid.uuid4())
+            try:
+                with _db_lock:
+                    conn = get_conn()
+                    duplicate = conn.execute(
+                        'SELECT id FROM dynamic_tables WHERE page_id=? AND LOWER(name)=LOWER(?)',
+                        (page_id, name),
+                    ).fetchone()
+                    if duplicate:
+                        conn.close()
+                        send_json(self, 409, {'message': 'Tab name must be unique within the selected page'})
+                        return
+
+                    conn.execute(
+                        'INSERT INTO dynamic_tables (id, name, columns_json, sidebar_item_id, page_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+                        (table_id, name, json.dumps(columns), None, page_id, utc_now()),
+                    )
+
+                    for row in imported_rows:
+                        conn.execute(
+                            'INSERT INTO dynamic_table_rows (id, table_id, data_json, created_at) VALUES (?, ?, ?, ?)',
+                            (str(uuid.uuid4()), table_id, json.dumps(row), utc_now()),
+                        )
+                    conn.commit()
+                    conn.close()
+            except sqlite3.IntegrityError:
+                send_json(self, 409, {'message': 'Tab name must be unique and page must be valid'})
+                return
+
+            send_json(self, 201, {'id': table_id, 'importedRows': len(imported_rows)})
+            return
+
+        if normalized_path == '/api/dynamic-tables/import':
+            page_id = (body.get('pageId') or '').strip() if isinstance(body.get('pageId'), str) else body.get('pageId')
+            if not page_id:
+                send_json(self, 400, {'message': 'pageId is required'})
+                return
             name = (body.get('name') or '').strip()
             file_name = (body.get('fileName') or '').strip().lower()
             file_content = body.get('fileContentBase64')
