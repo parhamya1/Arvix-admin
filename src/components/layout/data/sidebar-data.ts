@@ -49,7 +49,7 @@ export const sidebarData: SidebarData = {
           icon: LayoutDashboard,
         },
         {
-          title: 'Users',
+          title: 'User Management',
           url: '/users',
           icon: Users,
         },
