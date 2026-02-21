@@ -157,6 +157,16 @@ export const sidebarData: SidebarData = {
             },
           ],
         },
+        {
+          title: 'Category Management',
+          url: '/settings/category-management',
+          icon: FolderTree,
+        },
+        {
+          title: 'Table Management',
+          url: '/settings/table-management',
+          icon: Table2,
+        },
       ],
     },
     {
@@ -190,16 +200,6 @@ export const sidebarData: SidebarData = {
               title: 'Display',
               url: '/settings/display',
               icon: Monitor,
-            },
-            {
-              title: 'Category Management',
-              url: '/settings/category-management',
-              icon: FolderTree,
-            },
-            {
-              title: 'Table Management',
-              url: '/settings/table-management',
-              icon: Table2,
             },
           ],
         },
