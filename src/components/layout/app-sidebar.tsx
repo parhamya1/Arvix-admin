@@ -13,8 +13,14 @@ import { TeamSwitcher } from './team-switcher'
 import { useAuthStore } from '@/stores/auth-store'
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
+const SIDEBAR_ORDER_STORAGE_KEY = 'sidebar_order_admin'
 
 const adminOnlyTitles = new Set(['User Management', 'Category Management', 'Table Management'])
+
+type PersistedSidebarOrder = {
+  groupOrder: string[]
+  itemOrderByGroup: Record<string, string[]>
+}
 
 const isCollapsible = (item: NavItem): item is NavCollapsible =>
   Array.isArray((item as { items?: unknown }).items)
@@ -50,19 +56,112 @@ const moveArrayItem = <T,>(list: T[], fromIndex: number, toIndex: number): T[] =
   return next
 }
 
+const getAdminOrderStorageKey = (accountNo?: string, email?: string) => {
+  const userKey = accountNo ?? email ?? 'default'
+  return `${SIDEBAR_ORDER_STORAGE_KEY}:${userKey}`
+}
+
+const buildPersistedOrder = (groups: NavGroupType[]): PersistedSidebarOrder => ({
+  groupOrder: groups.map((group) => group.title),
+  itemOrderByGroup: Object.fromEntries(
+    groups.map((group) => [group.title, group.items.map((item) => item.title)])
+  ),
+})
+
+const reorderByTitle = <T extends { title: string }>(items: T[], orderedTitles: string[]) => {
+  if (orderedTitles.length === 0) return items
+
+  const grouped = new Map<string, T[]>()
+  items.forEach((item) => {
+    const list = grouped.get(item.title)
+    if (list) {
+      list.push(item)
+      return
+    }
+    grouped.set(item.title, [item])
+  })
+
+  const orderedItems: T[] = []
+  orderedTitles.forEach((title) => {
+    const list = grouped.get(title)
+    if (!list || list.length === 0) return
+    orderedItems.push(...list)
+    grouped.delete(title)
+  })
+
+  grouped.forEach((remaining) => orderedItems.push(...remaining))
+
+  return orderedItems
+}
+
+const applyPersistedOrder = (
+  groups: NavGroupType[],
+  persistedOrder: PersistedSidebarOrder
+): NavGroupType[] => {
+  const orderedGroups = reorderByTitle(groups, persistedOrder.groupOrder)
+
+  return orderedGroups.map((group) => ({
+    ...group,
+    items: reorderByTitle(group.items, persistedOrder.itemOrderByGroup[group.title] ?? []),
+  }))
+}
+
+const parsePersistedOrder = (raw: string | null): PersistedSidebarOrder | null => {
+  if (!raw) return null
+
+  try {
+    const parsed = JSON.parse(raw) as PersistedSidebarOrder
+    if (!Array.isArray(parsed.groupOrder) || !parsed.itemOrderByGroup) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
-  const userRoles = useAuthStore((state) => state.auth.user?.role ?? [])
+  const user = useAuthStore((state) => state.auth.user)
+  const userRoles = user?.role ?? []
   const isAdmin = userRoles.includes('admin')
   const [remoteNavGroups, setRemoteNavGroups] = useState<NavGroupType[] | null>(null)
-  const [orderedNavGroups, setOrderedNavGroups] = useState<NavGroupType[] | null>(null)
+  const [orderedNavState, setOrderedNavState] = useState<{
+    storageKey: string
+    groups: NavGroupType[]
+  } | null>(null)
 
   const filteredNavGroups = useMemo(
     () => filterAdminOnlyItems(remoteNavGroups ?? sidebarData.navGroups, isAdmin),
     [isAdmin, remoteNavGroups]
   )
 
-  const navGroups = isAdmin ? orderedNavGroups ?? filteredNavGroups : filteredNavGroups
+  const storageKey = useMemo(
+    () => getAdminOrderStorageKey(user?.accountNo, user?.email),
+    [user?.accountNo, user?.email]
+  )
+
+  const persistedOrder = useMemo(() => {
+    if (!isAdmin || typeof window === 'undefined') return null
+    return parsePersistedOrder(window.localStorage.getItem(storageKey))
+  }, [isAdmin, storageKey])
+
+  const navGroups = useMemo(() => {
+    if (!isAdmin) return filteredNavGroups
+
+    if (orderedNavState && orderedNavState.storageKey === storageKey) {
+      return orderedNavState.groups
+    }
+
+    if (!persistedOrder) return filteredNavGroups
+    return applyPersistedOrder(filteredNavGroups, persistedOrder)
+  }, [filteredNavGroups, isAdmin, orderedNavState, persistedOrder, storageKey])
+
+  const persistOrder = (groups: NavGroupType[]) => {
+    if (!isAdmin || typeof window === 'undefined') return
+    const payload = buildPersistedOrder(groups)
+    window.localStorage.setItem(storageKey, JSON.stringify(payload))
+    setOrderedNavState({ storageKey, groups })
+  }
+
   useEffect(() => {
     const controller = new AbortController()
 
@@ -108,7 +207,7 @@ export function AppSidebar() {
     }
   }, [])
 
-  const ensureAdminGroups = () => orderedNavGroups ?? filteredNavGroups
+  const ensureAdminGroups = () => navGroups
 
   const handleGroupDrop = (event: DragEvent<HTMLDivElement>, targetIndex: number) => {
     if (!isAdmin) return
@@ -119,7 +218,8 @@ export function AppSidebar() {
     if (Number.isNaN(sourceIndex)) return
 
     event.preventDefault()
-    setOrderedNavGroups(moveArrayItem(ensureAdminGroups(), sourceIndex, targetIndex))
+    const nextGroups = moveArrayItem(ensureAdminGroups(), sourceIndex, targetIndex)
+    persistOrder(nextGroups)
   }
 
   const handleItemMove = (
@@ -141,7 +241,7 @@ export function AppSidebar() {
     if (!movedItem) return
 
     targetGroup.items.splice(targetItemIndex, 0, movedItem)
-    setOrderedNavGroups(next)
+    persistOrder(next)
   }
 
   return (
