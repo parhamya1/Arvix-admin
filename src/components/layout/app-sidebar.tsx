@@ -188,21 +188,17 @@ export function AppSidebar() {
     if (!isAdmin) return
 
     const payload = buildPersistedOrder(groups)
+    const serializedPayload = JSON.stringify(payload)
     setSidebarOrder(payload)
 
-    try {
-      const isSaved = await saveSidebarOrderToServer(payload)
-      if (!isSaved) {
-        window.localStorage.setItem(PENDING_SIDEBAR_ORDER_KEY, JSON.stringify(payload))
-        return
-      }
+    window.localStorage.setItem(SIDEBAR_ORDER_CACHE_KEY, serializedPayload)
+    window.localStorage.setItem(PENDING_SIDEBAR_ORDER_KEY, serializedPayload)
 
-      window.localStorage.removeItem(PENDING_SIDEBAR_ORDER_KEY)
-      window.localStorage.setItem(SIDEBAR_ORDER_CACHE_KEY, JSON.stringify(payload))
-      window.dispatchEvent(new Event('sidebar-order-updated'))
-    } catch {
-      window.localStorage.setItem(PENDING_SIDEBAR_ORDER_KEY, JSON.stringify(payload))
-    }
+    const isSaved = await saveSidebarOrderToServer(payload)
+    if (!isSaved) return
+
+    window.localStorage.removeItem(PENDING_SIDEBAR_ORDER_KEY)
+    window.dispatchEvent(new Event('sidebar-order-updated'))
   }
 
   useEffect(() => {
@@ -250,22 +246,20 @@ export function AppSidebar() {
           }
         }
 
-        if (isAdmin) {
-          const pendingRaw = window.localStorage.getItem(PENDING_SIDEBAR_ORDER_KEY)
-          if (pendingRaw) {
-            try {
-              const pendingPayload = parsePersistedOrder(JSON.parse(pendingRaw))
-              if (pendingPayload) {
-                const isSaved = await saveSidebarOrderToServer(pendingPayload)
-                if (isSaved) {
-                  window.localStorage.removeItem(PENDING_SIDEBAR_ORDER_KEY)
-                  window.localStorage.setItem(SIDEBAR_ORDER_CACHE_KEY, JSON.stringify(pendingPayload))
-                  setSidebarOrder(pendingPayload)
-                }
+        const pendingRaw = window.localStorage.getItem(PENDING_SIDEBAR_ORDER_KEY)
+        if (pendingRaw) {
+          try {
+            const pendingPayload = parsePersistedOrder(JSON.parse(pendingRaw))
+            if (pendingPayload) {
+              const isSaved = await saveSidebarOrderToServer(pendingPayload)
+              if (isSaved) {
+                window.localStorage.removeItem(PENDING_SIDEBAR_ORDER_KEY)
+                window.localStorage.setItem(SIDEBAR_ORDER_CACHE_KEY, JSON.stringify(pendingPayload))
+                setSidebarOrder(pendingPayload)
               }
-            } catch {
-              window.localStorage.removeItem(PENDING_SIDEBAR_ORDER_KEY)
             }
+          } catch {
+            window.localStorage.removeItem(PENDING_SIDEBAR_ORDER_KEY)
           }
         }
       } catch {
