@@ -36,6 +36,8 @@ import { type ExportFormat, exportTableData } from '@/lib/table-export'
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
 
+const sanitizeRuntimeName = (value: string) => value.replace(/\s\([a-f0-9]{6}\)$/i, '')
+
 type ColumnType = 'text' | 'number' | 'boolean' | 'date'
 type TableColumn = { key: string; label: string; type: ColumnType }
 type DynamicTable = { id: string; name: string; columns: TableColumn[]; pageId?: string | null }
@@ -258,8 +260,7 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
       <Main className='flex flex-1 flex-col gap-4 sm:gap-6'>
         <div className='flex flex-wrap items-start justify-between gap-3'>
           <div>
-            <h2 className='text-2xl font-bold tracking-tight'>{page?.name ?? 'Dynamic Page'}</h2>
-            <p className='text-muted-foreground'>Runtime table view with quick actions.</p>
+            <h2 className='text-2xl font-bold tracking-tight'>{page?.name ? sanitizeRuntimeName(page.name) : 'Dynamic Page'}</h2>
           </div>
 
           <TooltipProvider>
@@ -563,7 +564,7 @@ export function DynamicTableViewer({ tableId }: { tableId: string }) {
           <Card>
             <CardHeader className='space-y-3'>
               <CardTitle className='flex items-center justify-between'>
-                <span>Data Grid</span>
+                <span>{sanitizeRuntimeName(activeTable.name)}</span>
                 <span className='text-sm font-normal text-muted-foreground'>
                   {filteredRows.length} rows • {activeFilterCount} active filters
                 </span>

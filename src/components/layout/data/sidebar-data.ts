@@ -9,6 +9,7 @@ import {
   Users,
   FolderTree,
   Table2,
+  SquareFunction,
   FileBarChart2,
   AudioWaveform,
   Command,
@@ -158,6 +159,27 @@ export const sidebarData: SidebarData = {
           title: 'Table Management',
           url: '/settings/table-management',
           icon: Table2,
+        },
+      ],
+    },
+
+    {
+      title: 'KPI',
+      items: [
+        {
+          title: 'KPI Library',
+          url: '/kpis',
+          icon: SquareFunction,
+        },
+        {
+          title: 'KPI Builder',
+          url: '/kpis/new',
+          icon: SquareFunction,
+        },
+        {
+          title: 'KPI Runs',
+          url: '/kpis/runs',
+          icon: SquareFunction,
         },
       ],
     },
