@@ -838,6 +838,69 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 200, {'ok': True})
             return
 
+        if path.startswith('/api/sidebar-items/') and len(path.strip('/').split('/')) == 3:
+            item_id = path.strip('/').split('/')[2]
+            group_title = body.get('groupTitle')
+            title = body.get('title')
+            url = body.get('url')
+            sort_order = body.get('sortOrder')
+            display_mode = body.get('displayMode')
+            parent_id = body.get('parentId')
+
+            if not isinstance(group_title, str) or not group_title.strip() or not isinstance(title, str) or not title.strip():
+                send_json(self, 400, {'message': 'groupTitle and title are required'})
+                return
+            if display_mode not in ('hierarchy', 'vertical'):
+                send_json(self, 400, {'message': 'displayMode must be hierarchy or vertical'})
+                return
+            if parent_id == item_id:
+                send_json(self, 400, {'message': 'Item cannot be its own parent'})
+                return
+
+            try:
+                with _db_lock:
+                    conn = get_conn()
+                    existing = conn.execute('SELECT id FROM sidebar_items WHERE id=?', (item_id,)).fetchone()
+                    if not existing:
+                        conn.close()
+                        send_json(self, 404, {'message': 'Sidebar item not found'})
+                        return
+
+                    if parent_id:
+                        parent_exists = conn.execute('SELECT id FROM sidebar_items WHERE id=?', (parent_id,)).fetchone()
+                        if not parent_exists:
+                            conn.close()
+                            send_json(self, 400, {'message': 'Invalid parentId'})
+                            return
+
+                    conn.execute(
+                        '''
+                        UPDATE sidebar_items
+                        SET group_title=?, parent_id=?, title=?, url=?, sort_order=?, display_mode=?
+                        WHERE id=?
+                        ''',
+                        (
+                            group_title.strip(),
+                            parent_id,
+                            title.strip(),
+                            (url or '').strip() or None,
+                            int(sort_order or 0),
+                            display_mode,
+                            item_id,
+                        ),
+                    )
+                    conn.commit()
+                    conn.close()
+            except sqlite3.IntegrityError:
+                send_json(self, 400, {'message': 'Invalid sidebar item update payload'})
+                return
+            except sqlite3.OperationalError as exc:
+                send_json(self, 500, {'message': str(exc)})
+                return
+
+            send_json(self, 200, {'ok': True})
+            return
+
         if path.startswith('/api/dynamic-tables/') and len(path.strip('/').split('/')) == 3:
             table_id = path.strip('/').split('/')[2]
             name = body.get('name')
@@ -928,43 +991,47 @@ class Handler(BaseHTTPRequestHandler):
 
         if path.startswith('/api/sidebar-items/'):
             item_id = path.split('/')[-1]
-            with _db_lock:
-                conn = get_conn()
-                existing = conn.execute('SELECT id FROM sidebar_items WHERE id=?', (item_id,)).fetchone()
-                if not existing:
+            try:
+                with _db_lock:
+                    conn = get_conn()
+                    existing = conn.execute('SELECT id FROM sidebar_items WHERE id=?', (item_id,)).fetchone()
+                    if not existing:
+                        conn.close()
+                        send_json(self, 404, {'message': 'Sidebar item not found'})
+                        return
+
+                    descendants = conn.execute(
+                        '''
+                        WITH RECURSIVE sidebar_descendants(id) AS (
+                          SELECT id FROM sidebar_items WHERE id = ?
+                          UNION ALL
+                          SELECT s.id
+                          FROM sidebar_items s
+                          INNER JOIN sidebar_descendants d ON s.parent_id = d.id
+                        )
+                        SELECT id FROM sidebar_descendants
+                        ''',
+                        (item_id,),
+                    ).fetchall()
+                    descendant_ids = [row['id'] for row in descendants]
+
+                    placeholders = ','.join('?' for _ in descendant_ids)
+                    if descendant_ids:
+                        conn.execute(
+                            f'DELETE FROM dynamic_pages WHERE sidebar_item_id IN ({placeholders})',
+                            descendant_ids,
+                        )
+                        conn.execute(
+                            f'DELETE FROM dynamic_tables WHERE sidebar_item_id IN ({placeholders})',
+                            descendant_ids,
+                        )
+
+                    cur = conn.execute('DELETE FROM sidebar_items WHERE id=?', (item_id,))
+                    conn.commit()
                     conn.close()
-                    send_json(self, 404, {'message': 'Sidebar item not found'})
-                    return
-
-                descendants = conn.execute(
-                    '''
-                    WITH RECURSIVE sidebar_descendants(id) AS (
-                      SELECT id FROM sidebar_items WHERE id = ?
-                      UNION ALL
-                      SELECT s.id
-                      FROM sidebar_items s
-                      INNER JOIN sidebar_descendants d ON s.parent_id = d.id
-                    )
-                    SELECT id FROM sidebar_descendants
-                    ''',
-                    (item_id,),
-                ).fetchall()
-                descendant_ids = [row['id'] for row in descendants]
-
-                placeholders = ','.join('?' for _ in descendant_ids)
-                if descendant_ids:
-                    conn.execute(
-                        f'DELETE FROM dynamic_pages WHERE sidebar_item_id IN ({placeholders})',
-                        descendant_ids,
-                    )
-                    conn.execute(
-                        f'DELETE FROM dynamic_tables WHERE sidebar_item_id IN ({placeholders})',
-                        descendant_ids,
-                    )
-
-                cur = conn.execute('DELETE FROM sidebar_items WHERE id=?', (item_id,))
-                conn.commit()
-                conn.close()
+            except sqlite3.OperationalError as exc:
+                send_json(self, 500, {'message': str(exc)})
+                return
 
             if cur.rowcount == 0:
                 send_json(self, 404, {'message': 'Sidebar item not found'})

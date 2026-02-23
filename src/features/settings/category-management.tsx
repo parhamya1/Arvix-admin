@@ -34,6 +34,7 @@ export function CategoryManagement() {
   const [notice, setNotice] = useState('')
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
 
   const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items])
 
@@ -87,6 +88,63 @@ export function CategoryManagement() {
     return () => controller.abort()
   }, [])
 
+  const resetForm = () => {
+    setTitle('')
+    setUrl('')
+    setSortOrder('0')
+    setParentId('none')
+    setGroupTitle('Other')
+    setDisplayMode('hierarchy')
+    setEditingItemId(null)
+  }
+
+  const startEditItem = (item: SidebarItem) => {
+    setEditingItemId(item.id)
+    setGroupTitle(item.groupTitle)
+    setTitle(item.title)
+    setUrl(item.url ?? '')
+    setSortOrder(String(item.sortOrder))
+    setDisplayMode(item.displayMode)
+    setParentId(item.parentId ?? 'none')
+    setNotice('')
+  }
+
+  const saveItem = async () => {
+    if (!groupTitle.trim() || !title.trim()) return
+    if (!editingItemId) {
+      await createItem()
+      return
+    }
+
+    setSaving(true)
+    setNotice('')
+    try {
+      const res = await fetch(`${backendBaseUrl}/api/sidebar-items/${editingItemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupTitle: groupTitle.trim(),
+          title: title.trim(),
+          url: url.trim() || undefined,
+          sortOrder: Number(sortOrder) || 0,
+          displayMode,
+          parentId: parentId === 'none' ? null : parentId,
+        }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { message?: string } | null
+        setNotice(body?.message ?? 'Failed to update menu item.')
+        return
+      }
+      setNotice('Menu item updated successfully.')
+      resetForm()
+      await loadItems()
+      window.dispatchEvent(new Event('sidebar-config-updated'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const createItem = async () => {
     if (!groupTitle.trim() || !title.trim()) return
     setSaving(true)
@@ -135,10 +193,7 @@ export function CategoryManagement() {
         setNotice('Menu item and page created successfully.')
       }
 
-      setTitle('')
-      setUrl('')
-      setSortOrder('0')
-      setParentId('none')
+      resetForm()
       await loadItems()
       window.dispatchEvent(new Event('sidebar-config-updated'))
     } finally {
@@ -206,11 +261,13 @@ export function CategoryManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='none'>No parent (root item)</SelectItem>
-                  {parentCandidates.map(({ item, pathLabel }) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {pathLabel}
-                    </SelectItem>
-                  ))}
+                  {parentCandidates
+                    .filter(({ item }) => item.id !== editingItemId)
+                    .map(({ item, pathLabel }) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {pathLabel}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -231,9 +288,16 @@ export function CategoryManagement() {
             </div>
           </div>
 
-          <Button onClick={createItem} disabled={saving}>
-            {saving ? 'Saving...' : 'Add menu item'}
-          </Button>
+          <div className='flex flex-wrap gap-2'>
+            <Button onClick={saveItem} disabled={saving}>
+              {saving ? 'Saving...' : editingItemId ? 'Save changes' : 'Add menu item'}
+            </Button>
+            {editingItemId && (
+              <Button variant='outline' onClick={resetForm} disabled={saving}>
+                Cancel edit
+              </Button>
+            )}
+          </div>
           {notice && <p className='text-sm text-muted-foreground'>{notice}</p>}
         </CardContent>
       </Card>
@@ -255,14 +319,19 @@ export function CategoryManagement() {
                   url: {item.url || 'none'}
                 </div>
               </div>
-              <Button
-                variant='destructive'
-                size='sm'
-                onClick={() => deleteItem(item.id)}
-                disabled={deletingId === item.id}
-              >
-                {deletingId === item.id ? 'Deleting...' : 'Delete'}
-              </Button>
+              <div className='flex gap-2'>
+                <Button variant='outline' size='sm' onClick={() => startEditItem(item)}>
+                  Edit
+                </Button>
+                <Button
+                  variant='destructive'
+                  size='sm'
+                  onClick={() => deleteItem(item.id)}
+                  disabled={deletingId === item.id}
+                >
+                  {deletingId === item.id ? 'Deleting...' : 'Delete'}
+                </Button>
+              </div>
             </div>
           ))}
 
