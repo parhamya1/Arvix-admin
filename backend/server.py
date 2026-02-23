@@ -24,18 +24,25 @@ os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 _db_lock = threading.Lock()
 
 
+def get_fallback_db_path() -> str:
+    db_dir = os.path.dirname(DB_PATH) or '.'
+    return os.getenv('BACKEND_DB_FALLBACK_PATH', os.path.join(db_dir, 'arvix.runtime.db'))
+
+
 def relocate_to_writable_db() -> bool:
     global DB_PATH
 
-    db_dir = os.path.dirname(DB_PATH) or '.'
-    fallback_path = os.getenv('BACKEND_DB_FALLBACK_PATH', os.path.join(db_dir, 'arvix.runtime.db'))
+    fallback_path = get_fallback_db_path()
 
     try:
         os.makedirs(os.path.dirname(fallback_path) or '.', exist_ok=True)
-        if os.path.exists(DB_PATH):
-            shutil.copy2(DB_PATH, fallback_path)
-        else:
-            open(fallback_path, 'a', encoding='utf-8').close()
+
+        # Do not overwrite existing fallback DB. It can be newer than primary DB.
+        if not os.path.exists(fallback_path):
+            if os.path.exists(DB_PATH):
+                shutil.copy2(DB_PATH, fallback_path)
+            else:
+                open(fallback_path, 'a', encoding='utf-8').close()
 
         try:
             os.chmod(fallback_path, 0o664)
@@ -63,6 +70,25 @@ def ensure_db_writable() -> None:
             os.chmod(db_dir, 0o775)
         except OSError:
             pass
+
+
+def select_writable_db_path() -> None:
+    global DB_PATH
+
+    fallback_path = get_fallback_db_path()
+
+    # If the primary DB path is writable (or can be made writable), keep using it.
+    ensure_db_writable()
+    if os.path.exists(DB_PATH) and os.access(DB_PATH, os.W_OK):
+        return
+
+    # Prefer existing fallback DB to preserve previously-written runtime data.
+    if os.path.exists(fallback_path) and os.access(fallback_path, os.W_OK):
+        DB_PATH = fallback_path
+        return
+
+    # Otherwise attempt relocation/copy.
+    relocate_to_writable_db()
 
 
 def utc_now() -> str:
@@ -123,6 +149,7 @@ def migrate_dynamic_tables_schema(conn: sqlite3.Connection) -> None:
 
 def init_db() -> None:
     with _db_lock:
+        select_writable_db_path()
         ensure_db_writable()
         conn = get_conn()
         conn.executescript(
@@ -173,10 +200,27 @@ def init_db() -> None:
         ensure_column(conn, 'dynamic_tables', 'sidebar_item_id', 'TEXT REFERENCES sidebar_items(id) ON DELETE SET NULL')
         ensure_column(conn, 'dynamic_tables', 'page_id', 'TEXT REFERENCES dynamic_pages(id) ON DELETE CASCADE')
         migrate_dynamic_tables_schema(conn)
+        reconcile_sidebar_item_urls(conn)
         conn.execute('CREATE INDEX IF NOT EXISTS idx_dynamic_tables_page_id ON dynamic_tables(page_id)')
         conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_dynamic_tables_page_name ON dynamic_tables(page_id, name)')
         conn.commit()
         conn.close()
+
+
+def reconcile_sidebar_item_urls(conn: sqlite3.Connection) -> None:
+    rows = conn.execute(
+        '''
+        SELECT d.sidebar_item_id, d.id AS page_id
+        FROM dynamic_pages d
+        WHERE d.sidebar_item_id IS NOT NULL
+        '''
+    ).fetchall()
+
+    for row in rows:
+        conn.execute(
+            'UPDATE sidebar_items SET url=? WHERE id=? AND (url IS NULL OR url = "")',
+            (f'/dynamic-tables/{row["page_id"]}', row['sidebar_item_id']),
+        )
 
 
 def parse_json(handler: BaseHTTPRequestHandler) -> dict:
