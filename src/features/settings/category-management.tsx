@@ -33,6 +33,7 @@ export function CategoryManagement() {
   const [parentId, setParentId] = useState<string>('none')
   const [notice, setNotice] = useState('')
   const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items])
 
@@ -146,16 +147,27 @@ export function CategoryManagement() {
   }
 
   const deleteItem = async (id: string) => {
-    const res = await fetch(`${backendBaseUrl}/api/sidebar-items/${id}`, {
-      method: 'DELETE',
-    })
-    if (!res.ok) return
-    await loadItems()
-    window.dispatchEvent(new Event('sidebar-config-updated'))
+    setDeletingId(id)
+    setNotice('')
+    try {
+      const res = await fetch(`${backendBaseUrl}/api/sidebar-items/${id}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { message?: string } | null
+        setNotice(body?.message ?? 'Failed to delete selected item.')
+        return
+      }
+      setNotice('Item deleted successfully.')
+      await loadItems()
+      window.dispatchEvent(new Event('sidebar-config-updated'))
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
-    <div className='space-y-4'>
+    <div className='h-full min-h-0 space-y-4 overflow-y-auto pb-8 pe-1'>
       <Card>
         <CardHeader>
           <CardTitle>Manage Categories and Menu Items</CardTitle>
@@ -243,8 +255,13 @@ export function CategoryManagement() {
                   url: {item.url || 'none'}
                 </div>
               </div>
-              <Button variant='destructive' size='sm' onClick={() => deleteItem(item.id)}>
-                Delete
+              <Button
+                variant='destructive'
+                size='sm'
+                onClick={() => deleteItem(item.id)}
+                disabled={deletingId === item.id}
+              >
+                {deletingId === item.id ? 'Deleting...' : 'Delete'}
               </Button>
             </div>
           ))}
