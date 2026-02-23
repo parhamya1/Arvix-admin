@@ -160,6 +160,11 @@ export const sidebarData: SidebarData = {
           url: '/settings/table-management',
           icon: Table2,
         },
+        {
+          title: 'KPI Builder',
+          url: '/help-center',
+          icon: SquareFunction,
+        },
       ],
     },
 
