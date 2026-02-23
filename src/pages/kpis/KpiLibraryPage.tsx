@@ -2,21 +2,48 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { MoreHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { duplicateKpi, setKpiActive, deleteKpi, listKpis } from '@/lib/kpiApi'
 import type { KpiListItem, KpiVendorScope } from '@/lib/kpiTypes'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 export default function KpiLibraryPage() {
   const [search, setSearch] = useState('')
-  const [vendorFilter, setVendorFilter] = useState<KpiVendorScope | 'Any'>('Any')
+  const [vendorFilter, setVendorFilter] = useState<KpiVendorScope | 'Any'>(
+    'Any'
+  )
   const [deleteTarget, setDeleteTarget] = useState<KpiListItem | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -26,7 +53,8 @@ export default function KpiLibraryPage() {
     const rows = query.data ?? []
     return rows.filter((row) => {
       const searchOk = row.name.toLowerCase().includes(search.toLowerCase())
-      const vendorOk = vendorFilter === 'Any' || row.vendorScope === vendorFilter
+      const vendorOk =
+        vendorFilter === 'Any' || row.vendorScope === vendorFilter
       return searchOk && vendorOk
     })
   }, [query.data, search, vendorFilter])
@@ -35,7 +63,11 @@ export default function KpiLibraryPage() {
     await query.refetch()
   }
 
-  const runAction = async (id: string, action: () => Promise<unknown>, success: string) => {
+  const runAction = async (
+    id: string,
+    action: () => Promise<unknown>,
+    success: string
+  ) => {
     setBusyId(id)
     try {
       await action()
@@ -51,8 +83,14 @@ export default function KpiLibraryPage() {
   return (
     <div className='space-y-4 p-4 md:p-6'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
-        <h1 className='text-2xl font-semibold tracking-tight'>KPI Library</h1>
-        <Button onClick={() => { window.location.href = '/kpis/new' }}>New KPI</Button>
+        <h1 className='text-2xl font-semibold tracking-tight'>KPI List</h1>
+        <Button
+          onClick={() => {
+            window.location.href = '/kpis/new'
+          }}
+        >
+          New KPI
+        </Button>
       </div>
 
       <Card>
@@ -63,12 +101,23 @@ export default function KpiLibraryPage() {
           <div className='grid grid-cols-1 gap-3 md:grid-cols-3'>
             <div className='space-y-2 md:col-span-2'>
               <Label>Search</Label>
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder='Search KPI by name' />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder='Search KPI by name'
+              />
             </div>
             <div className='space-y-2'>
               <Label>Vendor</Label>
-              <Select value={vendorFilter} onValueChange={(value: KpiVendorScope | 'Any') => setVendorFilter(value)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={vendorFilter}
+                onValueChange={(value: KpiVendorScope | 'Any') =>
+                  setVendorFilter(value)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='Any'>Any</SelectItem>
                   <SelectItem value='All'>All</SelectItem>
@@ -104,7 +153,13 @@ export default function KpiLibraryPage() {
                       <Switch
                         checked={row.isActive}
                         disabled={busyId === row.id}
-                        onCheckedChange={(value) => runAction(row.id, () => setKpiActive(row.id, value), 'Activation updated')}
+                        onCheckedChange={(value) =>
+                          runAction(
+                            row.id,
+                            () => setKpiActive(row.id, value),
+                            'Activation updated'
+                          )
+                        }
                       />
                     </TableCell>
                     <TableCell>
@@ -115,9 +170,30 @@ export default function KpiLibraryPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align='end'>
-                          <DropdownMenuItem onClick={() => { window.location.href = `/kpis/${row.id}` }}>Edit</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => runAction(row.id, () => duplicateKpi(row.id), 'KPI duplicated')}>Duplicate</DropdownMenuItem>
-                          <DropdownMenuItem className='text-destructive' onClick={() => setDeleteTarget(row)}>Delete</DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              window.location.href = `/kpis/${row.id}`
+                            }}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              runAction(
+                                row.id,
+                                () => duplicateKpi(row.id),
+                                'KPI duplicated'
+                              )
+                            }
+                          >
+                            Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className='text-destructive'
+                            onClick={() => setDeleteTarget(row)}
+                          >
+                            Delete
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -134,21 +210,31 @@ export default function KpiLibraryPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete KPI</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>?
+              Are you sure you want to delete{' '}
+              <strong>{deleteTarget?.name}</strong>?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant='outline' onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant='outline' onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
             <Button
               variant='destructive'
               onClick={async () => {
                 if (!deleteTarget) return
-                await runAction(deleteTarget.id, () => deleteKpi(deleteTarget.id), 'KPI deleted')
+                await runAction(
+                  deleteTarget.id,
+                  () => deleteKpi(deleteTarget.id),
+                  'KPI deleted'
+                )
                 setDeleteTarget(null)
               }}
             >

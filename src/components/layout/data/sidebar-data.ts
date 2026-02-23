@@ -100,7 +100,10 @@ export const sidebarData: SidebarData = {
                   items: [
                     { title: 'Huawei', url: '/reporting/license/raw/huawei' },
                     { title: 'Nokia', url: '/reporting/license/raw/nokia' },
-                    { title: 'Ericsson', url: '/reporting/license/raw/ericsson' },
+                    {
+                      title: 'Ericsson',
+                      url: '/reporting/license/raw/ericsson',
+                    },
                   ],
                 },
                 {
@@ -117,7 +120,10 @@ export const sidebarData: SidebarData = {
                   items: [
                     { title: 'Huawei', url: '/reporting/inventory/raw/huawei' },
                     { title: 'Nokia', url: '/reporting/inventory/raw/nokia' },
-                    { title: 'Ericsson', url: '/reporting/inventory/raw/ericsson' },
+                    {
+                      title: 'Ericsson',
+                      url: '/reporting/inventory/raw/ericsson',
+                    },
                   ],
                 },
                 {
@@ -141,7 +147,10 @@ export const sidebarData: SidebarData = {
                     {
                       title: 'Nokia',
                       items: [
-                        { title: 'Applied Configuration Changes', url: '/reporting/user-log/history' },
+                        {
+                          title: 'Applied Configuration Changes',
+                          url: '/reporting/user-log/history',
+                        },
                       ],
                     },
                   ],
@@ -184,6 +193,22 @@ export const sidebarData: SidebarData = {
         {
           title: 'KPI Runs',
           url: '/kpis/runs',
+          icon: SquareFunction,
+        },
+      ],
+    },
+
+    {
+      title: 'KPI',
+      items: [
+        {
+          title: 'KPI List',
+          url: '/kpis',
+          icon: SquareFunction,
+        },
+        {
+          title: 'KPI Builder',
+          url: '/kpis/new',
           icon: SquareFunction,
         },
       ],

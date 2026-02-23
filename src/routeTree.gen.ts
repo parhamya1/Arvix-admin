@@ -43,7 +43,6 @@ import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_auth
 import { Route as AuthenticatedSettingsCategoryManagementRouteImport } from './routes/_authenticated/settings/category-management'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
-import { Route as AuthenticatedKpisRunsRouteImport } from './routes/_authenticated/kpis/runs'
 import { Route as AuthenticatedKpisNewRouteImport } from './routes/_authenticated/kpis/new'
 import { Route as AuthenticatedKpisIdRouteImport } from './routes/_authenticated/kpis/$id'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
@@ -230,11 +229,6 @@ const AuthenticatedSettingsAccountRoute =
     path: '/account',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
-const AuthenticatedKpisRunsRoute = AuthenticatedKpisRunsRouteImport.update({
-  id: '/kpis/runs',
-  path: '/kpis/runs',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedKpisNewRoute = AuthenticatedKpisNewRouteImport.update({
   id: '/kpis/new',
   path: '/kpis/new',
@@ -288,7 +282,6 @@ export interface FileRoutesByFullPath {
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/kpis/$id': typeof AuthenticatedKpisIdRoute
   '/kpis/new': typeof AuthenticatedKpisNewRoute
-  '/kpis/runs': typeof AuthenticatedKpisRunsRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/category-management': typeof AuthenticatedSettingsCategoryManagementRoute
@@ -327,7 +320,6 @@ export interface FileRoutesByTo {
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/kpis/$id': typeof AuthenticatedKpisIdRoute
   '/kpis/new': typeof AuthenticatedKpisNewRoute
-  '/kpis/runs': typeof AuthenticatedKpisRunsRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/category-management': typeof AuthenticatedSettingsCategoryManagementRoute
@@ -371,7 +363,6 @@ export interface FileRoutesById {
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/kpis/$id': typeof AuthenticatedKpisIdRoute
   '/_authenticated/kpis/new': typeof AuthenticatedKpisNewRoute
-  '/_authenticated/kpis/runs': typeof AuthenticatedKpisRunsRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/category-management': typeof AuthenticatedSettingsCategoryManagementRoute
@@ -413,7 +404,6 @@ export interface FileRouteTypes {
     | '/errors/$error'
     | '/kpis/$id'
     | '/kpis/new'
-    | '/kpis/runs'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/category-management'
@@ -452,7 +442,6 @@ export interface FileRouteTypes {
     | '/errors/$error'
     | '/kpis/$id'
     | '/kpis/new'
-    | '/kpis/runs'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/category-management'
@@ -495,7 +484,6 @@ export interface FileRouteTypes {
     | '/_authenticated/errors/$error'
     | '/_authenticated/kpis/$id'
     | '/_authenticated/kpis/new'
-    | '/_authenticated/kpis/runs'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/appearance'
     | '/_authenticated/settings/category-management'
@@ -773,13 +761,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAccountRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/kpis/runs': {
-      id: '/_authenticated/kpis/runs'
-      path: '/kpis/runs'
-      fullPath: '/kpis/runs'
-      preLoaderRoute: typeof AuthenticatedKpisRunsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/kpis/new': {
       id: '/_authenticated/kpis/new'
       path: '/kpis/new'
@@ -861,7 +842,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
   AuthenticatedKpisIdRoute: typeof AuthenticatedKpisIdRoute
   AuthenticatedKpisNewRoute: typeof AuthenticatedKpisNewRoute
-  AuthenticatedKpisRunsRoute: typeof AuthenticatedKpisRunsRoute
   AuthenticatedAppsIndexRoute: typeof AuthenticatedAppsIndexRoute
   AuthenticatedChatsIndexRoute: typeof AuthenticatedChatsIndexRoute
   AuthenticatedHelpCenterIndexRoute: typeof AuthenticatedHelpCenterIndexRoute
@@ -882,7 +862,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
   AuthenticatedKpisIdRoute: AuthenticatedKpisIdRoute,
   AuthenticatedKpisNewRoute: AuthenticatedKpisNewRoute,
-  AuthenticatedKpisRunsRoute: AuthenticatedKpisRunsRoute,
   AuthenticatedAppsIndexRoute: AuthenticatedAppsIndexRoute,
   AuthenticatedChatsIndexRoute: AuthenticatedChatsIndexRoute,
   AuthenticatedHelpCenterIndexRoute: AuthenticatedHelpCenterIndexRoute,

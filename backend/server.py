@@ -248,9 +248,8 @@ def reconcile_sidebar_item_urls(conn: sqlite3.Connection) -> None:
 
 def seed_kpi_sidebar(conn: sqlite3.Connection) -> None:
     kpi_items = [
-        ('KPI', 'KPI Library', '/kpis', 10),
+        ('KPI', 'KPI List', '/kpis', 10),
         ('KPI', 'KPI Builder', '/kpis/new', 20),
-        ('KPI', 'KPI Runs', '/kpis/runs', 30),
     ]
 
     for group_title, title, url, sort_order in kpi_items:
@@ -274,15 +273,33 @@ def seed_kpi_sidebar(conn: sqlite3.Connection) -> None:
             (str(uuid.uuid4()), group_title, title, url, sort_order, 'hierarchy', utc_now()),
         )
 
-    old_builder = conn.execute(
-        'SELECT id FROM sidebar_items WHERE LOWER(group_title)=LOWER(?) AND LOWER(title)=LOWER(?)',
-        ('Other', 'KPI Builder'),
-    ).fetchone()
-    if old_builder:
+    # Move any old KPI Builder item from non-KPI groups into KPI.
+    old_builder_rows = conn.execute(
+        'SELECT id FROM sidebar_items WHERE LOWER(title)=LOWER(?) AND LOWER(group_title)<>LOWER(?)',
+        ('KPI Builder', 'KPI'),
+    ).fetchall()
+    for row in old_builder_rows:
         conn.execute(
             'UPDATE sidebar_items SET group_title=?, url=?, sort_order=?, display_mode=? WHERE id=?',
-            ('KPI', '/kpis/new', 20, 'hierarchy', old_builder['id']),
+            ('KPI', '/kpis/new', 20, 'hierarchy', row['id']),
         )
+
+    # Rename old KPI Library item to KPI List.
+    old_library = conn.execute(
+        'SELECT id FROM sidebar_items WHERE LOWER(group_title)=LOWER(?) AND LOWER(title)=LOWER(?)',
+        ('KPI', 'KPI Library'),
+    ).fetchone()
+    if old_library:
+        conn.execute(
+            'UPDATE sidebar_items SET title=?, url=?, sort_order=?, display_mode=? WHERE id=?',
+            ('KPI List', '/kpis', 10, 'hierarchy', old_library['id']),
+        )
+
+    # Remove obsolete KPI navigation entries.
+    conn.execute(
+        'DELETE FROM sidebar_items WHERE LOWER(group_title)=LOWER(?) AND LOWER(title) IN (LOWER(?), LOWER(?))',
+        ('KPI', 'KPI Runs', 'KPI Library'),
+    )
 
 
 KPI_CATEGORIES = {'Accessibility', 'Retainability', 'Mobility', 'Traffic', 'Availability', 'Integrity'}
