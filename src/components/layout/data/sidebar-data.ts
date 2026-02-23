@@ -167,6 +167,27 @@ export const sidebarData: SidebarData = {
         },
       ],
     },
+
+    {
+      title: 'KPI',
+      items: [
+        {
+          title: 'KPI Library',
+          url: '/kpis',
+          icon: SquareFunction,
+        },
+        {
+          title: 'KPI Builder',
+          url: '/kpis/new',
+          icon: SquareFunction,
+        },
+        {
+          title: 'KPI Runs',
+          url: '/kpis/runs',
+          icon: SquareFunction,
+        },
+      ],
+    },
     {
       title: 'Other',
       items: [

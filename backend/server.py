@@ -194,15 +194,37 @@ def init_db() -> None:
               layout_json TEXT NOT NULL,
               updated_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS kpi_definitions (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              category TEXT NOT NULL,
+              unit TEXT NOT NULL,
+              tech_json TEXT NOT NULL,
+              vendor_scope TEXT NOT NULL,
+              mo_classes_json TEXT NOT NULL,
+              granularity TEXT NOT NULL,
+              agg_level TEXT NOT NULL,
+              description TEXT,
+              mappings_json TEXT NOT NULL,
+              formula_json TEXT NOT NULL,
+              thresholds_json TEXT NOT NULL,
+              version INTEGER NOT NULL DEFAULT 1,
+              is_active INTEGER NOT NULL DEFAULT 1,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
             """
         )
         ensure_column(conn, 'sidebar_items', 'display_mode', "TEXT NOT NULL DEFAULT 'hierarchy'")
         ensure_column(conn, 'dynamic_tables', 'sidebar_item_id', 'TEXT REFERENCES sidebar_items(id) ON DELETE SET NULL')
         ensure_column(conn, 'dynamic_tables', 'page_id', 'TEXT REFERENCES dynamic_pages(id) ON DELETE CASCADE')
         migrate_dynamic_tables_schema(conn)
+        seed_kpi_sidebar(conn)
         reconcile_sidebar_item_urls(conn)
         conn.execute('CREATE INDEX IF NOT EXISTS idx_dynamic_tables_page_id ON dynamic_tables(page_id)')
         conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_dynamic_tables_page_name ON dynamic_tables(page_id, name)')
+        conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_kpi_definitions_name_lower ON kpi_definitions(LOWER(name))')
         conn.commit()
         conn.close()
 
@@ -221,6 +243,145 @@ def reconcile_sidebar_item_urls(conn: sqlite3.Connection) -> None:
             'UPDATE sidebar_items SET url=? WHERE id=? AND (url IS NULL OR url = "")',
             (f'/dynamic-tables/{row["page_id"]}', row['sidebar_item_id']),
         )
+
+
+
+def seed_kpi_sidebar(conn: sqlite3.Connection) -> None:
+    kpi_items = [
+        ('KPI', 'KPI Library', '/kpis', 10),
+        ('KPI', 'KPI Builder', '/kpis/new', 20),
+        ('KPI', 'KPI Runs', '/kpis/runs', 30),
+    ]
+
+    for group_title, title, url, sort_order in kpi_items:
+        existing = conn.execute(
+            'SELECT id FROM sidebar_items WHERE LOWER(group_title)=LOWER(?) AND LOWER(title)=LOWER(?)',
+            (group_title, title),
+        ).fetchone()
+        if existing:
+            conn.execute(
+                'UPDATE sidebar_items SET url=?, sort_order=?, display_mode=? WHERE id=?',
+                (url, sort_order, 'hierarchy', existing['id']),
+            )
+            continue
+
+        conn.execute(
+            '''
+            INSERT INTO sidebar_items
+              (id, group_title, parent_id, title, url, badge, sort_order, display_mode, created_at)
+            VALUES (?, ?, NULL, ?, ?, NULL, ?, ?, ?)
+            ''',
+            (str(uuid.uuid4()), group_title, title, url, sort_order, 'hierarchy', utc_now()),
+        )
+
+    old_builder = conn.execute(
+        'SELECT id FROM sidebar_items WHERE LOWER(group_title)=LOWER(?) AND LOWER(title)=LOWER(?)',
+        ('Other', 'KPI Builder'),
+    ).fetchone()
+    if old_builder:
+        conn.execute(
+            'UPDATE sidebar_items SET group_title=?, url=?, sort_order=?, display_mode=? WHERE id=?',
+            ('KPI', '/kpis/new', 20, 'hierarchy', old_builder['id']),
+        )
+
+
+KPI_CATEGORIES = {'Accessibility', 'Retainability', 'Mobility', 'Traffic', 'Availability', 'Integrity'}
+KPI_UNITS = {'%', 'count', 'bytes', 'Mbps', 'Erlang'}
+KPI_VENDOR_SCOPE = {'All', 'Nokia', 'Ericsson'}
+KPI_GRANULARITY = {'5min', '15min', 'hourly', 'daily'}
+KPI_AGG_LEVEL = {'Cell', 'Site', 'Node'}
+KPI_TECH = {'2G', '3G', '4G', '5G'}
+
+
+def _parse_json_field(body: dict, key: str, expected: type):
+    value = body.get(key)
+    if isinstance(value, expected):
+        return value
+    if isinstance(value, str):
+        parsed = json.loads(value)
+        if isinstance(parsed, expected):
+            return parsed
+    raise ValueError(f'{key} must be valid JSON {expected.__name__}')
+
+
+def validate_kpi_payload(body: dict) -> dict:
+    name = (body.get('name') or '').strip()
+    category = body.get('category')
+    unit = body.get('unit')
+    vendor_scope = body.get('vendorScope')
+    granularity = body.get('granularity')
+    agg_level = body.get('aggLevel')
+
+    if not name:
+        raise ValueError('name is required')
+    if category not in KPI_CATEGORIES:
+        raise ValueError('Invalid category')
+    if unit not in KPI_UNITS:
+        raise ValueError('Invalid unit')
+    if vendor_scope not in KPI_VENDOR_SCOPE:
+        raise ValueError('Invalid vendorScope')
+    if granularity not in KPI_GRANULARITY:
+        raise ValueError('Invalid granularity')
+    if agg_level not in KPI_AGG_LEVEL:
+        raise ValueError('Invalid aggLevel')
+
+    tech = _parse_json_field(body, 'tech', list)
+    if any(item not in KPI_TECH for item in tech):
+        raise ValueError('Invalid tech values')
+
+    mo_classes = _parse_json_field(body, 'moClasses', list)
+    mappings = _parse_json_field(body, 'mappings', dict)
+    formula = _parse_json_field(body, 'formula', dict)
+    thresholds = _parse_json_field(body, 'thresholds', dict)
+
+    if not isinstance(mappings, dict) or not isinstance(formula, dict) or not isinstance(thresholds, dict):
+        raise ValueError('mappings/formula/thresholds must be objects')
+
+    return {
+        'name': name,
+        'category': category,
+        'unit': unit,
+        'tech': tech,
+        'vendor_scope': vendor_scope,
+        'mo_classes': mo_classes,
+        'granularity': granularity,
+        'agg_level': agg_level,
+        'description': body.get('description') or '',
+        'mappings': mappings,
+        'formula': formula,
+        'thresholds': thresholds,
+    }
+
+
+def decode_kpi_row(row: sqlite3.Row) -> dict:
+    return {
+        'id': row['id'],
+        'name': row['name'],
+        'category': row['category'],
+        'unit': row['unit'],
+        'tech': json.loads(row['tech_json']),
+        'vendorScope': row['vendor_scope'],
+        'moClasses': json.loads(row['mo_classes_json']),
+        'granularity': row['granularity'],
+        'aggLevel': row['agg_level'],
+        'description': row['description'] or '',
+        'mappings': json.loads(row['mappings_json']),
+        'formula': json.loads(row['formula_json']),
+        'thresholds': json.loads(row['thresholds_json']),
+        'version': row['version'],
+        'isActive': bool(row['is_active']),
+        'createdAt': row['created_at'],
+        'updatedAt': row['updated_at'],
+    }
+
+
+def generate_duplicate_kpi_name(conn: sqlite3.Connection, base_name: str) -> str:
+    candidate = f'{base_name} (Copy)'
+    index = 2
+    while conn.execute('SELECT id FROM kpi_definitions WHERE LOWER(name)=LOWER(?)', (candidate,)).fetchone():
+        candidate = f'{base_name} (Copy {index})'
+        index += 1
+    return candidate
 
 
 def parse_json(handler: BaseHTTPRequestHandler) -> dict:
@@ -608,6 +769,53 @@ class Handler(BaseHTTPRequestHandler):
                 send_json(self, 200, flatten_sidebar(rows))
             return
 
+        if path == '/api/kpis':
+            with _db_lock:
+                conn = get_conn()
+                rows = conn.execute(
+                    '''
+                    SELECT id, name, category, unit, vendor_scope, granularity, agg_level, version, is_active, updated_at, created_at
+                    FROM kpi_definitions
+                    ORDER BY updated_at DESC
+                    '''
+                ).fetchall()
+                conn.close()
+            send_json(
+                self,
+                200,
+                [
+                    {
+                        'id': row['id'],
+                        'name': row['name'],
+                        'category': row['category'],
+                        'unit': row['unit'],
+                        'vendorScope': row['vendor_scope'],
+                        'granularity': row['granularity'],
+                        'aggLevel': row['agg_level'],
+                        'version': row['version'],
+                        'isActive': bool(row['is_active']),
+                        'updatedAt': row['updated_at'],
+                        'createdAt': row['created_at'],
+                    }
+                    for row in rows
+                ],
+            )
+            return
+
+        if path.startswith('/api/kpis/'):
+            parts = path.strip('/').split('/')
+            if len(parts) == 3:
+                kpi_id = parts[2]
+                with _db_lock:
+                    conn = get_conn()
+                    row = conn.execute('SELECT * FROM kpi_definitions WHERE id=?', (kpi_id,)).fetchone()
+                    conn.close()
+                if not row:
+                    send_json(self, 404, {'message': 'KPI not found'})
+                    return
+                send_json(self, 200, decode_kpi_row(row))
+                return
+
         if path == '/api/dynamic-pages':
             with _db_lock:
                 conn = get_conn()
@@ -812,6 +1020,53 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 201, {'id': table_id})
             return
 
+        if path == '/api/kpis':
+            with _db_lock:
+                conn = get_conn()
+                rows = conn.execute(
+                    '''
+                    SELECT id, name, category, unit, vendor_scope, granularity, agg_level, version, is_active, updated_at, created_at
+                    FROM kpi_definitions
+                    ORDER BY updated_at DESC
+                    '''
+                ).fetchall()
+                conn.close()
+            send_json(
+                self,
+                200,
+                [
+                    {
+                        'id': row['id'],
+                        'name': row['name'],
+                        'category': row['category'],
+                        'unit': row['unit'],
+                        'vendorScope': row['vendor_scope'],
+                        'granularity': row['granularity'],
+                        'aggLevel': row['agg_level'],
+                        'version': row['version'],
+                        'isActive': bool(row['is_active']),
+                        'updatedAt': row['updated_at'],
+                        'createdAt': row['created_at'],
+                    }
+                    for row in rows
+                ],
+            )
+            return
+
+        if path.startswith('/api/kpis/'):
+            parts = path.strip('/').split('/')
+            if len(parts) == 3:
+                kpi_id = parts[2]
+                with _db_lock:
+                    conn = get_conn()
+                    row = conn.execute('SELECT * FROM kpi_definitions WHERE id=?', (kpi_id,)).fetchone()
+                    conn.close()
+                if not row:
+                    send_json(self, 404, {'message': 'KPI not found'})
+                    return
+                send_json(self, 200, decode_kpi_row(row))
+                return
+
         if path == '/api/dynamic-pages':
             if not body.get('name'):
                 send_json(self, 400, {'message': 'name is required'})
@@ -926,6 +1181,86 @@ class Handler(BaseHTTPRequestHandler):
             upsert_sidebar_layout(payload)
             send_json(self, 200, {'ok': True})
             return
+
+        if path.startswith('/api/kpis/') and len(path.strip('/').split('/')) == 3:
+            kpi_id = path.strip('/').split('/')[2]
+            try:
+                payload = validate_kpi_payload(body)
+            except (ValueError, json.JSONDecodeError) as exc:
+                send_json(self, 400, {'message': str(exc)})
+                return
+
+            with _db_lock:
+                ensure_db_writable()
+                conn = get_conn()
+                existing = conn.execute('SELECT id, version FROM kpi_definitions WHERE id=?', (kpi_id,)).fetchone()
+                if not existing:
+                    conn.close()
+                    send_json(self, 404, {'message': 'KPI not found'})
+                    return
+
+                duplicate = conn.execute(
+                    'SELECT id FROM kpi_definitions WHERE LOWER(name)=LOWER(?) AND id<>?',
+                    (payload['name'], kpi_id),
+                ).fetchone()
+                if duplicate:
+                    conn.close()
+                    send_json(self, 409, {'message': 'KPI name must be unique'})
+                    return
+
+                conn.execute(
+                    '''
+                    UPDATE kpi_definitions SET
+                        name=?, category=?, unit=?, tech_json=?, vendor_scope=?, mo_classes_json=?,
+                        granularity=?, agg_level=?, description=?, mappings_json=?, formula_json=?,
+                        thresholds_json=?, version=?, updated_at=?
+                    WHERE id=?
+                    ''',
+                    (
+                        payload['name'],
+                        payload['category'],
+                        payload['unit'],
+                        json.dumps(payload['tech']),
+                        payload['vendor_scope'],
+                        json.dumps(payload['mo_classes']),
+                        payload['granularity'],
+                        payload['agg_level'],
+                        payload['description'],
+                        json.dumps(payload['mappings']),
+                        json.dumps(payload['formula']),
+                        json.dumps(payload['thresholds']),
+                        existing['version'] + 1,
+                        utc_now(),
+                        kpi_id,
+                    ),
+                )
+                conn.commit()
+                conn.close()
+            send_json(self, 200, {'ok': True})
+            return
+
+        if path.startswith('/api/kpis/') and path.endswith('/active'):
+            parts = path.strip('/').split('/')
+            if len(parts) == 4:
+                kpi_id = parts[2]
+                is_active = body.get('isActive')
+                if not isinstance(is_active, bool):
+                    send_json(self, 400, {'message': 'isActive must be boolean'})
+                    return
+                with _db_lock:
+                    ensure_db_writable()
+                    conn = get_conn()
+                    cur = conn.execute(
+                        'UPDATE kpi_definitions SET is_active=?, updated_at=? WHERE id=?',
+                        (1 if is_active else 0, utc_now(), kpi_id),
+                    )
+                    conn.commit()
+                    conn.close()
+                if cur.rowcount == 0:
+                    send_json(self, 404, {'message': 'KPI not found'})
+                    return
+                send_json(self, 200, {'ok': True})
+                return
 
         if path.startswith('/api/sidebar-items/') and len(path.strip('/').split('/')) == 3:
             item_id = path.strip('/').split('/')[2]
@@ -1078,6 +1413,22 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         path = urlparse(self.path).path
+
+        if path.startswith('/api/kpis/'):
+            parts = path.strip('/').split('/')
+            if len(parts) == 3:
+                kpi_id = parts[2]
+                with _db_lock:
+                    ensure_db_writable()
+                    conn = get_conn()
+                    cur = conn.execute('DELETE FROM kpi_definitions WHERE id=?', (kpi_id,))
+                    conn.commit()
+                    conn.close()
+                if cur.rowcount == 0:
+                    send_json(self, 404, {'message': 'KPI not found'})
+                else:
+                    send_json(self, 204)
+                return
 
         if path.startswith('/api/sidebar-items/'):
             item_id = path.split('/')[-1]
