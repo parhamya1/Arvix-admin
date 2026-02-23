@@ -11,6 +11,7 @@ import io
 import zipfile
 import xml.etree.ElementTree as ET
 import re
+import shutil
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
@@ -21,6 +22,47 @@ DB_PATH = os.getenv('BACKEND_DB_PATH', './backend/arvix.db')
 
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 _db_lock = threading.Lock()
+
+
+def relocate_to_writable_db() -> bool:
+    global DB_PATH
+
+    db_dir = os.path.dirname(DB_PATH) or '.'
+    fallback_path = os.getenv('BACKEND_DB_FALLBACK_PATH', os.path.join(db_dir, 'arvix.runtime.db'))
+
+    try:
+        os.makedirs(os.path.dirname(fallback_path) or '.', exist_ok=True)
+        if os.path.exists(DB_PATH):
+            shutil.copy2(DB_PATH, fallback_path)
+        else:
+            open(fallback_path, 'a', encoding='utf-8').close()
+
+        try:
+            os.chmod(fallback_path, 0o664)
+        except OSError:
+            pass
+
+        DB_PATH = fallback_path
+        return True
+    except OSError:
+        return False
+
+
+def ensure_db_writable() -> None:
+    db_dir = os.path.dirname(DB_PATH) or '.'
+
+    # Best-effort permission fix for environments where DB was created by another user.
+    if os.path.exists(DB_PATH) and not os.access(DB_PATH, os.W_OK):
+        try:
+            os.chmod(DB_PATH, 0o664)
+        except OSError:
+            pass
+
+    if os.path.exists(db_dir) and not os.access(db_dir, os.W_OK):
+        try:
+            os.chmod(db_dir, 0o775)
+        except OSError:
+            pass
 
 
 def utc_now() -> str:
@@ -81,6 +123,7 @@ def migrate_dynamic_tables_schema(conn: sqlite3.Connection) -> None:
 
 def init_db() -> None:
     with _db_lock:
+        ensure_db_writable()
         conn = get_conn()
         conn.executescript(
             """
@@ -591,6 +634,7 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) == 3:
                 table_id = parts[2]
                 with _db_lock:
+                    ensure_db_writable()
                     conn = get_conn()
                     row = conn.execute(
                         'SELECT id, name, columns_json, sidebar_item_id, page_id, created_at FROM dynamic_tables WHERE id=?',
@@ -695,6 +739,7 @@ class Handler(BaseHTTPRequestHandler):
             table_id = str(uuid.uuid4())
             try:
                 with _db_lock:
+                    ensure_db_writable()
                     conn = get_conn()
                     duplicate = conn.execute(
                         'SELECT id FROM dynamic_tables WHERE page_id=? AND LOWER(name)=LOWER(?)',
@@ -838,6 +883,70 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 200, {'ok': True})
             return
 
+        if path.startswith('/api/sidebar-items/') and len(path.strip('/').split('/')) == 3:
+            item_id = path.strip('/').split('/')[2]
+            group_title = body.get('groupTitle')
+            title = body.get('title')
+            url = body.get('url')
+            sort_order = body.get('sortOrder')
+            display_mode = body.get('displayMode')
+            parent_id = body.get('parentId')
+
+            if not isinstance(group_title, str) or not group_title.strip() or not isinstance(title, str) or not title.strip():
+                send_json(self, 400, {'message': 'groupTitle and title are required'})
+                return
+            if display_mode not in ('hierarchy', 'vertical'):
+                send_json(self, 400, {'message': 'displayMode must be hierarchy or vertical'})
+                return
+            if parent_id == item_id:
+                send_json(self, 400, {'message': 'Item cannot be its own parent'})
+                return
+
+            try:
+                with _db_lock:
+                    ensure_db_writable()
+                    conn = get_conn()
+                    existing = conn.execute('SELECT id FROM sidebar_items WHERE id=?', (item_id,)).fetchone()
+                    if not existing:
+                        conn.close()
+                        send_json(self, 404, {'message': 'Sidebar item not found'})
+                        return
+
+                    if parent_id:
+                        parent_exists = conn.execute('SELECT id FROM sidebar_items WHERE id=?', (parent_id,)).fetchone()
+                        if not parent_exists:
+                            conn.close()
+                            send_json(self, 400, {'message': 'Invalid parentId'})
+                            return
+
+                    conn.execute(
+                        '''
+                        UPDATE sidebar_items
+                        SET group_title=?, parent_id=?, title=?, url=?, sort_order=?, display_mode=?
+                        WHERE id=?
+                        ''',
+                        (
+                            group_title.strip(),
+                            parent_id,
+                            title.strip(),
+                            (url or '').strip() or None,
+                            int(sort_order or 0),
+                            display_mode,
+                            item_id,
+                        ),
+                    )
+                    conn.commit()
+                    conn.close()
+            except sqlite3.IntegrityError:
+                send_json(self, 400, {'message': 'Invalid sidebar item update payload'})
+                return
+            except sqlite3.OperationalError as exc:
+                send_json(self, 500, {'message': str(exc)})
+                return
+
+            send_json(self, 200, {'ok': True})
+            return
+
         if path.startswith('/api/dynamic-tables/') and len(path.strip('/').split('/')) == 3:
             table_id = path.strip('/').split('/')[2]
             name = body.get('name')
@@ -928,16 +1037,72 @@ class Handler(BaseHTTPRequestHandler):
 
         if path.startswith('/api/sidebar-items/'):
             item_id = path.split('/')[-1]
-            with _db_lock:
-                conn = get_conn()
-                cur = conn.execute('DELETE FROM sidebar_items WHERE id=?', (item_id,))
-                conn.commit()
-                conn.close()
-            if cur.rowcount == 0:
-                send_json(self, 404, {'message': 'Sidebar item not found'})
-            else:
-                send_json(self, 204)
-            return
+
+            for attempt in range(2):
+                try:
+                    with _db_lock:
+                        ensure_db_writable()
+                        conn = get_conn()
+                        existing = conn.execute('SELECT id FROM sidebar_items WHERE id=?', (item_id,)).fetchone()
+                        if not existing:
+                            conn.close()
+                            send_json(self, 404, {'message': 'Sidebar item not found'})
+                            return
+
+                        try:
+                            # Prefer direct delete; FKs handle cascade/set-null in normal schema.
+                            cur = conn.execute('DELETE FROM sidebar_items WHERE id=?', (item_id,))
+                        except sqlite3.IntegrityError:
+                            # Fallback for older DBs where FK actions were not created as expected.
+                            descendants = conn.execute(
+                                '''
+                                WITH RECURSIVE sidebar_descendants(id) AS (
+                                  SELECT id FROM sidebar_items WHERE id = ?
+                                  UNION ALL
+                                  SELECT s.id
+                                  FROM sidebar_items s
+                                  INNER JOIN sidebar_descendants d ON s.parent_id = d.id
+                                )
+                                SELECT id FROM sidebar_descendants
+                                ''',
+                                (item_id,),
+                            ).fetchall()
+                            descendant_ids = [row['id'] for row in descendants]
+
+                            if descendant_ids:
+                                placeholders = ','.join('?' for _ in descendant_ids)
+                                conn.execute(
+                                    f'DELETE FROM dynamic_pages WHERE sidebar_item_id IN ({placeholders})',
+                                    descendant_ids,
+                                )
+                                conn.execute(
+                                    f'DELETE FROM dynamic_tables WHERE sidebar_item_id IN ({placeholders})',
+                                    descendant_ids,
+                                )
+                            cur = conn.execute('DELETE FROM sidebar_items WHERE id=?', (item_id,))
+
+                        conn.commit()
+                        conn.close()
+
+                    if cur.rowcount == 0:
+                        send_json(self, 404, {'message': 'Sidebar item not found'})
+                    else:
+                        send_json(self, 204)
+                    return
+                except sqlite3.OperationalError as exc:
+                    is_readonly = 'readonly' in str(exc).lower()
+                    if is_readonly and attempt == 0 and relocate_to_writable_db():
+                        continue
+
+                    message = str(exc)
+                    if is_readonly:
+                        message = (
+                            'Database is readonly and auto-relocation failed. Set BACKEND_DB_PATH/BACKEND_DB_FALLBACK_PATH '
+                            f'to a writable location. Current DB: {DB_PATH}. Original error: {exc}'
+                        )
+                    send_json(self, 500, {'message': message})
+                    return
+
 
         if path.startswith('/api/dynamic-tables/'):
             table_id = path.split('/')[-1]
