@@ -930,9 +930,42 @@ class Handler(BaseHTTPRequestHandler):
             item_id = path.split('/')[-1]
             with _db_lock:
                 conn = get_conn()
+                existing = conn.execute('SELECT id FROM sidebar_items WHERE id=?', (item_id,)).fetchone()
+                if not existing:
+                    conn.close()
+                    send_json(self, 404, {'message': 'Sidebar item not found'})
+                    return
+
+                descendants = conn.execute(
+                    '''
+                    WITH RECURSIVE sidebar_descendants(id) AS (
+                      SELECT id FROM sidebar_items WHERE id = ?
+                      UNION ALL
+                      SELECT s.id
+                      FROM sidebar_items s
+                      INNER JOIN sidebar_descendants d ON s.parent_id = d.id
+                    )
+                    SELECT id FROM sidebar_descendants
+                    ''',
+                    (item_id,),
+                ).fetchall()
+                descendant_ids = [row['id'] for row in descendants]
+
+                placeholders = ','.join('?' for _ in descendant_ids)
+                if descendant_ids:
+                    conn.execute(
+                        f'DELETE FROM dynamic_pages WHERE sidebar_item_id IN ({placeholders})',
+                        descendant_ids,
+                    )
+                    conn.execute(
+                        f'DELETE FROM dynamic_tables WHERE sidebar_item_id IN ({placeholders})',
+                        descendant_ids,
+                    )
+
                 cur = conn.execute('DELETE FROM sidebar_items WHERE id=?', (item_id,))
                 conn.commit()
                 conn.close()
+
             if cur.rowcount == 0:
                 send_json(self, 404, {'message': 'Sidebar item not found'})
             else:

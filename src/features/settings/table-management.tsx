@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -20,7 +20,7 @@ type EditableColumn = TableColumn & { uid: string; isLabelManual?: boolean }
 type DynamicTab = { id: string; name: string; columns: TableColumn[]; pageId?: string | null }
 type DynamicPage = { id: string; name: string; sidebarItemId?: string | null }
 type DynamicRow = { id: string; data: Record<string, unknown> }
-type SidebarItem = { id: string; groupTitle: string; title: string }
+type SidebarItem = { id: string; groupTitle: string; title: string; parentId: string | null }
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
 
@@ -79,6 +79,31 @@ export function TableManagement() {
     [sidebarItemsQuery.data]
   )
 
+  const itemById = useMemo(() => new Map(categories.map((item) => [item.id, item])), [categories])
+
+  const getCategoryPathLabel = useCallback((itemId: string) => {
+    const visited = new Set<string>()
+    const segments: string[] = []
+    let currentId: string | null = itemId
+
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId)
+      const item = itemById.get(currentId)
+      if (!item) break
+      segments.unshift(item.title)
+      currentId = item.parentId
+    }
+
+    const rootItem = itemById.get(itemId)
+    if (!rootItem) return ''
+    return `${rootItem.groupTitle} / ${segments.join(' / ')}`
+  }, [itemById])
+
+  const categoryOptions = useMemo(
+    () => categories.map((item) => ({ ...item, pathLabel: getCategoryPathLabel(item.id) })),
+    [categories, getCategoryPathLabel]
+  )
+
   const selectedCategory = categories.find((item) => item.id === selectedCategoryId)
   const selectedPage = pages.find((page) => page.sidebarItemId === selectedCategoryId)
 
@@ -123,6 +148,7 @@ export function TableManagement() {
       return
     }
     await pagesQuery.refetch()
+    setSelectedTabId('')
     window.dispatchEvent(new Event('sidebar-config-updated'))
     setNotice('Page was created for selected category.')
   }
@@ -336,9 +362,7 @@ export function TableManagement() {
                 aria-expanded={categoryPickerOpen}
                 className='w-full justify-between'
               >
-                {selectedCategory
-                  ? `${selectedCategory.groupTitle} / ${selectedCategory.title}`
-                  : 'Select category...'}
+                {selectedCategory ? getCategoryPathLabel(selectedCategory.id) : 'Select category...'}
                 <ChevronsUpDown className='ml-2 size-4 shrink-0 opacity-50' />
               </Button>
             </PopoverTrigger>
@@ -348,8 +372,8 @@ export function TableManagement() {
                 <CommandList>
                   <CommandEmpty>No category found.</CommandEmpty>
                   <CommandGroup>
-                    {categories.map((item) => {
-                      const label = `${item.groupTitle} / ${item.title}`
+                    {categoryOptions.map((item) => {
+                      const label = item.pathLabel
                       return (
                         <CommandItem
                           key={item.id}
@@ -622,8 +646,8 @@ export function TableManagement() {
                 </div>
               </div>
 
-              <div className='overflow-hidden rounded-xl border bg-card/40 shadow-sm'>
-              <Table>
+              <div className='overflow-x-auto rounded-xl border bg-card/40 shadow-sm'>
+                <Table>
                 <TableHeader>
                   <TableRow>
                     {selectedTab.columns.map((column) => (
@@ -651,8 +675,8 @@ export function TableManagement() {
                     </TableRow>
                   )}
                 </TableBody>
-              </Table>
-            </div>
+                </Table>
+              </div>
             </>
           )}
         </CardContent>
