@@ -147,6 +147,40 @@ def migrate_dynamic_tables_schema(conn: sqlite3.Connection) -> None:
     conn.execute('PRAGMA foreign_keys = ON')
 
 
+
+def seed_kpi_sidebar(conn: sqlite3.Connection) -> None:
+    now = utc_now()
+    required_items = [
+        ('KPI', 'KPI Builder', '/kpi/builder', 10),
+        ('KPI', 'KPI List', '/kpi/list', 20),
+    ]
+
+    for group_title, title, url, sort_order in required_items:
+        row = conn.execute(
+            '''
+            SELECT id, url
+            FROM sidebar_items
+            WHERE LOWER(group_title)=LOWER(?) AND LOWER(title)=LOWER(?)
+            LIMIT 1
+            ''',
+            (group_title, title),
+        ).fetchone()
+
+        if not row:
+            conn.execute(
+                '''
+                INSERT INTO sidebar_items (id, group_title, parent_id, title, url, badge, sort_order, display_mode, created_at)
+                VALUES (?, ?, NULL, ?, ?, NULL, ?, 'hierarchy', ?)
+                ''',
+                (str(uuid.uuid4()), group_title, title, url, sort_order, now),
+            )
+            continue
+
+        existing_url = row['url']
+        if existing_url != url:
+            conn.execute('UPDATE sidebar_items SET url=? WHERE id=?', (url, row['id']))
+
+
 def init_db() -> None:
     with _db_lock:
         select_writable_db_path()
@@ -194,11 +228,21 @@ def init_db() -> None:
               layout_json TEXT NOT NULL,
               updated_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS kpi_definitions (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              payload_json TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
             """
         )
+        conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_kpi_definitions_name_ci ON kpi_definitions(LOWER(name))')
         ensure_column(conn, 'sidebar_items', 'display_mode', "TEXT NOT NULL DEFAULT 'hierarchy'")
         ensure_column(conn, 'dynamic_tables', 'sidebar_item_id', 'TEXT REFERENCES sidebar_items(id) ON DELETE SET NULL')
         ensure_column(conn, 'dynamic_tables', 'page_id', 'TEXT REFERENCES dynamic_pages(id) ON DELETE CASCADE')
+        seed_kpi_sidebar(conn)
         migrate_dynamic_tables_schema(conn)
         reconcile_sidebar_item_urls(conn)
         conn.execute('CREATE INDEX IF NOT EXISTS idx_dynamic_tables_page_id ON dynamic_tables(page_id)')
@@ -720,6 +764,53 @@ class Handler(BaseHTTPRequestHandler):
                 send_json(self, 200, payload)
                 return
 
+        if path == '/api/kpis':
+            with _db_lock:
+                conn = get_conn()
+                rows = conn.execute(
+                    'SELECT id, name, created_at, updated_at FROM kpi_definitions ORDER BY updated_at DESC'
+                ).fetchall()
+                conn.close()
+            send_json(
+                self,
+                200,
+                [
+                    {
+                        'id': row['id'],
+                        'name': row['name'],
+                        'createdAt': row['created_at'],
+                        'updatedAt': row['updated_at'],
+                    }
+                    for row in rows
+                ],
+            )
+            return
+
+        if path.startswith('/api/kpis/') and len(path.strip('/').split('/')) == 3:
+            kpi_id = path.strip('/').split('/')[2]
+            with _db_lock:
+                conn = get_conn()
+                row = conn.execute(
+                    'SELECT id, name, payload_json, created_at, updated_at FROM kpi_definitions WHERE id=?',
+                    (kpi_id,),
+                ).fetchone()
+                conn.close()
+            if not row:
+                send_json(self, 404, {'message': 'KPI not found'})
+                return
+            send_json(
+                self,
+                200,
+                {
+                    'id': row['id'],
+                    'name': row['name'],
+                    'payload': json.loads(row['payload_json']),
+                    'createdAt': row['created_at'],
+                    'updatedAt': row['updated_at'],
+                },
+            )
+            return
+
         send_json(self, 404, {'message': 'Not found'})
 
     def do_POST(self):
@@ -872,6 +963,29 @@ class Handler(BaseHTTPRequestHandler):
             page_id = path_parts[2]
             status, payload = create_table_from_import_payload(page_id, body)
             send_json(self, status, payload)
+            return
+
+        if path == '/api/kpis':
+            name = body.get('name')
+            payload = body.get('payload')
+            if not isinstance(name, str) or not name.strip() or not isinstance(payload, dict):
+                send_json(self, 400, {'message': 'name and payload are required'})
+                return
+            kpi_id = str(uuid.uuid4())
+            now = utc_now()
+            try:
+                with _db_lock:
+                    conn = get_conn()
+                    conn.execute(
+                        'INSERT INTO kpi_definitions (id, name, payload_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+                        (kpi_id, name.strip(), json.dumps(payload), now, now),
+                    )
+                    conn.commit()
+                    conn.close()
+            except sqlite3.IntegrityError:
+                send_json(self, 409, {'message': 'KPI name already exists'})
+                return
+            send_json(self, 201, {'id': kpi_id})
             return
 
         if normalized_path == '/api/dynamic-tables/import':
@@ -1074,6 +1188,37 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 200, {'ok': True})
             return
 
+        if path.startswith('/api/kpis/') and len(path.strip('/').split('/')) == 3:
+            kpi_id = path.strip('/').split('/')[2]
+            name = body.get('name')
+            payload = body.get('payload')
+            if not isinstance(name, str) or not name.strip() or not isinstance(payload, dict):
+                send_json(self, 400, {'message': 'name and payload are required'})
+                return
+            with _db_lock:
+                conn = get_conn()
+                existing = conn.execute('SELECT id FROM kpi_definitions WHERE id=?', (kpi_id,)).fetchone()
+                if not existing:
+                    conn.close()
+                    send_json(self, 404, {'message': 'KPI not found'})
+                    return
+                duplicate = conn.execute(
+                    'SELECT id FROM kpi_definitions WHERE LOWER(name)=LOWER(?) AND id<>?',
+                    (name.strip(), kpi_id),
+                ).fetchone()
+                if duplicate:
+                    conn.close()
+                    send_json(self, 409, {'message': 'KPI name already exists'})
+                    return
+                conn.execute(
+                    'UPDATE kpi_definitions SET name=?, payload_json=?, updated_at=? WHERE id=?',
+                    (name.strip(), json.dumps(payload), utc_now(), kpi_id),
+                )
+                conn.commit()
+                conn.close()
+            send_json(self, 200, {'ok': True})
+            return
+
         send_json(self, 404, {'message': 'Not found'})
 
     def do_DELETE(self):
@@ -1186,6 +1331,19 @@ class Handler(BaseHTTPRequestHandler):
                 conn.close()
             if cur.rowcount == 0:
                 send_json(self, 404, {'message': 'Row not found'})
+            else:
+                send_json(self, 204)
+            return
+
+        if path.startswith('/api/kpis/') and len(path.strip('/').split('/')) == 3:
+            kpi_id = path.strip('/').split('/')[2]
+            with _db_lock:
+                conn = get_conn()
+                cur = conn.execute('DELETE FROM kpi_definitions WHERE id=?', (kpi_id,))
+                conn.commit()
+                conn.close()
+            if cur.rowcount == 0:
+                send_json(self, 404, {'message': 'KPI not found'})
             else:
                 send_json(self, 204)
             return

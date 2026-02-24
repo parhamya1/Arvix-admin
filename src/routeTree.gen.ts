@@ -42,9 +42,12 @@ import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_auth
 import { Route as AuthenticatedSettingsCategoryManagementRouteImport } from './routes/_authenticated/settings/category-management'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
+import { Route as AuthenticatedKpiListRouteImport } from './routes/_authenticated/kpi/list'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
 import { Route as AuthenticatedDynamicTablesTableIdRouteImport } from './routes/_authenticated/dynamic-tables/$tableId'
+import { Route as AuthenticatedKpiBuilderIndexRouteImport } from './routes/_authenticated/kpi/builder/index'
 import { Route as AuthenticatedReportingDomainHistoryRouteImport } from './routes/_authenticated/reporting/$domain/history'
+import { Route as AuthenticatedKpiBuilderIdRouteImport } from './routes/_authenticated/kpi/builder/$id'
 import { Route as AuthenticatedReportingDomainRawVendorRouteImport } from './routes/_authenticated/reporting/$domain/raw/$vendor'
 
 const ClerkRouteRoute = ClerkRouteRouteImport.update({
@@ -221,6 +224,11 @@ const AuthenticatedSettingsAccountRoute =
     path: '/account',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedKpiListRoute = AuthenticatedKpiListRouteImport.update({
+  id: '/kpi/list',
+  path: '/kpi/list',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedErrorsErrorRoute =
   AuthenticatedErrorsErrorRouteImport.update({
     id: '/errors/$error',
@@ -233,10 +241,22 @@ const AuthenticatedDynamicTablesTableIdRoute =
     path: '/dynamic-tables/$tableId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedKpiBuilderIndexRoute =
+  AuthenticatedKpiBuilderIndexRouteImport.update({
+    id: '/kpi/builder/',
+    path: '/kpi/builder/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedReportingDomainHistoryRoute =
   AuthenticatedReportingDomainHistoryRouteImport.update({
     id: '/reporting/$domain/history',
     path: '/reporting/$domain/history',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedKpiBuilderIdRoute =
+  AuthenticatedKpiBuilderIdRouteImport.update({
+    id: '/kpi/builder/$id',
+    path: '/kpi/builder/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedReportingDomainRawVendorRoute =
@@ -262,6 +282,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/dynamic-tables/$tableId': typeof AuthenticatedDynamicTablesTableIdRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
+  '/kpi/list': typeof AuthenticatedKpiListRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/category-management': typeof AuthenticatedSettingsCategoryManagementRoute
@@ -279,7 +300,9 @@ export interface FileRoutesByFullPath {
   '/table-manager': typeof AuthenticatedTableManagerIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
+  '/kpi/builder/$id': typeof AuthenticatedKpiBuilderIdRoute
   '/reporting/$domain/history': typeof AuthenticatedReportingDomainHistoryRoute
+  '/kpi/builder': typeof AuthenticatedKpiBuilderIndexRoute
   '/reporting/$domain/raw/$vendor': typeof AuthenticatedReportingDomainRawVendorRoute
 }
 export interface FileRoutesByTo {
@@ -297,6 +320,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/dynamic-tables/$tableId': typeof AuthenticatedDynamicTablesTableIdRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
+  '/kpi/list': typeof AuthenticatedKpiListRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/category-management': typeof AuthenticatedSettingsCategoryManagementRoute
@@ -314,7 +338,9 @@ export interface FileRoutesByTo {
   '/table-manager': typeof AuthenticatedTableManagerIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
+  '/kpi/builder/$id': typeof AuthenticatedKpiBuilderIdRoute
   '/reporting/$domain/history': typeof AuthenticatedReportingDomainHistoryRoute
+  '/kpi/builder': typeof AuthenticatedKpiBuilderIndexRoute
   '/reporting/$domain/raw/$vendor': typeof AuthenticatedReportingDomainRawVendorRoute
 }
 export interface FileRoutesById {
@@ -337,6 +363,7 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/dynamic-tables/$tableId': typeof AuthenticatedDynamicTablesTableIdRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
+  '/_authenticated/kpi/list': typeof AuthenticatedKpiListRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/category-management': typeof AuthenticatedSettingsCategoryManagementRoute
@@ -354,7 +381,9 @@ export interface FileRoutesById {
   '/_authenticated/table-manager/': typeof AuthenticatedTableManagerIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
+  '/_authenticated/kpi/builder/$id': typeof AuthenticatedKpiBuilderIdRoute
   '/_authenticated/reporting/$domain/history': typeof AuthenticatedReportingDomainHistoryRoute
+  '/_authenticated/kpi/builder/': typeof AuthenticatedKpiBuilderIndexRoute
   '/_authenticated/reporting/$domain/raw/$vendor': typeof AuthenticatedReportingDomainRawVendorRoute
 }
 export interface FileRouteTypes {
@@ -375,6 +404,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dynamic-tables/$tableId'
     | '/errors/$error'
+    | '/kpi/list'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/category-management'
@@ -392,7 +422,9 @@ export interface FileRouteTypes {
     | '/table-manager'
     | '/tasks'
     | '/users'
+    | '/kpi/builder/$id'
     | '/reporting/$domain/history'
+    | '/kpi/builder'
     | '/reporting/$domain/raw/$vendor'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -410,6 +442,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dynamic-tables/$tableId'
     | '/errors/$error'
+    | '/kpi/list'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/category-management'
@@ -427,7 +460,9 @@ export interface FileRouteTypes {
     | '/table-manager'
     | '/tasks'
     | '/users'
+    | '/kpi/builder/$id'
     | '/reporting/$domain/history'
+    | '/kpi/builder'
     | '/reporting/$domain/raw/$vendor'
   id:
     | '__root__'
@@ -449,6 +484,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/dynamic-tables/$tableId'
     | '/_authenticated/errors/$error'
+    | '/_authenticated/kpi/list'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/appearance'
     | '/_authenticated/settings/category-management'
@@ -466,7 +502,9 @@ export interface FileRouteTypes {
     | '/_authenticated/table-manager/'
     | '/_authenticated/tasks/'
     | '/_authenticated/users/'
+    | '/_authenticated/kpi/builder/$id'
     | '/_authenticated/reporting/$domain/history'
+    | '/_authenticated/kpi/builder/'
     | '/_authenticated/reporting/$domain/raw/$vendor'
   fileRoutesById: FileRoutesById
 }
@@ -718,6 +756,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAccountRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/kpi/list': {
+      id: '/_authenticated/kpi/list'
+      path: '/kpi/list'
+      fullPath: '/kpi/list'
+      preLoaderRoute: typeof AuthenticatedKpiListRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/errors/$error': {
       id: '/_authenticated/errors/$error'
       path: '/errors/$error'
@@ -732,11 +777,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDynamicTablesTableIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/kpi/builder/': {
+      id: '/_authenticated/kpi/builder/'
+      path: '/kpi/builder'
+      fullPath: '/kpi/builder'
+      preLoaderRoute: typeof AuthenticatedKpiBuilderIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/reporting/$domain/history': {
       id: '/_authenticated/reporting/$domain/history'
       path: '/reporting/$domain/history'
       fullPath: '/reporting/$domain/history'
       preLoaderRoute: typeof AuthenticatedReportingDomainHistoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/kpi/builder/$id': {
+      id: '/_authenticated/kpi/builder/$id'
+      path: '/kpi/builder/$id'
+      fullPath: '/kpi/builder/$id'
+      preLoaderRoute: typeof AuthenticatedKpiBuilderIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/reporting/$domain/raw/$vendor': {
@@ -783,6 +842,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedDynamicTablesTableIdRoute: typeof AuthenticatedDynamicTablesTableIdRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
+  AuthenticatedKpiListRoute: typeof AuthenticatedKpiListRoute
   AuthenticatedAppsIndexRoute: typeof AuthenticatedAppsIndexRoute
   AuthenticatedChatsIndexRoute: typeof AuthenticatedChatsIndexRoute
   AuthenticatedHelpCenterIndexRoute: typeof AuthenticatedHelpCenterIndexRoute
@@ -790,7 +850,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTableManagerIndexRoute: typeof AuthenticatedTableManagerIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
+  AuthenticatedKpiBuilderIdRoute: typeof AuthenticatedKpiBuilderIdRoute
   AuthenticatedReportingDomainHistoryRoute: typeof AuthenticatedReportingDomainHistoryRoute
+  AuthenticatedKpiBuilderIndexRoute: typeof AuthenticatedKpiBuilderIndexRoute
   AuthenticatedReportingDomainRawVendorRoute: typeof AuthenticatedReportingDomainRawVendorRoute
 }
 
@@ -800,6 +862,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDynamicTablesTableIdRoute:
     AuthenticatedDynamicTablesTableIdRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
+  AuthenticatedKpiListRoute: AuthenticatedKpiListRoute,
   AuthenticatedAppsIndexRoute: AuthenticatedAppsIndexRoute,
   AuthenticatedChatsIndexRoute: AuthenticatedChatsIndexRoute,
   AuthenticatedHelpCenterIndexRoute: AuthenticatedHelpCenterIndexRoute,
@@ -807,8 +870,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTableManagerIndexRoute: AuthenticatedTableManagerIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
+  AuthenticatedKpiBuilderIdRoute: AuthenticatedKpiBuilderIdRoute,
   AuthenticatedReportingDomainHistoryRoute:
     AuthenticatedReportingDomainHistoryRoute,
+  AuthenticatedKpiBuilderIndexRoute: AuthenticatedKpiBuilderIndexRoute,
   AuthenticatedReportingDomainRawVendorRoute:
     AuthenticatedReportingDomainRawVendorRoute,
 }
