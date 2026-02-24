@@ -29,6 +29,23 @@ export type KpiThresholds = {
   yellowGte: number
 }
 
+export type KpiPreviewRow = {
+  objectName: string
+  numeratorSum: number
+  denominatorSum: number
+  kpiValue: number
+  status: 'Green' | 'Yellow' | 'Red'
+}
+
+export type KpiPreviewSnapshot = {
+  rows: KpiPreviewRow[]
+  avg: number
+  min: number
+  max: number
+  denomZero: number
+  missing: number
+}
+
 export type KpiMetadata = {
   name: string
   category: KpiCategory
@@ -50,6 +67,7 @@ export type KpiDefinition = KpiMetadata & {
   }
   formula: KpiFormula
   thresholds: KpiThresholds
+  preview: KpiPreviewSnapshot
   version: number
   isActive: boolean
   createdAt: string
@@ -60,6 +78,7 @@ export type KpiDefinitionPayload = KpiMetadata & {
   mappings: KpiDefinition['mappings']
   formula: KpiFormula
   thresholds: KpiThresholds
+  preview?: KpiPreviewSnapshot
 }
 
 export type KpiListItem = {
@@ -70,6 +89,8 @@ export type KpiListItem = {
   vendorScope: KpiVendorScope
   granularity: KpiGranularity
   aggLevel: KpiAggregationLevel
+  thresholds: KpiThresholds
+  preview: KpiPreviewSnapshot
   version: number
   isActive: boolean
   updatedAt: string

@@ -305,7 +305,7 @@ export default function KpiBuilderPage({ kpiId }: { kpiId?: string }) {
           safeDivide(numeratorSum, denominatorSum) * (unit === '%' ? 100 : 1)
       } else if (formulaType === 'sum') kpiValue = numeratorSum
       else kpiValue = numeratorSum - denominatorSum
-      const status =
+      const status: 'Green' | 'Yellow' | 'Red' =
         kpiValue >= greenGte
           ? 'Green'
           : kpiValue >= yellowGte
@@ -342,11 +342,11 @@ export default function KpiBuilderPage({ kpiId }: { kpiId?: string }) {
     setSaving(true)
     try {
       if (kpiId) {
-        await updateKpi(kpiId, payload)
+        await updateKpi(kpiId, { ...payload, preview })
         toast.success('KPI updated')
         setVersion((prev) => prev + 1)
       } else {
-        await createKpi(payload)
+        await createKpi({ ...payload, preview })
         toast.success('KPI created')
         window.location.href = '/kpis'
       }

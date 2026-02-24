@@ -209,6 +209,7 @@ def init_db() -> None:
               mappings_json TEXT NOT NULL,
               formula_json TEXT NOT NULL,
               thresholds_json TEXT NOT NULL,
+              preview_json TEXT NOT NULL DEFAULT '{}',
               version INTEGER NOT NULL DEFAULT 1,
               is_active INTEGER NOT NULL DEFAULT 1,
               created_at TEXT NOT NULL,
@@ -220,6 +221,7 @@ def init_db() -> None:
         ensure_column(conn, 'dynamic_tables', 'sidebar_item_id', 'TEXT REFERENCES sidebar_items(id) ON DELETE SET NULL')
         ensure_column(conn, 'dynamic_tables', 'page_id', 'TEXT REFERENCES dynamic_pages(id) ON DELETE CASCADE')
         migrate_dynamic_tables_schema(conn)
+        ensure_column(conn, 'kpi_definitions', 'preview_json', "TEXT NOT NULL DEFAULT '{}'")
         seed_kpi_sidebar(conn)
         reconcile_sidebar_item_urls(conn)
         conn.execute('CREATE INDEX IF NOT EXISTS idx_dynamic_tables_page_id ON dynamic_tables(page_id)')
@@ -247,58 +249,52 @@ def reconcile_sidebar_item_urls(conn: sqlite3.Connection) -> None:
 
 
 def seed_kpi_sidebar(conn: sqlite3.Connection) -> None:
-    kpi_items = [
-        ('KPI', 'KPI List', '/kpis', 10),
-        ('KPI', 'KPI Builder', '/kpis/new', 20),
-    ]
+    # Keep only one KPI category with KPI Builder under it.
+    existing_builder = conn.execute(
+        'SELECT id FROM sidebar_items WHERE LOWER(group_title)=LOWER(?) AND LOWER(title)=LOWER(?)',
+        ('KPI', 'KPI Builder'),
+    ).fetchone()
 
-    for group_title, title, url, sort_order in kpi_items:
-        existing = conn.execute(
-            'SELECT id FROM sidebar_items WHERE LOWER(group_title)=LOWER(?) AND LOWER(title)=LOWER(?)',
-            (group_title, title),
-        ).fetchone()
-        if existing:
-            conn.execute(
-                'UPDATE sidebar_items SET url=?, sort_order=?, display_mode=? WHERE id=?',
-                (url, sort_order, 'hierarchy', existing['id']),
-            )
-            continue
-
+    if existing_builder:
+        conn.execute(
+            'UPDATE sidebar_items SET url=?, sort_order=?, display_mode=? WHERE id=?',
+            ('/kpis/new', 10, 'hierarchy', existing_builder['id']),
+        )
+    else:
         conn.execute(
             '''
             INSERT INTO sidebar_items
               (id, group_title, parent_id, title, url, badge, sort_order, display_mode, created_at)
             VALUES (?, ?, NULL, ?, ?, NULL, ?, ?, ?)
             ''',
-            (str(uuid.uuid4()), group_title, title, url, sort_order, 'hierarchy', utc_now()),
+            (str(uuid.uuid4()), 'KPI', 'KPI Builder', '/kpis/new', 10, 'hierarchy', utc_now()),
         )
 
-    # Move any old KPI Builder item from non-KPI groups into KPI.
-    old_builder_rows = conn.execute(
-        'SELECT id FROM sidebar_items WHERE LOWER(title)=LOWER(?) AND LOWER(group_title)<>LOWER(?)',
-        ('KPI Builder', 'KPI'),
-    ).fetchall()
-    for row in old_builder_rows:
-        conn.execute(
-            'UPDATE sidebar_items SET group_title=?, url=?, sort_order=?, display_mode=? WHERE id=?',
-            ('KPI', '/kpis/new', 20, 'hierarchy', row['id']),
-        )
-
-    # Rename old KPI Library item to KPI List.
-    old_library = conn.execute(
-        'SELECT id FROM sidebar_items WHERE LOWER(group_title)=LOWER(?) AND LOWER(title)=LOWER(?)',
-        ('KPI', 'KPI Library'),
-    ).fetchone()
-    if old_library:
-        conn.execute(
-            'UPDATE sidebar_items SET title=?, url=?, sort_order=?, display_mode=? WHERE id=?',
-            ('KPI List', '/kpis', 10, 'hierarchy', old_library['id']),
-        )
-
-    # Remove obsolete KPI navigation entries.
+    # Delete all KPI-related items outside KPI group.
     conn.execute(
-        'DELETE FROM sidebar_items WHERE LOWER(group_title)=LOWER(?) AND LOWER(title) IN (LOWER(?), LOWER(?))',
-        ('KPI', 'KPI Runs', 'KPI Library'),
+        '''
+        DELETE FROM sidebar_items
+        WHERE LOWER(title) IN (LOWER(?), LOWER(?), LOWER(?), LOWER(?))
+          AND LOWER(group_title) <> LOWER(?)
+        ''',
+        ('KPI Builder', 'KPI List', 'KPI Library', 'KPI Runs', 'KPI'),
+    )
+
+    # In KPI group keep only KPI Builder and remove duplicates/legacy items.
+    builder_rows = conn.execute(
+        'SELECT id FROM sidebar_items WHERE LOWER(group_title)=LOWER(?) AND LOWER(title)=LOWER(?) ORDER BY created_at ASC',
+        ('KPI', 'KPI Builder'),
+    ).fetchall()
+    for duplicate in builder_rows[1:]:
+        conn.execute('DELETE FROM sidebar_items WHERE id=?', (duplicate['id'],))
+
+    conn.execute(
+        '''
+        DELETE FROM sidebar_items
+        WHERE LOWER(group_title)=LOWER(?)
+          AND LOWER(title) <> LOWER(?)
+        ''',
+        ('KPI', 'KPI Builder'),
     )
 
 
@@ -350,6 +346,13 @@ def validate_kpi_payload(body: dict) -> dict:
     mappings = _parse_json_field(body, 'mappings', dict)
     formula = _parse_json_field(body, 'formula', dict)
     thresholds = _parse_json_field(body, 'thresholds', dict)
+    preview = body.get('preview')
+    if preview is None:
+        preview = {}
+    elif isinstance(preview, str):
+        preview = json.loads(preview)
+    if not isinstance(preview, dict):
+        raise ValueError('preview must be object')
 
     if not isinstance(mappings, dict) or not isinstance(formula, dict) or not isinstance(thresholds, dict):
         raise ValueError('mappings/formula/thresholds must be objects')
@@ -367,6 +370,7 @@ def validate_kpi_payload(body: dict) -> dict:
         'mappings': mappings,
         'formula': formula,
         'thresholds': thresholds,
+        'preview': preview,
     }
 
 
@@ -385,6 +389,7 @@ def decode_kpi_row(row: sqlite3.Row) -> dict:
         'mappings': json.loads(row['mappings_json']),
         'formula': json.loads(row['formula_json']),
         'thresholds': json.loads(row['thresholds_json']),
+        'preview': json.loads(row['preview_json'] or '{}'),
         'version': row['version'],
         'isActive': bool(row['is_active']),
         'createdAt': row['created_at'],
@@ -791,7 +796,7 @@ class Handler(BaseHTTPRequestHandler):
                 conn = get_conn()
                 rows = conn.execute(
                     '''
-                    SELECT id, name, category, unit, vendor_scope, granularity, agg_level, version, is_active, updated_at, created_at
+                    SELECT id, name, category, unit, vendor_scope, granularity, agg_level, thresholds_json, preview_json, version, is_active, updated_at, created_at
                     FROM kpi_definitions
                     ORDER BY updated_at DESC
                     '''
@@ -809,6 +814,8 @@ class Handler(BaseHTTPRequestHandler):
                         'vendorScope': row['vendor_scope'],
                         'granularity': row['granularity'],
                         'aggLevel': row['agg_level'],
+                        'thresholds': json.loads(row['thresholds_json']),
+                        'preview': json.loads(row['preview_json'] or '{}'),
                         'version': row['version'],
                         'isActive': bool(row['is_active']),
                         'updatedAt': row['updated_at'],
@@ -1038,50 +1045,109 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if path == '/api/kpis':
+            try:
+                payload = validate_kpi_payload(body)
+            except (ValueError, json.JSONDecodeError) as exc:
+                send_json(self, 400, {'message': str(exc)})
+                return
+
+            kpi_id = str(uuid.uuid4())
+            now = utc_now()
             with _db_lock:
+                ensure_db_writable()
                 conn = get_conn()
-                rows = conn.execute(
+                duplicate = conn.execute(
+                    'SELECT id FROM kpi_definitions WHERE LOWER(name)=LOWER(?)',
+                    (payload['name'],),
+                ).fetchone()
+                if duplicate:
+                    conn.close()
+                    send_json(self, 409, {'message': 'KPI name must be unique'})
+                    return
+
+                conn.execute(
                     '''
-                    SELECT id, name, category, unit, vendor_scope, granularity, agg_level, version, is_active, updated_at, created_at
-                    FROM kpi_definitions
-                    ORDER BY updated_at DESC
-                    '''
-                ).fetchall()
+                    INSERT INTO kpi_definitions (
+                        id, name, category, unit, tech_json, vendor_scope, mo_classes_json,
+                        granularity, agg_level, description, mappings_json, formula_json,
+                        thresholds_json, preview_json, version, is_active, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''',
+                    (
+                        kpi_id,
+                        payload['name'],
+                        payload['category'],
+                        payload['unit'],
+                        json.dumps(payload['tech']),
+                        payload['vendor_scope'],
+                        json.dumps(payload['mo_classes']),
+                        payload['granularity'],
+                        payload['agg_level'],
+                        payload['description'],
+                        json.dumps(payload['mappings']),
+                        json.dumps(payload['formula']),
+                        json.dumps(payload['thresholds']),
+                        json.dumps(payload['preview']),
+                        1,
+                        1,
+                        now,
+                        now,
+                    ),
+                )
+                conn.commit()
                 conn.close()
-            send_json(
-                self,
-                200,
-                [
-                    {
-                        'id': row['id'],
-                        'name': row['name'],
-                        'category': row['category'],
-                        'unit': row['unit'],
-                        'vendorScope': row['vendor_scope'],
-                        'granularity': row['granularity'],
-                        'aggLevel': row['agg_level'],
-                        'version': row['version'],
-                        'isActive': bool(row['is_active']),
-                        'updatedAt': row['updated_at'],
-                        'createdAt': row['created_at'],
-                    }
-                    for row in rows
-                ],
-            )
+
+            send_json(self, 201, {'id': kpi_id})
             return
 
-        if path.startswith('/api/kpis/'):
+        if path.startswith('/api/kpis/') and path.endswith('/duplicate'):
             parts = path.strip('/').split('/')
-            if len(parts) == 3:
-                kpi_id = parts[2]
+            if len(parts) == 4:
+                source_id = parts[2]
                 with _db_lock:
+                    ensure_db_writable()
                     conn = get_conn()
-                    row = conn.execute('SELECT * FROM kpi_definitions WHERE id=?', (kpi_id,)).fetchone()
+                    source = conn.execute('SELECT * FROM kpi_definitions WHERE id=?', (source_id,)).fetchone()
+                    if not source:
+                        conn.close()
+                        send_json(self, 404, {'message': 'KPI not found'})
+                        return
+
+                    new_name = generate_duplicate_kpi_name(conn, source['name'])
+                    new_id = str(uuid.uuid4())
+                    now = utc_now()
+                    conn.execute(
+                        '''
+                        INSERT INTO kpi_definitions (
+                            id, name, category, unit, tech_json, vendor_scope, mo_classes_json,
+                            granularity, agg_level, description, mappings_json, formula_json,
+                            thresholds_json, preview_json, version, is_active, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ''',
+                        (
+                            new_id,
+                            new_name,
+                            source['category'],
+                            source['unit'],
+                            source['tech_json'],
+                            source['vendor_scope'],
+                            source['mo_classes_json'],
+                            source['granularity'],
+                            source['agg_level'],
+                            source['description'],
+                            source['mappings_json'],
+                            source['formula_json'],
+                            source['thresholds_json'],
+                            source['preview_json'],
+                            1,
+                            source['is_active'],
+                            now,
+                            now,
+                        ),
+                    )
+                    conn.commit()
                     conn.close()
-                if not row:
-                    send_json(self, 404, {'message': 'KPI not found'})
-                    return
-                send_json(self, 200, decode_kpi_row(row))
+                send_json(self, 201, {'id': new_id, 'name': new_name})
                 return
 
         if path == '/api/dynamic-pages':
@@ -1230,7 +1296,7 @@ class Handler(BaseHTTPRequestHandler):
                     UPDATE kpi_definitions SET
                         name=?, category=?, unit=?, tech_json=?, vendor_scope=?, mo_classes_json=?,
                         granularity=?, agg_level=?, description=?, mappings_json=?, formula_json=?,
-                        thresholds_json=?, version=?, updated_at=?
+                        thresholds_json=?, preview_json=?, version=?, updated_at=?
                     WHERE id=?
                     ''',
                     (
@@ -1246,6 +1312,7 @@ class Handler(BaseHTTPRequestHandler):
                         json.dumps(payload['mappings']),
                         json.dumps(payload['formula']),
                         json.dumps(payload['thresholds']),
+                        json.dumps(payload['preview']),
                         existing['version'] + 1,
                         utc_now(),
                         kpi_id,
