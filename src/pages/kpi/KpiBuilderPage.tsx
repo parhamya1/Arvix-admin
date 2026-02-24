@@ -1,19 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import {
-  AlertTriangle,
-  ArrowRightLeft,
-  CheckCircle2,
-  ChevronRight,
-  Eye,
-  FlaskConical,
-  Layers,
-  Loader2,
-  Save,
-  Sparkles,
-  Target,
-  Trash2,
-} from 'lucide-react'
+import { CheckCircle2, ChevronRight, Loader2, Plus, Save, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,19 +11,56 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { createKpi, deleteKpi, getKpi, updateKpi } from '@/lib/kpiApi'
+import { createKpi, deleteKpi, getKpi, listKpis, updateKpi } from '@/lib/kpiApi'
 
-const ENABLE_DYNAMIC_PM_DISCOVERY = false
+type Vendor = 'NOKIA' | 'ERICSSON' | 'HUAWEI'
+type Tech = '2G' | '3G' | '4G' | '5G' | 'Core'
+type Level = 'Cell' | 'Site' | 'Node' | 'BSC' | 'RNC' | 'NodeB' | 'eNodeB' | 'gNodeB'
+type KpiType = 'Traffic' | 'Accessibility' | 'Retainability' | 'Mobility' | 'Availability' | 'Integrity'
+type Aggregation = 'SUM' | 'AVG' | 'MIN' | 'MAX' | 'COUNT'
+type ThresholdMode = 'range' | 'fixed'
 
-type ThresholdOperator = '<' | '<=' | '>' | '>=' | 'between'
+type RuleOperator = '>=' | '<=' | '>' | '<' | 'between'
 
-type ThresholdRule = {
-  operator: ThresholdOperator
-  value?: string
-  min?: string
-  max?: string
+type WizardState = {
+  basics: {
+    name: string
+    vendor: Vendor | ''
+    technologies: Tech[]
+  }
+  scope: {
+    level: Level | ''
+  }
+  targets: string[]
+  kpiType: KpiType | ''
+  counters: {
+    selected: string[]
+    reuseKpiId: string
+    variables: Array<{ variableName: string; counterName: string }>
+  }
+  formula: {
+    mode: 'preset' | 'structured'
+    aggregation: Aggregation
+    numeratorCounters: string[]
+    denominatorCounters: string[]
+    multiplier: string
+  }
+  thresholdsV2: {
+    mode: ThresholdMode
+    range: {
+      success: { min: string; max: string }
+      warning: { operator: RuleOperator; min: string; max: string; value: string }
+      critical: { operator: RuleOperator; min: string; max: string; value: string }
+    }
+    fixed: {
+      direction: 'higher-better' | 'lower-better'
+      warning: string
+      critical: string
+    }
+  }
+  notes: string
 }
 
 type BuilderState = {
@@ -45,173 +69,243 @@ type BuilderState = {
     category?: string
     vendor?: string
     tech?: string
-    techList?: string[]
     scope?: string
-    moClass?: string
-    moClasses?: string[]
+    level?: string
+    technologies?: string[]
+    kpiType?: string
   }
   mapping: {
     source: string
-    tableId?: string
     numerator?: string
     denominator?: string
     additionalCounters?: string[]
-    vendor?: string
-    tech?: string
-    moClass?: string
-    numeratorVar?: string
-    denominatorVar?: string
-    sumVar?: string
+    targets?: string[]
+    counters?: string[]
     variables?: Array<{ variableName: string; counterName: string }>
+    numeratorCounters?: string[]
+    denominatorCounters?: string[]
   }
   formula: {
     expression: string
-    type?: 'Success Rate (%)' | 'Drop Rate (%)' | 'Availability (%)' | 'Sum' | 'Ratio (generic A/B * K)' | 'Ratio' | 'Difference'
+    type?: string
+    mode?: 'preset' | 'structured'
+    aggregation?: Aggregation
     multiplier?: string
   }
   thresholds: {
     warning: string
     critical: string
+    direction?: 'higher-better' | 'lower-better'
     rules?: {
-      warning: ThresholdRule
-      critical: ThresholdRule
-      success?: ThresholdRule
+      warning: { operator: RuleOperator; value?: string; min?: string; max?: string }
+      critical: { operator: RuleOperator; value?: string; min?: string; max?: string }
+      success?: { operator: RuleOperator; value?: string; min?: string; max?: string }
     }
   }
-}
-
-const defaultState: BuilderState = {
-  metadata: {
-    description: '',
-    category: '',
-    vendor: 'Nokia',
-    tech: '4G',
-    techList: ['4G'],
-    scope: 'Network',
-    moClass: '',
-    moClasses: [],
-  },
-  mapping: {
-    source: 'STATIC_CATALOG',
-    tableId: '',
-    numerator: '',
-    denominator: '',
-    additionalCounters: [],
-    vendor: 'Nokia',
-    tech: '4G',
-    moClass: '',
-    numeratorVar: '',
-    denominatorVar: '',
-    sumVar: '',
-    variables: [],
-  },
-  formula: { expression: '', type: 'Success Rate (%)', multiplier: '100' },
-  thresholds: {
-    warning: '',
-    critical: '',
-    rules: {
-      warning: { operator: '<', value: '' },
-      critical: { operator: '<', value: '' },
-      success: { operator: '>=', value: '' },
-    },
-  },
+  scope?: {
+    level: string
+    targets: string[]
+  }
+  type?: string
+  counters?: string[]
+  formulaV2?: WizardState['formula']
+  thresholdsV2?: WizardState['thresholdsV2']
 }
 
 const steps = [
-  { id: 1, title: 'Define KPI', icon: Target },
-  { id: 2, title: 'Data Scope', icon: Layers },
-  { id: 3, title: 'Map Counters', icon: ArrowRightLeft },
-  { id: 4, title: 'Formula & Thresholds', icon: FlaskConical },
-  { id: 5, title: 'Preview & Save', icon: Eye },
+  'Basics',
+  'Scope / Level',
+  'Target Selection',
+  'KPI Type',
+  'Counters & Formula',
+  'Thresholds',
+  'Review & Save',
 ]
 
-const vendorOptions = ['Nokia', 'Ericsson', 'Huawei', 'ZTE']
-const techOptions = ['2G', '3G', '4G', '5G']
-const scopeOptions = ['Network', 'Node', 'Site', 'Cell']
+const vendorOptions: Vendor[] = ['NOKIA', 'ERICSSON', 'HUAWEI']
+const techOptions: Tech[] = ['2G', '3G', '4G', '5G', 'Core']
+const levelOptions: Level[] = ['Cell', 'Site', 'Node', 'BSC', 'RNC', 'NodeB', 'eNodeB', 'gNodeB']
+const kpiTypeOptions: KpiType[] = ['Traffic', 'Accessibility', 'Retainability', 'Mobility', 'Availability', 'Integrity']
 
-const moClassCatalog: Record<string, Record<string, string[]>> = {
-  Nokia: {
-    '2G': ['BSC', 'BCF', 'BTS', 'TRX', 'CELL'],
-    '3G': ['RNC', 'WBTS', 'WCEL', 'HSDPA'],
-    '4G': ['MRBTS', 'LNBTS', 'LNCEL', 'LNCEL_FDD', 'LNCEL_TDD'],
-    '5G': ['NRBTS', 'NRCELL', 'NRCELL_FDD', 'NRCELL_TDD'],
+const counterLibrary: Record<KpiType, Record<Exclude<Tech, 'Core'> | 'Core', string[]>> = {
+  Accessibility: {
+    '2G': ['sdcchSeizureAtt', 'sdcchSeizureSucc', 'tchSeizureAtt', 'tchSeizureSucc', 'attachReq', 'attachSucc', 'cmServiceReq', 'cmServiceSucc', 'pagingAtt', 'pagingSucc'],
+    '3G': ['rrcConnReq', 'rrcConnSucc', 'csRabEstabAtt', 'csRabEstabSucc', 'psRabEstabAtt', 'psRabEstabSucc', 'pagingAtt', 'pagingSucc', 'serviceReqAtt', 'serviceReqSucc'],
+    '4G': ['rrcConnEstabAtt', 'rrcConnEstabSucc', 'erabEstabAtt', 'erabEstabSucc', 'pagingAtt', 'pagingSucc', 's1SetupAtt', 's1SetupSucc', 'nasAttachAtt', 'nasAttachSucc'],
+    '5G': ['rrcResumeAtt', 'rrcResumeSucc', 'pduSessionEstabAtt', 'pduSessionEstabSucc', 'regAtt', 'regSucc', 'serviceReqAtt', 'serviceReqSucc', 'ranConnAtt', 'ranConnSucc'],
+    Core: ['attachAttempt', 'attachSuccess', 'sessionCreateAttempt', 'sessionCreateSuccess', 'authAttempt', 'authSuccess', 'pagingAttempt', 'pagingSuccess', 'registrationAttempt', 'registrationSuccess'],
   },
-  Ericsson: {
-    '2G': ['BSC', 'BTS', 'TRX', 'GeranCell'],
-    '3G': ['RNC', 'NodeB', 'UtranCell', 'Hsdsch'],
-    '4G': ['ENodeB', 'EUtranCellFDD', 'EUtranCellTDD', 'ERBS'],
-    '5G': ['GNBDU', 'GNBCU', 'NRCellDU', 'NRCellCU'],
+  Mobility: {
+    '2G': ['hoAtt', 'hoSucc', 'intraBtsHoAtt', 'intraBtsHoSucc', 'interBscHoAtt', 'interBscHoSucc', 'cellReselAtt', 'cellReselSucc', 'redirAtt', 'redirSucc'],
+    '3G': ['softHoAtt', 'softHoSucc', 'hardHoAtt', 'hardHoSucc', 'interRatHoAtt', 'interRatHoSucc', 'cellUpdateAtt', 'cellUpdateSucc', 'redirAtt', 'redirSucc'],
+    '4G': ['hoAtt', 'hoSucc', 'interRatHoAtt', 'interRatHoSucc', 'x2HoAtt', 'x2HoSucc', 's1HoAtt', 's1HoSucc', 'redirAtt', 'redirSucc'],
+    '5G': ['nrHoAtt', 'nrHoSucc', 'xnHoAtt', 'xnHoSucc', 'ngHoAtt', 'ngHoSucc', 'interRatHoAtt', 'interRatHoSucc', 'sessionMoveAtt', 'sessionMoveSucc'],
+    Core: ['mobilityRegUpdateAtt', 'mobilityRegUpdateSucc', 'amfRelocAtt', 'amfRelocSucc', 'smfRelocAtt', 'smfRelocSucc', 'policyUpdateAtt', 'policyUpdateSucc', 'locationUpdateAtt', 'locationUpdateSucc'],
   },
-  Huawei: {
-    '2G': ['BSC', 'BTS', 'Cell', 'TRX'],
-    '3G': ['RNC', 'NodeB', 'Cell', 'UCELL'],
-    '4G': ['eNodeB', 'Cell', 'EUtranCell', 'LNCEL'],
-    '5G': ['gNodeB', 'NRCell', 'NRCELL'],
+  Traffic: {
+    '2G': ['tchTrafficErlang', 'gprsDataMb', 'edgeDataMb', 'activeUsers', 'usersMax', 'sessionCount', 'voiceMinutes', 'smsCount', 'psTrafficDlMb', 'psTrafficUlMb'],
+    '3G': ['hsDataVolumeMb', 'hsThroughputAvg', 'usersAvg', 'usersMax', 'sessionCount', 'csTrafficErlang', 'psTrafficDlMb', 'psTrafficUlMb', 'voiceMinutes', 'smsCount'],
+    '4G': ['dlDataVolumeMb', 'ulDataVolumeMb', 'dlThroughputAvg', 'ulThroughputAvg', 'prbUtilDlPct', 'prbUtilUlPct', 'erlangTraffic', 'usersAvg', 'usersMax', 'sessionCount'],
+    '5G': ['nrDlDataVolumeMb', 'nrUlDataVolumeMb', 'nrDlThroughputAvg', 'nrUlThroughputAvg', 'prbUtilDlPct', 'prbUtilUlPct', 'usersAvg', 'usersMax', 'pduSessionCount', 'qosFlowCount'],
+    Core: ['coreDlVolumeMb', 'coreUlVolumeMb', 'activeSessions', 'sessionCount', 'trafficPeakMbps', 'trafficAvgMbps', 'bearerCount', 'subscriberCount', 'voiceSessionCount', 'videoSessionCount'],
   },
-  ZTE: {
-    '2G': ['BSC', 'BTS', 'Cell'],
-    '3G': ['RNC', 'NodeB', 'Cell'],
-    '4G': ['eNodeB', 'Cell', 'EUtranCell'],
-    '5G': ['gNodeB', 'NRCell'],
+  Retainability: {
+    '2G': ['dropCount', 'dropRate', 'tchDropCount', 'sdcchDropCount', 'abnormalRelease', 'callReleaseFail', 'rlfCount', 'reestabAtt', 'reestabSucc', 'retainabilityScore'],
+    '3G': ['dropCount', 'dropRate', 'csDropCount', 'psDropCount', 'abnormalRelease', 'rlfCount', 'rlfRate', 'reestabAtt', 'reestabSucc', 'retainabilityScore'],
+    '4G': ['dropCount', 'dropRate', 'rlfCount', 'rlfRate', 'erabDropCount', 'erabDropRate', 'csDropCount', 'psDropCount', 'abnormalRelease', 'reestabSucc'],
+    '5G': ['dropCount', 'dropRate', 'rlfCount', 'rlfRate', 'pduDropCount', 'pduDropRate', 'abnormalRelease', 'reestabAtt', 'reestabSucc', 'retainabilityScore'],
+    Core: ['sessionDropCount', 'sessionDropRate', 'releaseAbnormal', 'bearerDropCount', 'bearerDropRate', 'pagingFailRelease', 'timeoutRelease', 'reconnectAtt', 'reconnectSucc', 'retainabilityScore'],
+  },
+  Availability: {
+    '2G': ['cellAvailPct', 'nodeAvailPct', 'downtimeMin', 'outageCount', 'unavailTime', 'plannedOutageMin', 'unplannedOutageMin', 'alarmCount', 'criticalAlarmCount', 'availabilityScore'],
+    '3G': ['cellAvailPct', 'nodeAvailPct', 'downtimeMin', 'outageCount', 'unavailTime', 'plannedOutageMin', 'unplannedOutageMin', 'alarmCount', 'criticalAlarmCount', 'availabilityScore'],
+    '4G': ['cellAvailPct', 'nodeAvailPct', 'downtimeMin', 'outageCount', 'unavailTime', 'plannedOutageMin', 'unplannedOutageMin', 'alarmCount', 'criticalAlarmCount', 'availabilityScore'],
+    '5G': ['cellAvailPct', 'nodeAvailPct', 'downtimeMin', 'outageCount', 'unavailTime', 'plannedOutageMin', 'unplannedOutageMin', 'alarmCount', 'criticalAlarmCount', 'availabilityScore'],
+    Core: ['serviceAvailPct', 'nodeAvailPct', 'downtimeMin', 'outageCount', 'unavailTime', 'plannedOutageMin', 'unplannedOutageMin', 'alarmCount', 'criticalAlarmCount', 'availabilityScore'],
+  },
+  Integrity: {
+    '2G': ['packetLossPct', 'latencyMs', 'jitterMs', 'retransPct', 'sinrAvg', 'rxLevAvg', 'rxQualAvg', 'ber', 'blerDl', 'blerUl'],
+    '3G': ['packetLossPct', 'latencyMs', 'jitterMs', 'retransPct', 'ecNoAvg', 'rscpAvg', 'rsrqAvg', 'ber', 'blerDl', 'blerUl'],
+    '4G': ['packetLossPct', 'latencyMs', 'jitterMs', 'retransPct', 'sinrAvg', 'rsrpAvg', 'rsrqAvg', 'ber', 'blerDl', 'blerUl'],
+    '5G': ['packetLossPct', 'latencyMs', 'jitterMs', 'retransPct', 'sinrAvg', 'ssRsrpAvg', 'ssRsrqAvg', 'ber', 'blerDl', 'blerUl'],
+    Core: ['packetLossPct', 'latencyMs', 'jitterMs', 'retransPct', 'tcpRetransPct', 'udpLossPct', 'serviceDelayMs', 'errorRate', 'protocolFailRate', 'integrityScore'],
   },
 }
 
-const staticCounterCatalog: Record<string, Record<string, string[]>> = {
-  Nokia: {
-    '2G': ['tchSeizureAttempts', 'tchSeizureSuccess', 'sdcchSeizureAttempts', 'sdcchSeizureSuccess', 'callDrops', 'tchTrafficErlang'],
-    '3G': ['rrcConnReq', 'rrcConnSucc', 'csRabEstabAtt', 'csRabEstabSucc', 'psRabEstabAtt', 'psRabEstabSucc', 'rlfEvents', 'hsDataVolumeMb'],
-    '4G': ['rrcConnEstabAtt', 'rrcConnEstabSucc', 'erabEstabAtt', 'erabEstabSucc', 'hoAtt', 'hoSucc', 'dlDataVolumeMb', 'ulDataVolumeMb', 'prbUtilizationPct'],
-    '5G': ['rrcResumeAtt', 'rrcResumeSucc', 'pduSessionEstabAtt', 'pduSessionEstabSucc', 'nrDlDataVolumeMb', 'nrUlDataVolumeMb'],
+const defaultWizard: WizardState = {
+  basics: { name: '', vendor: '', technologies: [] },
+  scope: { level: '' },
+  targets: [],
+  kpiType: '',
+  counters: { selected: [], reuseKpiId: '', variables: [] },
+  formula: { mode: 'preset', aggregation: 'SUM', numeratorCounters: [], denominatorCounters: [], multiplier: '100' },
+  thresholdsV2: {
+    mode: 'range',
+    range: {
+      success: { min: '', max: '' },
+      warning: { operator: 'between', min: '', max: '', value: '' },
+      critical: { operator: 'between', min: '', max: '', value: '' },
+    },
+    fixed: { direction: 'higher-better', warning: '', critical: '' },
   },
-  Ericsson: {
-    '2G': ['tchSeizureAttempts', 'tchSeizureSuccess', 'sdcchSeizureAttempts', 'sdcchSeizureSuccess', 'callDrops', 'tchTrafficErlang'],
-    '3G': ['rrcConnReq', 'rrcConnSucc', 'csRabEstabAtt', 'csRabEstabSucc', 'psRabEstabAtt', 'psRabEstabSucc', 'rlfEvents', 'hsDataVolumeMb'],
-    '4G': ['rrcConnEstabAtt', 'rrcConnEstabSucc', 'erabEstabAtt', 'erabEstabSucc', 'hoAtt', 'hoSucc', 'dlDataVolumeMb', 'ulDataVolumeMb', 'prbUtilizationPct'],
-    '5G': ['rrcResumeAtt', 'rrcResumeSucc', 'pduSessionEstabAtt', 'pduSessionEstabSucc', 'nrDlDataVolumeMb', 'nrUlDataVolumeMb'],
-  },
-  Huawei: {
-    '2G': ['tchSeizureAttempts', 'tchSeizureSuccess', 'sdcchSeizureAttempts', 'sdcchSeizureSuccess', 'callDrops', 'tchTrafficErlang'],
-    '3G': ['rrcConnReq', 'rrcConnSucc', 'csRabEstabAtt', 'csRabEstabSucc', 'psRabEstabAtt', 'psRabEstabSucc', 'rlfEvents', 'hsDataVolumeMb'],
-    '4G': ['rrcConnEstabAtt', 'rrcConnEstabSucc', 'erabEstabAtt', 'erabEstabSucc', 'hoAtt', 'hoSucc', 'dlDataVolumeMb', 'ulDataVolumeMb', 'prbUtilizationPct'],
-    '5G': ['rrcResumeAtt', 'rrcResumeSucc', 'pduSessionEstabAtt', 'pduSessionEstabSucc', 'nrDlDataVolumeMb', 'nrUlDataVolumeMb'],
-  },
-  ZTE: {
-    '2G': ['tchSeizureAttempts', 'tchSeizureSuccess', 'sdcchSeizureAttempts', 'sdcchSeizureSuccess', 'callDrops', 'tchTrafficErlang'],
-    '3G': ['rrcConnReq', 'rrcConnSucc', 'csRabEstabAtt', 'csRabEstabSucc', 'psRabEstabAtt', 'psRabEstabSucc', 'rlfEvents', 'hsDataVolumeMb'],
-    '4G': ['rrcConnEstabAtt', 'rrcConnEstabSucc', 'erabEstabAtt', 'erabEstabSucc', 'hoAtt', 'hoSucc', 'dlDataVolumeMb', 'ulDataVolumeMb', 'prbUtilizationPct'],
-    '5G': ['rrcResumeAtt', 'rrcResumeSucc', 'pduSessionEstabAtt', 'pduSessionEstabSucc', 'nrDlDataVolumeMb', 'nrUlDataVolumeMb'],
-  },
+  notes: '',
 }
 
-const recipes = [
-  { label: 'Success Rate (%)', numerator: 'rrcConnEstabSucc', denominator: 'rrcConnEstabAtt', type: 'Success Rate (%)' as const },
-  { label: 'Drop Rate (%)', numerator: 'callDrops', denominator: 'tchSeizureAttempts', type: 'Drop Rate (%)' as const },
-  { label: 'Availability (%)', numerator: 'upTimeMinutes', denominator: 'totalTimeMinutes', type: 'Availability (%)' as const },
-]
+function hashString(input: string): number {
+  let hash = 2166136261
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i)
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)
+  }
+  return Math.abs(hash >>> 0)
+}
 
-function SearchablePicker({ label, value, onSelect, options }: { label: string; value: string; onSelect: (next: string) => void; options: string[] }) {
+function generateTargets(vendor: Vendor | '', techs: Tech[], level: Level | ''): string[] {
+  if (!vendor || !level || techs.length === 0) return []
+  const key = `${vendor}-${techs.sort().join('-')}-${level}`
+  const seed = hashString(key)
+  const count = 30
+  const list: string[] = []
+  const prefixes: Record<Level, string> = {
+    Cell: 'SP',
+    Site: 'EMDL',
+    Node: 'EM',
+    BSC: 'B',
+    RNC: 'RNC',
+    NodeB: 'NB',
+    eNodeB: 'ENB_',
+    gNodeB: 'GNB_',
+  }
+  const vendorCode = vendor.slice(0, 2)
+  const techCode = techs.join('').replace(/[^0-9A-Za-z]/g, '').slice(0, 2) || 'TX'
+
+  for (let i = 0; i < count; i += 1) {
+    const value = (seed + i * 7919) % 999999
+    if (level === 'Cell') list.push(`${prefixes[level]}${vendorCode}${techCode}${String(value).slice(0, 4)}A`)
+    else if (level === 'Site') list.push(`${prefixes[level]}${String(value).slice(0, 4)}`)
+    else if (level === 'Node') list.push(`${prefixes[level]}${String(value).slice(0, 4)}`)
+    else if (level === 'BSC') list.push(`${prefixes[level]}${String(value).slice(0, 3)}${String.fromCharCode(65 + ((value + i) % 26))}`)
+    else if (level === 'RNC') list.push(`${prefixes[level]}${String(value).slice(0, 3).padStart(3, '0')}`)
+    else if (level === 'NodeB') list.push(`${prefixes[level]}${String(value).slice(0, 4).padStart(4, '0')}`)
+    else if (level === 'eNodeB') list.push(`${prefixes[level]}${String(value).slice(0, 5).padStart(5, '0')}`)
+    else list.push(`${prefixes[level]}${String(value).slice(0, 6).padStart(6, '0')}`)
+  }
+
+  return Array.from(new Set(list)).slice(0, 35)
+}
+
+function SearchableMulti({
+  label,
+  selected,
+  options,
+  onToggle,
+  placeholder,
+}: {
+  label: string
+  selected: string[]
+  options: string[]
+  onToggle: (value: string) => void
+  placeholder: string
+}) {
   const [search, setSearch] = useState('')
   const filtered = useMemo(() => options.filter((o) => o.toLowerCase().includes(search.toLowerCase())), [options, search])
-
   return (
     <div className='space-y-2'>
       <Label>{label}</Label>
       <Popover>
         <PopoverTrigger asChild>
           <Button variant='outline' className='w-full justify-between'>
-            <span className='truncate'>{value || `Select ${label.toLowerCase()}`}</span>
+            <span className='truncate'>{selected.length ? `${selected.length} selected` : placeholder}</span>
             <ChevronRight className='size-4 opacity-60' />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className='w-[360px] p-3' align='start'>
-          <Input placeholder='Search...' value={search} onChange={(event) => setSearch(event.target.value)} className='mb-3' />
+        <PopoverContent className='w-[380px] p-3' align='start'>
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder='Search...' className='mb-2' />
           <ScrollArea className='h-56'>
             <div className='space-y-1'>
-              {filtered.length > 0 ? filtered.map((option) => (
-                <Button key={option} variant='ghost' className='w-full justify-start' onClick={() => onSelect(option)}>
+              {filtered.map((option) => (
+                <Button key={option} variant={selected.includes(option) ? 'default' : 'ghost'} className='w-full justify-start' onClick={() => onToggle(option)}>
                   {option}
                 </Button>
-              )) : <div className='text-sm text-muted-foreground'>No options found.</div>}
+              ))}
+            </div>
+          </ScrollArea>
+        </PopoverContent>
+      </Popover>
+      <div className='flex flex-wrap gap-2'>
+        {selected.map((item) => (
+          <Badge key={item} className='gap-2'>
+            {item}
+            <button type='button' onClick={() => onToggle(item)}>×</button>
+          </Badge>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SearchableSingle({ label, value, options, onChange, placeholder }: { label: string; value: string; options: string[]; onChange: (value: string) => void; placeholder: string }) {
+  const [search, setSearch] = useState('')
+  const filtered = useMemo(() => options.filter((o) => o.toLowerCase().includes(search.toLowerCase())), [options, search])
+  return (
+    <div className='space-y-2'>
+      <Label>{label}</Label>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant='outline' className='w-full justify-between'>
+            <span className='truncate'>{value || placeholder}</span>
+            <ChevronRight className='size-4 opacity-60' />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className='w-[340px] p-3' align='start'>
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder='Search...' className='mb-2' />
+          <ScrollArea className='h-52'>
+            <div className='space-y-1'>
+              {filtered.map((option) => (
+                <Button key={option} variant={value === option ? 'default' : 'ghost'} className='w-full justify-start' onClick={() => onChange(option)}>
+                  {option}
+                </Button>
+              ))}
             </div>
           </ScrollArea>
         </PopoverContent>
@@ -220,66 +314,25 @@ function SearchablePicker({ label, value, onSelect, options }: { label: string; 
   )
 }
 
-function MultiSelectChips({ label, selected, options, onToggle }: { label: string; selected: string[]; options: string[]; onToggle: (value: string) => void }) {
-  return (
-    <div className='space-y-2'>
-      <Label>{label}</Label>
-      <div className='flex flex-wrap gap-2'>
-        {options.map((option) => {
-          const active = selected.includes(option)
-          return (
-            <Button key={option} type='button' variant={active ? 'default' : 'outline'} size='sm' onClick={() => onToggle(option)}>
-              {option}
-            </Button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function RuleEditor({ title, rule, onChange, required }: { title: string; rule: ThresholdRule; onChange: (next: ThresholdRule) => void; required?: boolean }) {
-  return (
-    <Card>
-      <CardHeader className='pb-2'>
-        <CardTitle className='text-sm'>
-          {title} {required ? <span className='text-destructive'>*</span> : null}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className='space-y-2'>
-        <Select value={rule.operator} onValueChange={(value) => onChange({ ...rule, operator: value as ThresholdOperator })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value='<'>{'Less than (<)'}</SelectItem>
-            <SelectItem value='<='>{'Less than or equal (<=)'}</SelectItem>
-            <SelectItem value='>'>{'Greater than (>)'}</SelectItem>
-            <SelectItem value='>='>{'Greater than or equal (>=)'}</SelectItem>
-            <SelectItem value='between'>Between (inclusive)</SelectItem>
-          </SelectContent>
-        </Select>
-        {rule.operator === 'between' ? (
-          <div className='grid grid-cols-2 gap-2'>
-            <Input placeholder='Min' value={rule.min || ''} onChange={(e) => onChange({ ...rule, min: e.target.value })} />
-            <Input placeholder='Max' value={rule.max || ''} onChange={(e) => onChange({ ...rule, max: e.target.value })} />
-          </div>
-        ) : (
-          <Input placeholder='Value' value={rule.value || ''} onChange={(e) => onChange({ ...rule, value: e.target.value })} />
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
 export function KpiBuilderPage({ id }: { id?: string }) {
   const navigate = useNavigate()
   const isEditMode = Boolean(id)
-  const [activeStep, setActiveStep] = useState(1)
-  const [name, setName] = useState('')
-  const [builderState, setBuilderState] = useState<BuilderState>(defaultState)
+  const [step, setStep] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [savedAt, setSavedAt] = useState<string>('')
+  const [savedAt, setSavedAt] = useState('')
+  const [wizard, setWizard] = useState<WizardState>(defaultWizard)
+  const [description, setDescription] = useState('')
+  const [existingKpis, setExistingKpis] = useState<Array<{ id: string; name: string }>>([])
+
+  useEffect(() => {
+    const loadExisting = async () => {
+      const kpis = await listKpis()
+      setExistingKpis(kpis.map((k) => ({ id: k.id, name: k.name })))
+    }
+    void loadExisting()
+  }, [])
 
   useEffect(() => {
     if (!id) return
@@ -289,55 +342,50 @@ export function KpiBuilderPage({ id }: { id?: string }) {
       try {
         const data = await getKpi(id)
         if (!mounted) return
-        setName(data.name)
         setSavedAt(data.updatedAt)
-        const payload = data.payload as Partial<BuilderState>
-        const metadata = (payload.metadata || {}) as BuilderState['metadata']
-        const mapping = (payload.mapping || {}) as BuilderState['mapping']
-        const formula = (payload.formula || {}) as BuilderState['formula']
-        const thresholds = (payload.thresholds || {}) as BuilderState['thresholds']
-        const techList = Array.isArray(metadata.techList) ? metadata.techList : metadata.tech ? metadata.tech.split(',').map((t) => t.trim()).filter(Boolean) : ['4G']
-        const moClasses = Array.isArray(metadata.moClasses) ? metadata.moClasses : metadata.moClass ? metadata.moClass.split(',').map((m) => m.trim()).filter(Boolean) : []
-        setBuilderState({
-          metadata: {
-            description: metadata.description ?? '',
-            category: metadata.category ?? '',
-            vendor: metadata.vendor ?? 'Nokia',
-            tech: metadata.tech ?? techList.join(','),
-            techList,
-            scope: metadata.scope ?? 'Network',
-            moClass: metadata.moClass ?? moClasses.join(','),
-            moClasses,
+        const payload = (data.payload || {}) as BuilderState
+        const techs = payload.metadata?.technologies || (payload.metadata?.tech ? payload.metadata.tech.split(',').filter(Boolean) : [])
+        const targets = payload.scope?.targets || payload.mapping?.targets || []
+        setWizard((prev) => ({
+          ...prev,
+          basics: {
+            name: data.name,
+            vendor: ((payload.metadata?.vendor || '') as Vendor | '') || '',
+            technologies: techs as Tech[],
           },
-          mapping: {
-            source: mapping.source ?? 'STATIC_CATALOG',
-            tableId: mapping.tableId ?? '',
-            numerator: mapping.numerator ?? '',
-            denominator: mapping.denominator ?? '',
-            additionalCounters: mapping.additionalCounters ?? [],
-            vendor: mapping.vendor ?? metadata.vendor ?? 'Nokia',
-            tech: mapping.tech ?? metadata.tech ?? techList.join(','),
-            moClass: mapping.moClass ?? metadata.moClass ?? moClasses.join(','),
-            numeratorVar: mapping.numeratorVar ?? '',
-            denominatorVar: mapping.denominatorVar ?? '',
-            sumVar: mapping.sumVar ?? '',
-            variables: mapping.variables ?? [],
+          scope: {
+            level: ((payload.scope?.level || payload.metadata?.level || payload.metadata?.scope || '') as Level | '') || '',
           },
-          formula: {
-            expression: formula.expression ?? '',
-            type: formula.type ?? 'Success Rate (%)',
-            multiplier: formula.multiplier ?? '100',
+          targets,
+          kpiType: ((payload.type || payload.metadata?.kpiType || payload.formula?.type || '') as KpiType | '') || '',
+          counters: {
+            selected: payload.counters || payload.mapping?.counters || payload.mapping?.additionalCounters || [],
+            reuseKpiId: '',
+            variables: payload.mapping?.variables || [],
           },
-          thresholds: {
-            warning: thresholds.warning ?? '',
-            critical: thresholds.critical ?? '',
-            rules: thresholds.rules ?? {
-              warning: { operator: '<', value: thresholds.warning ?? '' },
-              critical: { operator: '<', value: thresholds.critical ?? '' },
-              success: { operator: '>=', value: '' },
+          formula: payload.formulaV2 || {
+            mode: payload.formula?.mode || 'preset',
+            aggregation: (payload.formula?.aggregation as Aggregation) || 'SUM',
+            numeratorCounters: payload.mapping?.numeratorCounters || (payload.mapping?.numerator ? [payload.mapping.numerator] : []),
+            denominatorCounters: payload.mapping?.denominatorCounters || (payload.mapping?.denominator ? [payload.mapping.denominator] : []),
+            multiplier: payload.formula?.multiplier || '100',
+          },
+          thresholdsV2: payload.thresholdsV2 || {
+            mode: payload.thresholds?.direction ? 'fixed' : 'range',
+            range: {
+              success: { min: '', max: '' },
+              warning: { operator: 'between', min: '', max: payload.thresholds?.warning || '', value: payload.thresholds?.warning || '' },
+              critical: { operator: 'between', min: '', max: payload.thresholds?.critical || '', value: payload.thresholds?.critical || '' },
+            },
+            fixed: {
+              direction: payload.thresholds?.direction || 'higher-better',
+              warning: payload.thresholds?.warning || '',
+              critical: payload.thresholds?.critical || '',
             },
           },
-        })
+          notes: payload.metadata?.description || '',
+        }))
+        setDescription(payload.metadata?.description || '')
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Failed to load KPI')
       } finally {
@@ -345,105 +393,158 @@ export function KpiBuilderPage({ id }: { id?: string }) {
       }
     }
     void load()
-    return () => { mounted = false }
+    return () => {
+      mounted = false
+    }
   }, [id])
 
-  const selectedVendor = builderState.metadata.vendor || 'Nokia'
-  const selectedTechs = builderState.metadata.techList || []
+  const targetOptions = useMemo(
+    () => generateTargets(wizard.basics.vendor, wizard.basics.technologies, wizard.scope.level),
+    [wizard.basics.vendor, wizard.basics.technologies, wizard.scope.level]
+  )
 
-  const moClassOptions = useMemo(() => {
-    const byVendor = moClassCatalog[selectedVendor] || {}
-    return Array.from(new Set(selectedTechs.flatMap((tech) => byVendor[tech] || []))).sort()
-  }, [selectedVendor, selectedTechs])
+  const counterOptions = useMemo(() => {
+    if (!wizard.kpiType || !wizard.basics.technologies.length) return []
+    const byType = counterLibrary[wizard.kpiType]
+    const union = wizard.basics.technologies.flatMap((tech) => byType[tech] || [])
+    return Array.from(new Set(union)).slice(0, 120)
+  }, [wizard.kpiType, wizard.basics.technologies])
 
-  const countersByVendorTech = useMemo(() => {
-    return Array.from(new Set(selectedTechs.flatMap((tech) => staticCounterCatalog[selectedVendor]?.[tech] || []))).sort()
-  }, [selectedVendor, selectedTechs])
-
-  const genericCounterOptions = useMemo(() => {
-    return Array.from(new Set(selectedTechs.flatMap((tech) => vendorOptions.flatMap((vendor) => staticCounterCatalog[vendor]?.[tech] || [])))).sort()
-  }, [selectedTechs])
-
-  const variableNames = useMemo(() => (builderState.mapping.variables || []).map((v) => v.variableName).filter(Boolean), [builderState.mapping.variables])
-
-  useEffect(() => {
-    const type = builderState.formula.type || 'Success Rate (%)'
-    const multiplier = builderState.formula.multiplier || '100'
-    const vars = builderState.mapping.variables || []
-    const numeratorVar = builderState.mapping.numeratorVar || vars[0]?.variableName || 'numerator'
-    const denominatorVar = builderState.mapping.denominatorVar || vars[1]?.variableName || 'denominator'
-    const sumVar = builderState.mapping.sumVar || vars[0]?.variableName || 'x'
-    let expr = 'safeDivide(SUM(numerator), SUM(denominator)) * 100'
-    if (type === 'Sum') expr = `SUM(${sumVar})`
-    if (type === 'Ratio (generic A/B * K)') expr = `safeDivide(SUM(${numeratorVar}), SUM(${denominatorVar})) * ${multiplier}`
-    if (type === 'Success Rate (%)') expr = `safeDivide(SUM(${numeratorVar}), SUM(${denominatorVar})) * 100`
-    if (type === 'Drop Rate (%)') expr = `safeDivide(SUM(${numeratorVar}), SUM(${denominatorVar})) * 100`
-    if (type === 'Availability (%)') expr = `safeDivide(SUM(${numeratorVar}), SUM(${denominatorVar})) * 100`
-
-    setBuilderState((prev) => ({
-      ...prev,
-      formula: { ...prev.formula, expression: expr },
-      metadata: { ...prev.metadata, tech: (prev.metadata.techList || []).join(','), moClass: (prev.metadata.moClasses || []).join(',') },
-      mapping: { ...prev.mapping, vendor: prev.metadata.vendor, tech: (prev.metadata.techList || []).join(','), moClass: (prev.metadata.moClasses || []).join(',') },
-    }))
-  }, [builderState.formula.type, builderState.formula.multiplier, builderState.mapping.numeratorVar, builderState.mapping.denominatorVar, builderState.mapping.sumVar, builderState.mapping.variables, builderState.metadata.vendor, builderState.metadata.techList, builderState.metadata.moClasses])
-
-  useEffect(() => {
-    if (!ENABLE_DYNAMIC_PM_DISCOVERY) {
-      setBuilderState((prev) => ({ ...prev, mapping: { ...prev.mapping, source: 'STATIC_CATALOG', tableId: '' } }))
+  const formulaPreview = useMemo(() => {
+    if (wizard.formula.mode === 'preset') {
+      return `${wizard.formula.aggregation}(${wizard.counters.selected.join(', ') || 'counter'})`
     }
-  }, [])
+    const n = wizard.formula.numeratorCounters.length ? wizard.formula.numeratorCounters.join(' + ') : 'A'
+    const d = wizard.formula.denominatorCounters.length ? wizard.formula.denominatorCounters.join(' + ') : 'B'
+    const k = wizard.formula.multiplier || '100'
+    return `safeDivide((${n}), (${d})) * ${k}`
+  }, [wizard])
 
-  const validationMessages = useMemo(() => {
-    const list: string[] = []
-    if (!name.trim()) list.push('KPI name is required')
-    if (!builderState.mapping.numerator) list.push('Numerator counter is required')
-    if (!builderState.mapping.denominator) list.push('Denominator counter is required')
-    if (!(builderState.metadata.techList || []).length) list.push('Select at least one technology')
-    if (!(builderState.metadata.moClasses || []).length) list.push('Select at least one MO Class')
+  const stepValidations = useMemo(() => {
+    return [
+      wizard.basics.name.trim().length > 0 && !!wizard.basics.vendor && wizard.basics.technologies.length > 0,
+      !!wizard.scope.level,
+      wizard.targets.length >= 2,
+      !!wizard.kpiType,
+      wizard.counters.selected.length > 0,
+      wizard.thresholdsV2.mode === 'range'
+        ? ((wizard.thresholdsV2.range.warning.operator === 'between'
+          ? !!wizard.thresholdsV2.range.warning.min && !!wizard.thresholdsV2.range.warning.max
+          : !!wizard.thresholdsV2.range.warning.value) &&
+          (wizard.thresholdsV2.range.critical.operator === 'between'
+            ? !!wizard.thresholdsV2.range.critical.min && !!wizard.thresholdsV2.range.critical.max
+            : !!wizard.thresholdsV2.range.critical.value))
+        : !!wizard.thresholdsV2.fixed.warning && !!wizard.thresholdsV2.fixed.critical,
+      true,
+    ]
+  }, [wizard])
 
-    const warningRule = builderState.thresholds.rules?.warning
-    const criticalRule = builderState.thresholds.rules?.critical
-    const warningValid = warningRule ? warningRule.operator === 'between' ? !!warningRule.min && !!warningRule.max : !!warningRule.value : false
-    const criticalValid = criticalRule ? criticalRule.operator === 'between' ? !!criticalRule.min && !!criticalRule.max : !!criticalRule.value : false
-    if (!warningValid) list.push('Warning rule is required')
-    if (!criticalValid) list.push('Critical rule is required')
+  const completedStepCount = stepValidations.filter(Boolean).length
 
-    const vars = builderState.mapping.variables || []
-    const names = vars.map((v) => v.variableName.trim()).filter(Boolean)
-    if (new Set(names).size !== names.length) list.push('Variable names must be unique')
-    if (vars.some((v) => !v.variableName.trim() || !v.counterName.trim())) list.push('All counter variables need variable name and counter name')
-    return list
-  }, [name, builderState])
+  const goNext = () => {
+    if (!stepValidations[step]) return
+    setStep((s) => Math.min(s + 1, steps.length - 1))
+  }
 
-  const payload = useMemo(() => ({
-    metadata: builderState.metadata,
-    mapping: builderState.mapping,
-    formula: builderState.formula,
-    thresholds: {
-      ...builderState.thresholds,
-      warning: builderState.thresholds.warning || builderState.thresholds.rules?.warning?.value || builderState.thresholds.rules?.warning?.max || '',
-      critical: builderState.thresholds.critical || builderState.thresholds.rules?.critical?.value || builderState.thresholds.rules?.critical?.max || '',
-    },
-  }), [builderState])
+  const goBack = () => setStep((s) => Math.max(0, s - 1))
 
-  const saveKpi = async () => {
-    if (!name.trim()) return toast.error('Name is required')
+  const canGoToStep = (targetStep: number) => targetStep <= step || stepValidations.slice(0, targetStep).every(Boolean)
+
+  const applyReuseKpi = async (reuseId: string) => {
+    setWizard((prev) => ({ ...prev, counters: { ...prev.counters, reuseKpiId: reuseId } }))
+    if (!reuseId) return
+    const reuse = await getKpi(reuseId)
+    const payload = reuse.payload as BuilderState
+    const imported = payload.counters || payload.mapping?.counters || payload.mapping?.additionalCounters || []
+    setWizard((prev) => ({
+      ...prev,
+      counters: {
+        ...prev.counters,
+        selected: Array.from(new Set([...prev.counters.selected, ...imported])),
+      },
+      formula: payload.formulaV2 ? payload.formulaV2 : prev.formula,
+    }))
+  }
+
+  const save = async () => {
+    if (!stepValidations.slice(0, 6).every(Boolean)) {
+      toast.error('Please complete required fields')
+      return
+    }
+
     setIsSaving(true)
+    const payload: BuilderState = {
+      metadata: {
+        description,
+        vendor: wizard.basics.vendor,
+        technologies: wizard.basics.technologies,
+        tech: wizard.basics.technologies.join(','),
+        scope: wizard.scope.level,
+        level: wizard.scope.level,
+        kpiType: wizard.kpiType,
+      },
+      mapping: {
+        source: 'STATIC_MVP',
+        numerator: wizard.formula.numeratorCounters[0] || wizard.counters.selected[0] || '',
+        denominator: wizard.formula.denominatorCounters[0] || wizard.counters.selected[1] || '',
+        additionalCounters: wizard.counters.selected,
+        targets: wizard.targets,
+        counters: wizard.counters.selected,
+        variables: wizard.counters.variables,
+        numeratorCounters: wizard.formula.numeratorCounters,
+        denominatorCounters: wizard.formula.denominatorCounters,
+      },
+      formula: {
+        expression: formulaPreview,
+        type: wizard.kpiType,
+        mode: wizard.formula.mode,
+        aggregation: wizard.formula.aggregation,
+        multiplier: wizard.formula.multiplier,
+      },
+      thresholds: {
+        warning: wizard.thresholdsV2.mode === 'fixed' ? wizard.thresholdsV2.fixed.warning : (wizard.thresholdsV2.range.warning.value || wizard.thresholdsV2.range.warning.max || ''),
+        critical: wizard.thresholdsV2.mode === 'fixed' ? wizard.thresholdsV2.fixed.critical : (wizard.thresholdsV2.range.critical.value || wizard.thresholdsV2.range.critical.max || ''),
+        direction: wizard.thresholdsV2.fixed.direction,
+        rules: {
+          warning: {
+            operator: wizard.thresholdsV2.range.warning.operator,
+            value: wizard.thresholdsV2.range.warning.value,
+            min: wizard.thresholdsV2.range.warning.min,
+            max: wizard.thresholdsV2.range.warning.max,
+          },
+          critical: {
+            operator: wizard.thresholdsV2.range.critical.operator,
+            value: wizard.thresholdsV2.range.critical.value,
+            min: wizard.thresholdsV2.range.critical.min,
+            max: wizard.thresholdsV2.range.critical.max,
+          },
+          success: {
+            operator: 'between',
+            min: wizard.thresholdsV2.range.success.min,
+            max: wizard.thresholdsV2.range.success.max,
+          },
+        },
+      },
+      scope: { level: wizard.scope.level || '', targets: wizard.targets },
+      type: wizard.kpiType,
+      counters: wizard.counters.selected,
+      formulaV2: wizard.formula,
+      thresholdsV2: wizard.thresholdsV2,
+    }
+
     try {
-      if (isEditMode && id) await updateKpi(id, { name: name.trim(), payload })
-      else await createKpi({ name: name.trim(), payload })
-      setSavedAt(new Date().toISOString())
-      toast.success('Saved')
+      if (isEditMode && id) await updateKpi(id, { name: wizard.basics.name, payload: payload as Record<string, unknown> })
+      else await createKpi({ name: wizard.basics.name, payload: payload as Record<string, unknown> })
+      toast.success('KPI saved')
       void navigate({ to: '/kpi/list' })
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to save KPI')
+      toast.error(e instanceof Error ? e.message : 'Failed to save')
     } finally {
       setIsSaving(false)
     }
   }
 
-  const removeKpi = async () => {
+  const remove = async () => {
     if (!id) return
     setIsDeleting(true)
     try {
@@ -451,96 +552,267 @@ export function KpiBuilderPage({ id }: { id?: string }) {
       toast.success('Deleted')
       void navigate({ to: '/kpi/list' })
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to delete KPI')
+      toast.error(e instanceof Error ? e.message : 'Failed to delete')
     } finally {
       setIsDeleting(false)
     }
   }
 
-  const resetForm = () => {
-    setBuilderState(defaultState)
-    setName('')
-    setActiveStep(1)
-  }
-
-  const activeCounterOptions = useMemo(() => countersByVendorTech.length ? countersByVendorTech : genericCounterOptions, [countersByVendorTech, genericCounterOptions])
-
-  if (isLoading) {
-    return <div className='flex items-center gap-2 p-6 text-muted-foreground'><Loader2 className='size-4 animate-spin' /> Loading KPI...</div>
-  }
+  if (isLoading) return <div className='p-6 text-muted-foreground'>Loading...</div>
 
   return (
     <div className='space-y-4 p-4'>
-      <Card className='sticky top-0 z-10 border bg-background/95 backdrop-blur'>
-        <CardContent className='flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between'>
+      <Card>
+        <CardContent className='flex items-center justify-between p-4'>
           <div>
             <p className='text-xs text-muted-foreground'>KPI / Builder</p>
-            <h1 className='text-2xl font-semibold tracking-tight'>KPI Builder</h1>
-            <div className='mt-2 flex items-center gap-2 text-xs text-muted-foreground'>
-              <Badge variant='secondary' className='gap-1'><CheckCircle2 className='size-3' /> {savedAt ? 'Saved' : 'Draft'}</Badge>
-              {savedAt && <span>Last updated: {new Date(savedAt).toLocaleString()}</span>}
-            </div>
+            <h1 className='text-2xl font-semibold'>KPI Builder Wizard</h1>
+            {savedAt ? <p className='text-xs text-muted-foreground'>Last updated: {new Date(savedAt).toLocaleString()}</p> : null}
           </div>
-          <div className='flex flex-wrap gap-2'>
-            <Button variant='outline' onClick={resetForm}>Reset</Button>
-            {isEditMode && <Button variant='destructive' onClick={removeKpi} disabled={isDeleting}>{isDeleting ? <Loader2 className='mr-2 size-4 animate-spin' /> : <Trash2 className='mr-2 size-4' />}Delete</Button>}
-            <Button onClick={saveKpi} disabled={isSaving} className='transition-all hover:translate-y-[-1px]'>{isSaving ? <Loader2 className='mr-2 size-4 animate-spin' /> : <Save className='mr-2 size-4' />}Save KPI</Button>
+          <div className='flex gap-2'>
+            {isEditMode ? <Button variant='destructive' onClick={remove} disabled={isDeleting}>{isDeleting ? <Loader2 className='mr-2 size-4 animate-spin' /> : <Trash2 className='mr-2 size-4' />}Delete</Button> : null}
+            <Button onClick={save} disabled={isSaving}>{isSaving ? <Loader2 className='mr-2 size-4 animate-spin' /> : <Save className='mr-2 size-4' />}Save</Button>
           </div>
         </CardContent>
       </Card>
 
-      <div className='grid gap-4 xl:grid-cols-[260px_1fr_360px]'>
-        <Card className='h-fit sticky top-24'>
-          <CardHeader className='pb-2'><CardTitle className='text-base'>Steps</CardTitle></CardHeader>
+      <div className='md:hidden'>
+        <Card>
+          <CardContent className='p-4 space-y-2'>
+            <div className='flex justify-between text-sm'><span>Progress</span><span>{completedStepCount}/{steps.length}</span></div>
+            <div className='h-2 rounded bg-muted'><div className='h-2 rounded bg-primary' style={{ width: `${Math.round((completedStepCount / steps.length) * 100)}%` }} /></div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className='grid gap-4 md:grid-cols-[260px_1fr]'>
+        <Card className='hidden md:block h-fit sticky top-24'>
+          <CardHeader><CardTitle className='text-base'>Steps</CardTitle></CardHeader>
           <CardContent className='space-y-2'>
-            {steps.map((step) => {
-              const Icon = step.icon
-              const active = step.id === activeStep
-              return <Button key={step.id} variant={active ? 'default' : 'ghost'} className='w-full justify-start gap-2' onClick={() => setActiveStep(step.id)}><Icon className='size-4' /><span className='truncate'>{step.id}. {step.title}</span></Button>
+            {steps.map((title, index) => {
+              const done = stepValidations[index]
+              const active = index === step
+              return (
+                <Button
+                  key={title}
+                  variant={active ? 'default' : 'ghost'}
+                  className='w-full justify-start gap-2'
+                  onClick={() => canGoToStep(index) && setStep(index)}
+                  disabled={!canGoToStep(index)}
+                >
+                  {done ? <CheckCircle2 className='size-4' /> : <span className='size-4 rounded-full border text-[10px] flex items-center justify-center'>{index + 1}</span>}
+                  <span className='truncate'>{title}</span>
+                </Button>
+              )
             })}
           </CardContent>
         </Card>
 
-        <div className='space-y-4'>
-          {activeStep === 1 && <Card className='animate-in fade-in-0 slide-in-from-bottom-1 duration-200'><CardHeader><CardTitle>Define KPI</CardTitle><CardDescription>Capture KPI identity and business context.</CardDescription></CardHeader><CardContent className='grid gap-4 md:grid-cols-2'><div className='space-y-2'><Label htmlFor='kpi-name'>KPI Name</Label><Input id='kpi-name' value={name} onChange={(e) => setName(e.target.value)} /></div><div className='space-y-2'><Label>Category</Label><Input value={builderState.metadata.category || ''} onChange={(e) => setBuilderState((prev) => ({ ...prev, metadata: { ...prev.metadata, category: e.target.value } }))} placeholder='Accessibility / Retainability / Mobility' /></div><div className='space-y-2 md:col-span-2'><Label>Description</Label><Textarea value={builderState.metadata.description} onChange={(e) => setBuilderState((prev) => ({ ...prev, metadata: { ...prev.metadata, description: e.target.value } }))} placeholder='What this KPI measures and why it matters' /></div></CardContent></Card>}
+        <Card className='transition-all duration-200'>
+          <CardHeader>
+            <CardTitle>{steps[step]}</CardTitle>
+            <CardDescription>Complete this step to continue.</CardDescription>
+          </CardHeader>
+          <CardContent className='space-y-5'>
+            {step === 0 ? (
+              <>
+                <div className='space-y-2'>
+                  <Label>KPI Name *</Label>
+                  <Input value={wizard.basics.name} onChange={(e) => setWizard((prev) => ({ ...prev, basics: { ...prev.basics, name: e.target.value } }))} />
+                </div>
+                <SearchableSingle
+                  label='Vendor *'
+                  value={wizard.basics.vendor}
+                  options={vendorOptions}
+                  onChange={(value) => setWizard((prev) => ({ ...prev, basics: { ...prev.basics, vendor: value as Vendor } }))}
+                  placeholder='Select vendor'
+                />
+                <SearchableMulti
+                  label='Technology *'
+                  selected={wizard.basics.technologies}
+                  options={techOptions}
+                  onToggle={(value) =>
+                    setWizard((prev) => {
+                      const has = prev.basics.technologies.includes(value as Tech)
+                      return {
+                        ...prev,
+                        basics: {
+                          ...prev.basics,
+                          technologies: has ? prev.basics.technologies.filter((t) => t !== value) : [...prev.basics.technologies, value as Tech],
+                        },
+                      }
+                    })
+                  }
+                  placeholder='Select technologies'
+                />
+              </>
+            ) : null}
 
-          {activeStep === 2 && <Card className='animate-in fade-in-0 slide-in-from-bottom-1 duration-200'><CardHeader><CardTitle>Data Scope (Static MVP)</CardTitle><CardDescription>Dropdown options are static for now. Dynamic PM discovery is disabled.</CardDescription></CardHeader><CardContent className='space-y-4'><div className='grid gap-4 md:grid-cols-3'><div className='space-y-2'><Label>Vendor</Label><Select value={builderState.metadata.vendor || 'Nokia'} onValueChange={(value) => setBuilderState((prev) => ({ ...prev, metadata: { ...prev.metadata, vendor: value, moClasses: [] } }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{vendorOptions.map((vendor) => <SelectItem key={vendor} value={vendor}>{vendor}</SelectItem>)}</SelectContent></Select></div><div className='space-y-2'><Label>Scope</Label><Select value={builderState.metadata.scope || 'Network'} onValueChange={(value) => setBuilderState((prev) => ({ ...prev, metadata: { ...prev.metadata, scope: value } }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{scopeOptions.map((scope) => <SelectItem key={scope} value={scope}>{scope}</SelectItem>)}</SelectContent></Select></div><div className='space-y-2'><Label>KPI Recipes</Label><Select onValueChange={(value) => { const recipe = recipes.find((r) => r.label === value); if (!recipe) return; setBuilderState((prev) => ({ ...prev, formula: { ...prev.formula, type: recipe.type }, mapping: { ...prev.mapping, numerator: prev.mapping.numerator || recipe.numerator, denominator: prev.mapping.denominator || recipe.denominator } })) }}><SelectTrigger><SelectValue placeholder='Apply recipe' /></SelectTrigger><SelectContent>{recipes.map((recipe) => <SelectItem key={recipe.label} value={recipe.label}>{recipe.label}</SelectItem>)}</SelectContent></Select></div></div>
+            {step === 1 ? (
+              <div className='space-y-2'>
+                <Label>Level *</Label>
+                <Select value={wizard.scope.level} onValueChange={(value) => setWizard((prev) => ({ ...prev, scope: { level: value as Level }, targets: [] }))}>
+                  <SelectTrigger><SelectValue placeholder='Select level' /></SelectTrigger>
+                  <SelectContent>{levelOptions.map((level) => <SelectItem key={level} value={level}>{level}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            ) : null}
 
-            <MultiSelectChips label='Technology (multi)' selected={builderState.metadata.techList || []} options={techOptions} onToggle={(value) => setBuilderState((prev) => { const list = prev.metadata.techList || []; const next = list.includes(value) ? list.filter((i) => i !== value) : [...list, value]; return { ...prev, metadata: { ...prev.metadata, techList: next } } })} />
+            {step === 2 ? (
+              <SearchableMulti
+                label='Targets * (min 2)'
+                selected={wizard.targets}
+                options={targetOptions}
+                onToggle={(value) => setWizard((prev) => ({ ...prev, targets: prev.targets.includes(value) ? prev.targets.filter((v) => v !== value) : [...prev.targets, value] }))}
+                placeholder='Select targets'
+              />
+            ) : null}
 
-            <div className='space-y-2'><SearchablePicker label='MO Class (search + multi via add button)' value='' options={moClassOptions} onSelect={(value) => setBuilderState((prev) => { const list = prev.metadata.moClasses || []; if (list.includes(value)) return prev; return { ...prev, metadata: { ...prev.metadata, moClasses: [...list, value] } } })} /><div className='flex flex-wrap gap-2'>{(builderState.metadata.moClasses || []).map((cls) => <Badge key={cls} className='gap-2'>{cls}<button type='button' onClick={() => setBuilderState((prev) => ({ ...prev, metadata: { ...prev.metadata, moClasses: (prev.metadata.moClasses || []).filter((item) => item !== cls) } }))}>×</button></Badge>)}</div></div>
+            {step === 3 ? (
+              <SearchableSingle
+                label='KPI Type *'
+                value={wizard.kpiType}
+                options={kpiTypeOptions}
+                onChange={(value) => setWizard((prev) => ({ ...prev, kpiType: value as KpiType, counters: { ...prev.counters, selected: [] } }))}
+                placeholder='Select KPI type'
+              />
+            ) : null}
 
-            <Card className='border-dashed'><CardContent className='p-3 text-xs text-muted-foreground'><p className='font-medium text-foreground mb-1'>What is this?</p><p>Numerator = Success (or event of interest)</p><p>Denominator = Attempts (or baseline)</p><p>Rate KPIs computed as SUM(numer) / SUM(denom) * 100 using safeDivide</p></CardContent></Card>
-          </CardContent></Card>}
+            {step === 4 ? (
+              <>
+                <SearchableMulti
+                  label='Counters *'
+                  selected={wizard.counters.selected}
+                  options={counterOptions}
+                  onToggle={(value) => setWizard((prev) => ({ ...prev, counters: { ...prev.counters, selected: prev.counters.selected.includes(value) ? prev.counters.selected.filter((v) => v !== value) : [...prev.counters.selected, value] } }))}
+                  placeholder='Select counters'
+                />
 
-          {activeStep === 3 && <Card className='animate-in fade-in-0 slide-in-from-bottom-1 duration-200'><CardHeader><CardTitle>Map Counters</CardTitle><CardDescription>Select numerator/denominator and define counter variables.</CardDescription></CardHeader><CardContent className='space-y-4'><Tabs defaultValue='generic'><TabsList><TabsTrigger value='generic'>Generic</TabsTrigger><TabsTrigger value='Nokia'>Nokia</TabsTrigger><TabsTrigger value='Ericsson'>Ericsson</TabsTrigger><TabsTrigger value='Huawei'>Huawei</TabsTrigger></TabsList>{['generic', 'Nokia', 'Ericsson', 'Huawei'].map((tab) => { const options = tab === 'generic' ? genericCounterOptions : Array.from(new Set(selectedTechs.flatMap((tech) => staticCounterCatalog[tab]?.[tech] || []))).sort(); return <TabsContent key={tab} value={tab} className='space-y-4'><div className='grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-end'><SearchablePicker label='Numerator' value={builderState.mapping.numerator || ''} options={options} onSelect={(value) => setBuilderState((prev) => ({ ...prev, mapping: { ...prev.mapping, numerator: value } }))} /><Button variant='outline' size='icon' aria-label='Swap numerator and denominator' onClick={() => setBuilderState((prev) => ({ ...prev, mapping: { ...prev.mapping, numerator: prev.mapping.denominator, denominator: prev.mapping.numerator } }))}><ArrowRightLeft className='size-4' /></Button><SearchablePicker label='Denominator' value={builderState.mapping.denominator || ''} options={options} onSelect={(value) => setBuilderState((prev) => ({ ...prev, mapping: { ...prev.mapping, denominator: value } }))} /></div></TabsContent> })}</Tabs>
+                <div className='space-y-2'>
+                  <Label>Reuse Existing KPI (optional)</Label>
+                  <Select value={wizard.counters.reuseKpiId} onValueChange={(value) => void applyReuseKpi(value)}>
+                    <SelectTrigger><SelectValue placeholder='Select KPI to reuse' /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value=''>None</SelectItem>
+                      {existingKpis.filter((k) => k.id !== id).map((kpi) => <SelectItem key={kpi.id} value={kpi.id}>{kpi.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className='space-y-2'>
+                  <Label>Formula Mode</Label>
+                  <div className='flex gap-2'>
+                    <Button variant={wizard.formula.mode === 'preset' ? 'default' : 'outline'} onClick={() => setWizard((p) => ({ ...p, formula: { ...p.formula, mode: 'preset' } }))}>Preset</Button>
+                    <Button variant={wizard.formula.mode === 'structured' ? 'default' : 'outline'} onClick={() => setWizard((p) => ({ ...p, formula: { ...p.formula, mode: 'structured' } }))}>Structured</Button>
+                  </div>
+                </div>
+
+                {wizard.formula.mode === 'preset' ? (
+                  <div className='space-y-2'>
+                    <Label>Aggregation</Label>
+                    <Select value={wizard.formula.aggregation} onValueChange={(value) => setWizard((prev) => ({ ...prev, formula: { ...prev.formula, aggregation: value as Aggregation } }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{['SUM', 'AVG', 'MIN', 'MAX', 'COUNT'].map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <>
+                    <SearchableMulti label='Numerator expression counters' selected={wizard.formula.numeratorCounters} options={wizard.counters.selected} onToggle={(value) => setWizard((prev) => ({ ...prev, formula: { ...prev.formula, numeratorCounters: prev.formula.numeratorCounters.includes(value) ? prev.formula.numeratorCounters.filter((v) => v !== value) : [...prev.formula.numeratorCounters, value] } }))} placeholder='Select numerator counters' />
+                    <SearchableMulti label='Denominator expression counters' selected={wizard.formula.denominatorCounters} options={wizard.counters.selected} onToggle={(value) => setWizard((prev) => ({ ...prev, formula: { ...prev.formula, denominatorCounters: prev.formula.denominatorCounters.includes(value) ? prev.formula.denominatorCounters.filter((v) => v !== value) : [...prev.formula.denominatorCounters, value] } }))} placeholder='Select denominator counters' />
+                    <div className='space-y-2'>
+                      <Label>Multiplier</Label>
+                      <Input value={wizard.formula.multiplier} onChange={(e) => setWizard((prev) => ({ ...prev, formula: { ...prev.formula, multiplier: e.target.value } }))} />
+                    </div>
+                  </>
+                )}
+
+                <div className='space-y-2'>
+                  <div className='flex items-center justify-between'>
+                    <Label>Counter Variables (optional)</Label>
+                    <Button variant='outline' size='sm' onClick={() => setWizard((prev) => ({ ...prev, counters: { ...prev.counters, variables: [...prev.counters.variables, { variableName: '', counterName: '' }] } }))}><Plus className='size-4 mr-1' />Add</Button>
+                  </div>
+                  {wizard.counters.variables.map((variable, idx) => (
+                    <div key={`${idx}-${variable.variableName}`} className='grid gap-2 md:grid-cols-2'>
+                      <Input placeholder='variableName' value={variable.variableName} onChange={(e) => setWizard((prev) => { const next = [...prev.counters.variables]; next[idx] = { ...next[idx], variableName: e.target.value }; return { ...prev, counters: { ...prev.counters, variables: next } } })} />
+                      <SearchableSingle label='counterName' value={variable.counterName} options={wizard.counters.selected} onChange={(v) => setWizard((prev) => { const next = [...prev.counters.variables]; next[idx] = { ...next[idx], counterName: v }; return { ...prev, counters: { ...prev.counters, variables: next } } })} placeholder='Select counter' />
+                    </div>
+                  ))}
+                </div>
+
+                <div className='rounded-md border p-3 text-sm text-muted-foreground'>Formula preview: <span className='font-medium text-foreground'>{formulaPreview}</span></div>
+              </>
+            ) : null}
+
+            {step === 5 ? (
+              <>
+                <div className='flex items-center gap-2'>
+                  <Switch checked={wizard.thresholdsV2.mode === 'fixed'} onCheckedChange={(checked) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, mode: checked ? 'fixed' : 'range' } }))} />
+                  <Label>Use fixed thresholds</Label>
+                </div>
+
+                {wizard.thresholdsV2.mode === 'range' ? (
+                  <div className='space-y-4'>
+                    <div className='grid gap-3 md:grid-cols-2'>
+                      <Input placeholder='Success min (optional)' value={wizard.thresholdsV2.range.success.min} onChange={(e) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, range: { ...prev.thresholdsV2.range, success: { ...prev.thresholdsV2.range.success, min: e.target.value } } } }))} />
+                      <Input placeholder='Success max (optional)' value={wizard.thresholdsV2.range.success.max} onChange={(e) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, range: { ...prev.thresholdsV2.range, success: { ...prev.thresholdsV2.range.success, max: e.target.value } } } }))} />
+                    </div>
+                    <div className='rounded h-3 bg-gradient-to-r from-red-500 via-yellow-400 to-green-500' />
+
+                    <div className='grid gap-2 md:grid-cols-4'>
+                      <Select value={wizard.thresholdsV2.range.warning.operator} onValueChange={(value) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, range: { ...prev.thresholdsV2.range, warning: { ...prev.thresholdsV2.range.warning, operator: value as RuleOperator } } } }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{['>=', '<=', '>', '<', 'between'].map((op) => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent>
+                      </Select>
+                      {wizard.thresholdsV2.range.warning.operator === 'between' ? <><Input placeholder='Warning min' value={wizard.thresholdsV2.range.warning.min} onChange={(e) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, range: { ...prev.thresholdsV2.range, warning: { ...prev.thresholdsV2.range.warning, min: e.target.value } } } }))} /><Input placeholder='Warning max' value={wizard.thresholdsV2.range.warning.max} onChange={(e) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, range: { ...prev.thresholdsV2.range, warning: { ...prev.thresholdsV2.range.warning, max: e.target.value } } } }))} /></> : <Input placeholder='Warning value' value={wizard.thresholdsV2.range.warning.value} onChange={(e) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, range: { ...prev.thresholdsV2.range, warning: { ...prev.thresholdsV2.range.warning, value: e.target.value } } } }))} />}
+                    </div>
+
+                    <div className='grid gap-2 md:grid-cols-4'>
+                      <Select value={wizard.thresholdsV2.range.critical.operator} onValueChange={(value) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, range: { ...prev.thresholdsV2.range, critical: { ...prev.thresholdsV2.range.critical, operator: value as RuleOperator } } } }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{['>=', '<=', '>', '<', 'between'].map((op) => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent>
+                      </Select>
+                      {wizard.thresholdsV2.range.critical.operator === 'between' ? <><Input placeholder='Critical min' value={wizard.thresholdsV2.range.critical.min} onChange={(e) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, range: { ...prev.thresholdsV2.range, critical: { ...prev.thresholdsV2.range.critical, min: e.target.value } } } }))} /><Input placeholder='Critical max' value={wizard.thresholdsV2.range.critical.max} onChange={(e) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, range: { ...prev.thresholdsV2.range, critical: { ...prev.thresholdsV2.range.critical, max: e.target.value } } } }))} /></> : <Input placeholder='Critical value' value={wizard.thresholdsV2.range.critical.value} onChange={(e) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, range: { ...prev.thresholdsV2.range, critical: { ...prev.thresholdsV2.range.critical, value: e.target.value } } } }))} />}
+                    </div>
+                  </div>
+                ) : (
+                  <div className='space-y-3'>
+                    <Select value={wizard.thresholdsV2.fixed.direction} onValueChange={(value) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, fixed: { ...prev.thresholdsV2.fixed, direction: value as 'higher-better' | 'lower-better' } } }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value='higher-better'>Higher is better</SelectItem><SelectItem value='lower-better'>Lower is better</SelectItem></SelectContent>
+                    </Select>
+                    <Input placeholder='Warning threshold' value={wizard.thresholdsV2.fixed.warning} onChange={(e) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, fixed: { ...prev.thresholdsV2.fixed, warning: e.target.value } } }))} />
+                    <Input placeholder='Critical threshold' value={wizard.thresholdsV2.fixed.critical} onChange={(e) => setWizard((prev) => ({ ...prev, thresholdsV2: { ...prev.thresholdsV2, fixed: { ...prev.thresholdsV2.fixed, critical: e.target.value } } }))} />
+                  </div>
+                )}
+              </>
+            ) : null}
+
+            {step === 6 ? (
+              <div className='space-y-3'>
+                <div className='grid gap-2 md:grid-cols-2'>
+                  <Card><CardContent className='p-3 text-sm space-y-1'><p><b>KPI Name:</b> {wizard.basics.name}</p><p><b>Vendor:</b> {wizard.basics.vendor}</p><p><b>Technologies:</b> {wizard.basics.technologies.join(', ')}</p><p><b>Level:</b> {wizard.scope.level}</p></CardContent></Card>
+                  <Card><CardContent className='p-3 text-sm space-y-1'><p><b>Targets:</b> {wizard.targets.length}</p><p><b>KPI Type:</b> {wizard.kpiType}</p><p><b>Counters:</b> {wizard.counters.selected.length}</p><p><b>Formula mode:</b> {wizard.formula.mode}</p><p><b>Threshold mode:</b> {wizard.thresholdsV2.mode}</p></CardContent></Card>
+                </div>
+                <div className='space-y-2'>
+                  <Label>Description / Notes</Label>
+                  <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
+                </div>
+                <Card>
+                  <CardContent className='p-3'>
+                    {stepValidations.slice(0, 6).every(Boolean) ? <p className='text-emerald-600 text-sm'>All validations passed. Ready to save.</p> : <p className='text-amber-600 text-sm'>Some required fields are missing in previous steps.</p>}
+                  </CardContent>
+                </Card>
+              </div>
+            ) : null}
 
             <Separator />
 
-            <div className='space-y-3'><div className='flex items-center justify-between'><Label>Add counter variable</Label><Button type='button' variant='outline' size='sm' onClick={() => setBuilderState((prev) => ({ ...prev, mapping: { ...prev.mapping, variables: [...(prev.mapping.variables || []), { variableName: '', counterName: '' }] } }))}>+ Add variable</Button></div><div className='space-y-2'>{(builderState.mapping.variables || []).map((variable, index) => <Card key={`${index}-${variable.variableName}`}><CardContent className='p-3 grid gap-3 md:grid-cols-[1fr_1fr_auto]'><Input placeholder='variableName' value={variable.variableName} onChange={(e) => setBuilderState((prev) => { const next = [...(prev.mapping.variables || [])]; next[index] = { ...next[index], variableName: e.target.value }; return { ...prev, mapping: { ...prev.mapping, variables: next } } })} /><SearchablePicker label='counterName' value={variable.counterName} options={activeCounterOptions} onSelect={(value) => setBuilderState((prev) => { const next = [...(prev.mapping.variables || [])]; next[index] = { ...next[index], counterName: value }; return { ...prev, mapping: { ...prev.mapping, variables: next } } })} /><Button type='button' variant='ghost' className='self-end' onClick={() => setBuilderState((prev) => ({ ...prev, mapping: { ...prev.mapping, variables: (prev.mapping.variables || []).filter((_, i) => i !== index) } }))}>Remove</Button></CardContent></Card>)}</div></div>
-          </CardContent></Card>}
-
-          {activeStep === 4 && <Card className='animate-in fade-in-0 slide-in-from-bottom-1 duration-200'><CardHeader><CardTitle>Formula & Thresholds</CardTitle><CardDescription>Professional KPI types with safe expression builder.</CardDescription></CardHeader><CardContent className='space-y-4'><div className='space-y-2'><Label>KPI Type</Label><Select value={builderState.formula.type || 'Success Rate (%)'} onValueChange={(value) => setBuilderState((prev) => ({ ...prev, formula: { ...prev.formula, type: value as BuilderState['formula']['type'] } }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value='Success Rate (%)'>Success Rate (%)</SelectItem><SelectItem value='Drop Rate (%)'>Drop Rate (%)</SelectItem><SelectItem value='Availability (%)'>Availability (%)</SelectItem><SelectItem value='Sum'>Sum</SelectItem><SelectItem value='Ratio (generic A/B * K)'>Ratio (generic A/B * K)</SelectItem></SelectContent></Select></div>
-
-            <div className='grid gap-3 md:grid-cols-3'><div className='space-y-2'><Label>Numerator variable</Label><Select value={builderState.mapping.numeratorVar || ''} onValueChange={(value) => setBuilderState((prev) => ({ ...prev, mapping: { ...prev.mapping, numeratorVar: value } }))}><SelectTrigger><SelectValue placeholder='Select variable' /></SelectTrigger><SelectContent>{variableNames.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select></div><div className='space-y-2'><Label>Denominator variable</Label><Select value={builderState.mapping.denominatorVar || ''} onValueChange={(value) => setBuilderState((prev) => ({ ...prev, mapping: { ...prev.mapping, denominatorVar: value } }))}><SelectTrigger><SelectValue placeholder='Select variable' /></SelectTrigger><SelectContent>{variableNames.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select></div><div className='space-y-2'><Label>Multiplier K</Label><Input value={builderState.formula.multiplier || '100'} onChange={(e) => setBuilderState((prev) => ({ ...prev, formula: { ...prev.formula, multiplier: e.target.value } }))} /></div></div>
-
-            <div className='space-y-2'><Label>Computed Formula (safe)</Label><Input value={builderState.formula.expression} readOnly /></div>
-
-            <Separator />
-
-            <div className='space-y-3'><Label>Threshold Rules</Label><div className='grid gap-3 md:grid-cols-3'><RuleEditor title='Warning Rule' required rule={builderState.thresholds.rules?.warning || { operator: '<', value: '' }} onChange={(next) => setBuilderState((prev) => ({ ...prev, thresholds: { ...prev.thresholds, warning: next.value || next.max || prev.thresholds.warning, rules: { ...prev.thresholds.rules!, warning: next } } }))} /><RuleEditor title='Critical Rule' required rule={builderState.thresholds.rules?.critical || { operator: '<', value: '' }} onChange={(next) => setBuilderState((prev) => ({ ...prev, thresholds: { ...prev.thresholds, critical: next.value || next.max || prev.thresholds.critical, rules: { ...prev.thresholds.rules!, critical: next } } }))} /><RuleEditor title='Success Rule (optional)' rule={builderState.thresholds.rules?.success || { operator: '>=', value: '' }} onChange={(next) => setBuilderState((prev) => ({ ...prev, thresholds: { ...prev.thresholds, rules: { ...prev.thresholds.rules!, success: next } } }))} /></div></div>
-          </CardContent></Card>}
-
-          {activeStep === 5 && <Card className='animate-in fade-in-0 slide-in-from-bottom-1 duration-200'><CardHeader><CardTitle>Preview & Save</CardTitle><CardDescription>Review payload, checks, and save.</CardDescription></CardHeader><CardContent className='space-y-4'><div className='grid gap-3 sm:grid-cols-3'>{[{ label: 'Variables', value: String((builderState.mapping.variables || []).length) }, { label: 'Techs', value: String((builderState.metadata.techList || []).length) }, { label: 'MO Classes', value: String((builderState.metadata.moClasses || []).length) }].map((item) => <Card key={item.label}><CardContent className='p-4'><p className='text-xs text-muted-foreground'>{item.label}</p><p className='text-2xl font-semibold'>{item.value}</p></CardContent></Card>)}</div><details className='rounded-md border p-3'><summary className='cursor-pointer text-sm font-medium'>KPI JSON Preview</summary><pre className='mt-3 overflow-x-auto rounded bg-muted p-3 text-xs'>{JSON.stringify(payload, null, 2)}</pre></details><Button onClick={saveKpi} disabled={isSaving}>{isSaving ? <Loader2 className='mr-2 size-4 animate-spin' /> : <Sparkles className='mr-2 size-4' />}Save KPI</Button></CardContent></Card>}
-        </div>
-
-        <div className='space-y-4'>
-          <Card><CardHeader><CardTitle>Live Summary</CardTitle></CardHeader><CardContent className='space-y-2 text-sm'><div className='flex items-center justify-between'><span className='text-muted-foreground'>Name</span><span className='font-medium'>{name || 'Untitled KPI'}</span></div><div className='flex items-center justify-between'><span className='text-muted-foreground'>Vendor</span><span>{builderState.metadata.vendor || '--'}</span></div><div className='flex items-center justify-between'><span className='text-muted-foreground'>Tech</span><span>{(builderState.metadata.techList || []).join(', ') || '--'}</span></div><div className='flex items-center justify-between'><span className='text-muted-foreground'>Scope</span><span>{builderState.metadata.scope || '--'}</span></div></CardContent></Card>
-
-          <Card><CardHeader><CardTitle>Validation</CardTitle></CardHeader><CardContent className='space-y-2'>{validationMessages.length ? validationMessages.map((msg) => <div key={msg} className='flex gap-2 text-sm text-amber-600'><AlertTriangle className='mt-0.5 size-4 shrink-0' /><span>{msg}</span></div>) : <div className='flex gap-2 text-sm text-emerald-600'><CheckCircle2 className='size-4' /> All checks passed</div>}</CardContent></Card>
-
-          <Card><CardHeader><CardTitle>Preview</CardTitle></CardHeader><CardContent><pre className='max-h-[280px] overflow-auto rounded bg-muted p-3 text-xs'>{JSON.stringify(payload, null, 2)}</pre></CardContent></Card>
-        </div>
+            <div className='flex items-center justify-between'>
+              <Button variant='outline' onClick={goBack} disabled={step === 0}>Back</Button>
+              {step < steps.length - 1 ? <Button onClick={goNext} disabled={!stepValidations[step]}>Next</Button> : <Button onClick={save} disabled={isSaving || !stepValidations.slice(0, 6).every(Boolean)}>{isSaving ? <Loader2 className='mr-2 size-4 animate-spin' /> : null}Save KPI</Button>}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
