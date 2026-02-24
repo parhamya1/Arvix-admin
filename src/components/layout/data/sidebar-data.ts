@@ -169,6 +169,48 @@ export const sidebarData: SidebarData = {
           url: '/settings/table-management',
           icon: Table2,
         },
+        {
+          title: 'KPI Builder',
+          url: '/help-center',
+          icon: SquareFunction,
+        },
+      ],
+    },
+
+    {
+      title: 'KPI',
+      items: [
+        {
+          title: 'KPI Library',
+          url: '/kpis',
+          icon: SquareFunction,
+        },
+        {
+          title: 'KPI Builder',
+          url: '/kpis/new',
+          icon: SquareFunction,
+        },
+        {
+          title: 'KPI Runs',
+          url: '/kpis/runs',
+          icon: SquareFunction,
+        },
+      ],
+    },
+
+    {
+      title: 'KPI',
+      items: [
+        {
+          title: 'KPI List',
+          url: '/kpis',
+          icon: SquareFunction,
+        },
+        {
+          title: 'KPI Builder',
+          url: '/kpis/new',
+          icon: SquareFunction,
+        },
       ],
     },
 
