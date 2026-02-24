@@ -235,6 +235,7 @@ export const sidebarData: SidebarData = {
         },
       ],
     },
+
     {
       title: 'Other',
       items: [

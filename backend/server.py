@@ -249,80 +249,31 @@ def reconcile_sidebar_item_urls(conn: sqlite3.Connection) -> None:
 
 
 def seed_kpi_sidebar(conn: sqlite3.Connection) -> None:
-    def upsert_kpi_item(title: str, url: str, sort_order: int) -> None:
-        existing = conn.execute(
-            '''
-            SELECT id
-            FROM sidebar_items
-            WHERE TRIM(LOWER(group_title)) = 'kpi'
-              AND TRIM(LOWER(title)) = TRIM(LOWER(?))
-            ORDER BY created_at ASC
-            ''',
-            (title,),
-        ).fetchall()
+    canonical_items = [
+        ('2c1c6f4f-2a8b-4bca-9b95-7f6fbf2fbe11', 'KPI List', '/kpis', 10),
+        ('63e87f7e-cbc9-4e89-a31d-996ec2d8280b', 'KPI Builder', '/kpis/new', 20),
+    ]
 
-        if existing:
-            keep_id = existing[0]['id']
-            conn.execute(
-                '''
-                UPDATE sidebar_items
-                SET group_title='KPI', title=?, url=?, sort_order=?, parent_id=NULL, badge=NULL, display_mode='hierarchy'
-                WHERE id=?
-                ''',
-                (title, url, sort_order, keep_id),
-            )
-            for duplicate in existing[1:]:
-                conn.execute('DELETE FROM sidebar_items WHERE id=?', (duplicate['id'],))
-            return
+    # Hard reset KPI sidebar entries so every restart is deterministic.
+    conn.execute(
+        '''
+        DELETE FROM sidebar_items
+        WHERE TRIM(LOWER(group_title)) = 'kpi'
+           OR TRIM(LOWER(title)) LIKE '%kpi%'
+           OR COALESCE(TRIM(LOWER(url)), '') LIKE '/kpis%'
+        '''
+    )
 
+    now = utc_now()
+    for item_id, title, url, sort_order in canonical_items:
         conn.execute(
             '''
             INSERT INTO sidebar_items
               (id, group_title, parent_id, title, url, badge, sort_order, display_mode, created_at)
             VALUES (?, 'KPI', NULL, ?, ?, NULL, ?, 'hierarchy', ?)
             ''',
-            (str(uuid.uuid4()), title, url, sort_order, utc_now()),
+            (item_id, title, url, sort_order, now),
         )
-
-    # Keep exactly two KPI entries in the KPI group.
-    upsert_kpi_item('KPI List', '/kpis', 10)
-    upsert_kpi_item('KPI Builder', '/kpis/new', 20)
-
-    # Remove any KPI-related sidebar entries outside the KPI group (including old General/Other items).
-    conn.execute(
-        '''
-        DELETE FROM sidebar_items
-        WHERE TRIM(LOWER(group_title)) <> 'kpi'
-          AND (
-            TRIM(LOWER(title)) LIKE '%kpi%'
-            OR COALESCE(TRIM(LOWER(url)), '') LIKE '/kpis%'
-          )
-        '''
-    )
-
-    # In KPI group, remove every legacy/duplicate row except KPI List + KPI Builder.
-    conn.execute(
-        '''
-        DELETE FROM sidebar_items
-        WHERE TRIM(LOWER(group_title)) = 'kpi'
-          AND TRIM(LOWER(title)) NOT IN ('kpi list', 'kpi builder')
-        '''
-    )
-
-    # Ensure there are no duplicate KPI List / KPI Builder rows left.
-    for title in ('KPI List', 'KPI Builder'):
-        rows = conn.execute(
-            '''
-            SELECT id
-            FROM sidebar_items
-            WHERE TRIM(LOWER(group_title)) = 'kpi'
-              AND TRIM(LOWER(title)) = TRIM(LOWER(?))
-            ORDER BY created_at ASC
-            ''',
-            (title,),
-        ).fetchall()
-        for duplicate in rows[1:]:
-            conn.execute('DELETE FROM sidebar_items WHERE id=?', (duplicate['id'],))
 
 
 KPI_CATEGORIES = {'Accessibility', 'Retainability', 'Mobility', 'Traffic', 'Availability', 'Integrity'}
