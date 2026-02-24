@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { MoreHorizontal, Plus, Trash2, Pencil } from 'lucide-react'
+import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -13,7 +13,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -33,6 +32,7 @@ import {
 import { deleteKpi, getKpi, listKpis } from '@/lib/kpiApi'
 
 type ThresholdMode = 'range' | 'fixed'
+type RuleOperator = '>=' | '<=' | '>' | '<' | 'between'
 
 type KpiRow = {
   id: string
@@ -41,7 +41,7 @@ type KpiRow = {
   technology: string
   level: string
   thresholdText: string
-  status: 'Success' | 'Warning' | 'Critical'
+  status: 'Normal' | 'Warning' | 'Critical'
   currentValue: number
   updatedAt: string
 }
@@ -60,8 +60,30 @@ function deterministicCurrentValue(id: string): number {
   return Number((value / 10).toFixed(1))
 }
 
+function matchesRule(
+  value: number,
+  rule?: { operator?: string; min?: string; max?: string; value?: string }
+): boolean {
+  if (!rule || !rule.operator) return false
+  const operator = rule.operator as RuleOperator
+  const ruleValue = Number(rule.value)
+  const min = Number(rule.min)
+  const max = Number(rule.max)
+
+  if (operator === 'between') {
+    if (Number.isNaN(min) || Number.isNaN(max)) return false
+    return value >= min && value <= max
+  }
+
+  if (Number.isNaN(ruleValue)) return false
+  if (operator === '>=') return value >= ruleValue
+  if (operator === '<=') return value <= ruleValue
+  if (operator === '>') return value > ruleValue
+  return value < ruleValue
+}
+
 function evaluateStatus(currentValue: number, payload: Record<string, unknown>): {
-  status: 'Success' | 'Warning' | 'Critical'
+  status: 'Normal' | 'Warning' | 'Critical'
   thresholdText: string
 } {
   const thresholds = (payload.thresholds || {}) as {
@@ -79,46 +101,59 @@ function evaluateStatus(currentValue: number, payload: Record<string, unknown>):
     fixed?: { direction?: 'higher-better' | 'lower-better'; warning?: string; critical?: string }
   }
 
-  if (thresholdsV2.mode === 'fixed') {
-    const direction = thresholdsV2.fixed?.direction || 'higher-better'
-    const warning = Number(thresholdsV2.fixed?.warning || 0)
-    const critical = Number(thresholdsV2.fixed?.critical || 0)
+  if (thresholdsV2.mode === 'range') {
+    const warningRule = thresholdsV2.range?.warning
+    const criticalRule = thresholdsV2.range?.critical
+    const successMin = Number(thresholdsV2.range?.success?.min)
+    const successMax = Number(thresholdsV2.range?.success?.max)
 
-    let status: 'Success' | 'Warning' | 'Critical' = 'Success'
-    if (direction === 'higher-better') {
-      if (currentValue <= critical) status = 'Critical'
-      else if (currentValue <= warning) status = 'Warning'
-    } else {
-      if (currentValue >= critical) status = 'Critical'
-      else if (currentValue >= warning) status = 'Warning'
+    let status: 'Normal' | 'Warning' | 'Critical' = 'Normal'
+    if (matchesRule(currentValue, criticalRule)) status = 'Critical'
+    else if (matchesRule(currentValue, warningRule)) status = 'Warning'
+    else if (!Number.isNaN(successMin) && !Number.isNaN(successMax)) {
+      status = currentValue >= successMin && currentValue <= successMax ? 'Normal' : 'Warning'
     }
+
+    const warnLabel = warningRule?.operator === 'between'
+      ? `${warningRule.min || '-'}..${warningRule.max || '-'}`
+      : `${warningRule?.operator || ''}${warningRule?.value || '-'}`
+    const critLabel = criticalRule?.operator === 'between'
+      ? `${criticalRule.min || '-'}..${criticalRule.max || '-'}`
+      : `${criticalRule?.operator || ''}${criticalRule?.value || '-'}`
 
     return {
       status,
-      thresholdText: `Warn=${warning} Crit=${critical}`,
+      thresholdText: `OK ${thresholdsV2.range?.success?.min || '-'}–${thresholdsV2.range?.success?.max || '-'} | Warn ${warnLabel} | Crit ${critLabel}`,
     }
   }
 
-  const warning = Number(thresholds.warning || thresholdsV2.range?.warning?.value || thresholdsV2.range?.warning?.max || 80)
-  const critical = Number(thresholds.critical || thresholdsV2.range?.critical?.value || thresholdsV2.range?.critical?.max || 60)
-  const higherBetter = (thresholds.direction || thresholdsV2.fixed?.direction || 'higher-better') === 'higher-better'
+  const direction = thresholdsV2.fixed?.direction || thresholds.direction || 'higher-better'
+  const warning = Number(thresholdsV2.fixed?.warning || thresholds.warning || 80)
+  const critical = Number(thresholdsV2.fixed?.critical || thresholds.critical || 60)
 
-  let status: 'Success' | 'Warning' | 'Critical' = 'Success'
-  if (higherBetter) {
-    if (currentValue < critical) status = 'Critical'
-    else if (currentValue < warning) status = 'Warning'
+  let status: 'Normal' | 'Warning' | 'Critical' = 'Normal'
+  if (direction === 'higher-better') {
+    if (currentValue <= critical) status = 'Critical'
+    else if (currentValue <= warning) status = 'Warning'
   } else {
-    if (currentValue > critical) status = 'Critical'
-    else if (currentValue > warning) status = 'Warning'
+    if (currentValue >= critical) status = 'Critical'
+    else if (currentValue >= warning) status = 'Warning'
   }
-
-  const successMin = thresholdsV2.range?.success?.min || 'N/A'
-  const successMax = thresholdsV2.range?.success?.max || 'N/A'
 
   return {
     status,
-    thresholdText: `OK ${successMin}–${successMax} | Warn ${warning} | Crit ${critical}`,
+    thresholdText: `Warn=${warning} | Crit=${critical}`,
   }
+}
+
+function statusStyles(status: KpiRow['status']) {
+  if (status === 'Normal') {
+    return 'border-emerald-300 bg-emerald-50 text-emerald-700'
+  }
+  if (status === 'Warning') {
+    return 'border-amber-300 bg-amber-50 text-amber-700'
+  }
+  return 'border-red-300 bg-red-50 text-red-700'
 }
 
 export function KpiListPage() {
@@ -172,12 +207,6 @@ export function KpiListPage() {
     void load()
   }, [])
 
-  const statusVariant = (status: KpiRow['status']) => {
-    if (status === 'Success') return 'default'
-    if (status === 'Warning') return 'secondary'
-    return 'destructive'
-  }
-
   const sortedRows = useMemo(
     () => [...rows].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
     [rows]
@@ -208,7 +237,7 @@ export function KpiListPage() {
                   <TableHead>Level/Scope</TableHead>
                   <TableHead>Current Value</TableHead>
                   <TableHead>Threshold</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Health Status</TableHead>
                   <TableHead className='text-right'>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -222,7 +251,11 @@ export function KpiListPage() {
                     <TableCell>{row.currentValue}</TableCell>
                     <TableCell>{row.thresholdText}</TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+                      <span
+                        className={`inline-flex min-w-24 items-center justify-center rounded-full border px-3 py-1 text-sm font-medium ${statusStyles(row.status)}`}
+                      >
+                        {row.status}
+                      </span>
                     </TableCell>
                     <TableCell className='text-right'>
                       <AlertDialog>
