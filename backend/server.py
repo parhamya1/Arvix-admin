@@ -11,6 +11,7 @@ import io
 import zipfile
 import xml.etree.ElementTree as ET
 import re
+import shutil
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
@@ -21,6 +22,73 @@ DB_PATH = os.getenv('BACKEND_DB_PATH', './backend/arvix.db')
 
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 _db_lock = threading.Lock()
+
+
+def get_fallback_db_path() -> str:
+    db_dir = os.path.dirname(DB_PATH) or '.'
+    return os.getenv('BACKEND_DB_FALLBACK_PATH', os.path.join(db_dir, 'arvix.runtime.db'))
+
+
+def relocate_to_writable_db() -> bool:
+    global DB_PATH
+
+    fallback_path = get_fallback_db_path()
+
+    try:
+        os.makedirs(os.path.dirname(fallback_path) or '.', exist_ok=True)
+
+        # Do not overwrite existing fallback DB. It can be newer than primary DB.
+        if not os.path.exists(fallback_path):
+            if os.path.exists(DB_PATH):
+                shutil.copy2(DB_PATH, fallback_path)
+            else:
+                open(fallback_path, 'a', encoding='utf-8').close()
+
+        try:
+            os.chmod(fallback_path, 0o664)
+        except OSError:
+            pass
+
+        DB_PATH = fallback_path
+        return True
+    except OSError:
+        return False
+
+
+def ensure_db_writable() -> None:
+    db_dir = os.path.dirname(DB_PATH) or '.'
+
+    # Best-effort permission fix for environments where DB was created by another user.
+    if os.path.exists(DB_PATH) and not os.access(DB_PATH, os.W_OK):
+        try:
+            os.chmod(DB_PATH, 0o664)
+        except OSError:
+            pass
+
+    if os.path.exists(db_dir) and not os.access(db_dir, os.W_OK):
+        try:
+            os.chmod(db_dir, 0o775)
+        except OSError:
+            pass
+
+
+def select_writable_db_path() -> None:
+    global DB_PATH
+
+    fallback_path = get_fallback_db_path()
+
+    # If the primary DB path is writable (or can be made writable), keep using it.
+    ensure_db_writable()
+    if os.path.exists(DB_PATH) and os.access(DB_PATH, os.W_OK):
+        return
+
+    # Prefer existing fallback DB to preserve previously-written runtime data.
+    if os.path.exists(fallback_path) and os.access(fallback_path, os.W_OK):
+        DB_PATH = fallback_path
+        return
+
+    # Otherwise attempt relocation/copy.
+    relocate_to_writable_db()
 
 
 def utc_now() -> str:
@@ -81,6 +149,8 @@ def migrate_dynamic_tables_schema(conn: sqlite3.Connection) -> None:
 
 def init_db() -> None:
     with _db_lock:
+        select_writable_db_path()
+        ensure_db_writable()
         conn = get_conn()
         conn.executescript(
             """
@@ -124,16 +194,194 @@ def init_db() -> None:
               layout_json TEXT NOT NULL,
               updated_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS kpi_definitions (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              category TEXT NOT NULL,
+              unit TEXT NOT NULL,
+              tech_json TEXT NOT NULL,
+              vendor_scope TEXT NOT NULL,
+              mo_classes_json TEXT NOT NULL,
+              granularity TEXT NOT NULL,
+              agg_level TEXT NOT NULL,
+              description TEXT,
+              mappings_json TEXT NOT NULL,
+              formula_json TEXT NOT NULL,
+              thresholds_json TEXT NOT NULL,
+              preview_json TEXT NOT NULL DEFAULT '{}',
+              version INTEGER NOT NULL DEFAULT 1,
+              is_active INTEGER NOT NULL DEFAULT 1,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
             """
         )
         ensure_column(conn, 'sidebar_items', 'display_mode', "TEXT NOT NULL DEFAULT 'hierarchy'")
         ensure_column(conn, 'dynamic_tables', 'sidebar_item_id', 'TEXT REFERENCES sidebar_items(id) ON DELETE SET NULL')
         ensure_column(conn, 'dynamic_tables', 'page_id', 'TEXT REFERENCES dynamic_pages(id) ON DELETE CASCADE')
         migrate_dynamic_tables_schema(conn)
+        ensure_column(conn, 'kpi_definitions', 'preview_json', "TEXT NOT NULL DEFAULT '{}'")
+        seed_kpi_sidebar(conn)
+        reconcile_sidebar_item_urls(conn)
         conn.execute('CREATE INDEX IF NOT EXISTS idx_dynamic_tables_page_id ON dynamic_tables(page_id)')
         conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_dynamic_tables_page_name ON dynamic_tables(page_id, name)')
+        conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_kpi_definitions_name_lower ON kpi_definitions(LOWER(name))')
         conn.commit()
         conn.close()
+
+
+def reconcile_sidebar_item_urls(conn: sqlite3.Connection) -> None:
+    rows = conn.execute(
+        '''
+        SELECT d.sidebar_item_id, d.id AS page_id
+        FROM dynamic_pages d
+        WHERE d.sidebar_item_id IS NOT NULL
+        '''
+    ).fetchall()
+
+    for row in rows:
+        conn.execute(
+            'UPDATE sidebar_items SET url=? WHERE id=? AND (url IS NULL OR url = "")',
+            (f'/dynamic-tables/{row["page_id"]}', row['sidebar_item_id']),
+        )
+
+
+
+def seed_kpi_sidebar(conn: sqlite3.Connection) -> None:
+    canonical_items = [
+        ('2c1c6f4f-2a8b-4bca-9b95-7f6fbf2fbe11', 'KPI List', '/kpis', 10),
+        ('63e87f7e-cbc9-4e89-a31d-996ec2d8280b', 'KPI Builder', '/kpis/new', 20),
+    ]
+
+    # Keep non-KPI sidebar data (e.g. Reporting) and reset only KPI-related rows.
+    conn.execute(
+        '''
+        DELETE FROM sidebar_items
+        WHERE TRIM(LOWER(group_title)) = 'kpi'
+           OR TRIM(LOWER(title)) LIKE '%kpi%'
+           OR COALESCE(TRIM(LOWER(url)), '') LIKE '/kpis%'
+        '''
+    )
+
+    now = utc_now()
+    for item_id, title, url, sort_order in canonical_items:
+        conn.execute(
+            '''
+            INSERT INTO sidebar_items
+              (id, group_title, parent_id, title, url, badge, sort_order, display_mode, created_at)
+            VALUES (?, 'KPI', NULL, ?, ?, NULL, ?, 'hierarchy', ?)
+            ''',
+            (item_id, title, url, sort_order, now),
+        )
+
+
+KPI_CATEGORIES = {'Accessibility', 'Retainability', 'Mobility', 'Traffic', 'Availability', 'Integrity'}
+KPI_UNITS = {'%', 'count', 'bytes', 'Mbps', 'Erlang'}
+KPI_VENDOR_SCOPE = {'All', 'Nokia', 'Ericsson'}
+KPI_GRANULARITY = {'5min', '15min', 'hourly', 'daily'}
+KPI_AGG_LEVEL = {'Cell', 'Site', 'Node'}
+KPI_TECH = {'2G', '3G', '4G', '5G'}
+
+
+def _parse_json_field(body: dict, key: str, expected: type):
+    value = body.get(key)
+    if isinstance(value, expected):
+        return value
+    if isinstance(value, str):
+        parsed = json.loads(value)
+        if isinstance(parsed, expected):
+            return parsed
+    raise ValueError(f'{key} must be valid JSON {expected.__name__}')
+
+
+def validate_kpi_payload(body: dict) -> dict:
+    name = (body.get('name') or '').strip()
+    category = body.get('category')
+    unit = body.get('unit')
+    vendor_scope = body.get('vendorScope')
+    granularity = body.get('granularity')
+    agg_level = body.get('aggLevel')
+
+    if not name:
+        raise ValueError('name is required')
+    if category not in KPI_CATEGORIES:
+        raise ValueError('Invalid category')
+    if unit not in KPI_UNITS:
+        raise ValueError('Invalid unit')
+    if vendor_scope not in KPI_VENDOR_SCOPE:
+        raise ValueError('Invalid vendorScope')
+    if granularity not in KPI_GRANULARITY:
+        raise ValueError('Invalid granularity')
+    if agg_level not in KPI_AGG_LEVEL:
+        raise ValueError('Invalid aggLevel')
+
+    tech = _parse_json_field(body, 'tech', list)
+    if any(item not in KPI_TECH for item in tech):
+        raise ValueError('Invalid tech values')
+
+    mo_classes = _parse_json_field(body, 'moClasses', list)
+    mappings = _parse_json_field(body, 'mappings', dict)
+    formula = _parse_json_field(body, 'formula', dict)
+    thresholds = _parse_json_field(body, 'thresholds', dict)
+    preview = body.get('preview')
+    if preview is None:
+        preview = {}
+    elif isinstance(preview, str):
+        preview = json.loads(preview)
+    if not isinstance(preview, dict):
+        raise ValueError('preview must be object')
+
+    if not isinstance(mappings, dict) or not isinstance(formula, dict) or not isinstance(thresholds, dict):
+        raise ValueError('mappings/formula/thresholds must be objects')
+
+    return {
+        'name': name,
+        'category': category,
+        'unit': unit,
+        'tech': tech,
+        'vendor_scope': vendor_scope,
+        'mo_classes': mo_classes,
+        'granularity': granularity,
+        'agg_level': agg_level,
+        'description': body.get('description') or '',
+        'mappings': mappings,
+        'formula': formula,
+        'thresholds': thresholds,
+        'preview': preview,
+    }
+
+
+def decode_kpi_row(row: sqlite3.Row) -> dict:
+    return {
+        'id': row['id'],
+        'name': row['name'],
+        'category': row['category'],
+        'unit': row['unit'],
+        'tech': json.loads(row['tech_json']),
+        'vendorScope': row['vendor_scope'],
+        'moClasses': json.loads(row['mo_classes_json']),
+        'granularity': row['granularity'],
+        'aggLevel': row['agg_level'],
+        'description': row['description'] or '',
+        'mappings': json.loads(row['mappings_json']),
+        'formula': json.loads(row['formula_json']),
+        'thresholds': json.loads(row['thresholds_json']),
+        'preview': json.loads(row['preview_json'] or '{}'),
+        'version': row['version'],
+        'isActive': bool(row['is_active']),
+        'createdAt': row['created_at'],
+        'updatedAt': row['updated_at'],
+    }
+
+
+def generate_duplicate_kpi_name(conn: sqlite3.Connection, base_name: str) -> str:
+    candidate = f'{base_name} (Copy)'
+    index = 2
+    while conn.execute('SELECT id FROM kpi_definitions WHERE LOWER(name)=LOWER(?)', (candidate,)).fetchone():
+        candidate = f'{base_name} (Copy {index})'
+        index += 1
+    return candidate
 
 
 def parse_json(handler: BaseHTTPRequestHandler) -> dict:
@@ -521,6 +769,55 @@ class Handler(BaseHTTPRequestHandler):
                 send_json(self, 200, flatten_sidebar(rows))
             return
 
+        if path == '/api/kpis':
+            with _db_lock:
+                conn = get_conn()
+                rows = conn.execute(
+                    '''
+                    SELECT id, name, category, unit, vendor_scope, granularity, agg_level, thresholds_json, preview_json, version, is_active, updated_at, created_at
+                    FROM kpi_definitions
+                    ORDER BY updated_at DESC
+                    '''
+                ).fetchall()
+                conn.close()
+            send_json(
+                self,
+                200,
+                [
+                    {
+                        'id': row['id'],
+                        'name': row['name'],
+                        'category': row['category'],
+                        'unit': row['unit'],
+                        'vendorScope': row['vendor_scope'],
+                        'granularity': row['granularity'],
+                        'aggLevel': row['agg_level'],
+                        'thresholds': json.loads(row['thresholds_json']),
+                        'preview': json.loads(row['preview_json'] or '{}'),
+                        'version': row['version'],
+                        'isActive': bool(row['is_active']),
+                        'updatedAt': row['updated_at'],
+                        'createdAt': row['created_at'],
+                    }
+                    for row in rows
+                ],
+            )
+            return
+
+        if path.startswith('/api/kpis/'):
+            parts = path.strip('/').split('/')
+            if len(parts) == 3:
+                kpi_id = parts[2]
+                with _db_lock:
+                    conn = get_conn()
+                    row = conn.execute('SELECT * FROM kpi_definitions WHERE id=?', (kpi_id,)).fetchone()
+                    conn.close()
+                if not row:
+                    send_json(self, 404, {'message': 'KPI not found'})
+                    return
+                send_json(self, 200, decode_kpi_row(row))
+                return
+
         if path == '/api/dynamic-pages':
             with _db_lock:
                 conn = get_conn()
@@ -591,6 +888,7 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) == 3:
                 table_id = parts[2]
                 with _db_lock:
+                    ensure_db_writable()
                     conn = get_conn()
                     row = conn.execute(
                         'SELECT id, name, columns_json, sidebar_item_id, page_id, created_at FROM dynamic_tables WHERE id=?',
@@ -695,6 +993,7 @@ class Handler(BaseHTTPRequestHandler):
             table_id = str(uuid.uuid4())
             try:
                 with _db_lock:
+                    ensure_db_writable()
                     conn = get_conn()
                     duplicate = conn.execute(
                         'SELECT id FROM dynamic_tables WHERE page_id=? AND LOWER(name)=LOWER(?)',
@@ -722,6 +1021,112 @@ class Handler(BaseHTTPRequestHandler):
                 return
             send_json(self, 201, {'id': table_id})
             return
+
+        if path == '/api/kpis':
+            try:
+                payload = validate_kpi_payload(body)
+            except (ValueError, json.JSONDecodeError) as exc:
+                send_json(self, 400, {'message': str(exc)})
+                return
+
+            kpi_id = str(uuid.uuid4())
+            now = utc_now()
+            with _db_lock:
+                ensure_db_writable()
+                conn = get_conn()
+                duplicate = conn.execute(
+                    'SELECT id FROM kpi_definitions WHERE LOWER(name)=LOWER(?)',
+                    (payload['name'],),
+                ).fetchone()
+                if duplicate:
+                    conn.close()
+                    send_json(self, 409, {'message': 'KPI name must be unique'})
+                    return
+
+                conn.execute(
+                    '''
+                    INSERT INTO kpi_definitions (
+                        id, name, category, unit, tech_json, vendor_scope, mo_classes_json,
+                        granularity, agg_level, description, mappings_json, formula_json,
+                        thresholds_json, preview_json, version, is_active, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''',
+                    (
+                        kpi_id,
+                        payload['name'],
+                        payload['category'],
+                        payload['unit'],
+                        json.dumps(payload['tech']),
+                        payload['vendor_scope'],
+                        json.dumps(payload['mo_classes']),
+                        payload['granularity'],
+                        payload['agg_level'],
+                        payload['description'],
+                        json.dumps(payload['mappings']),
+                        json.dumps(payload['formula']),
+                        json.dumps(payload['thresholds']),
+                        json.dumps(payload['preview']),
+                        1,
+                        1,
+                        now,
+                        now,
+                    ),
+                )
+                conn.commit()
+                conn.close()
+
+            send_json(self, 201, {'id': kpi_id})
+            return
+
+        if path.startswith('/api/kpis/') and path.endswith('/duplicate'):
+            parts = path.strip('/').split('/')
+            if len(parts) == 4:
+                source_id = parts[2]
+                with _db_lock:
+                    ensure_db_writable()
+                    conn = get_conn()
+                    source = conn.execute('SELECT * FROM kpi_definitions WHERE id=?', (source_id,)).fetchone()
+                    if not source:
+                        conn.close()
+                        send_json(self, 404, {'message': 'KPI not found'})
+                        return
+
+                    new_name = generate_duplicate_kpi_name(conn, source['name'])
+                    new_id = str(uuid.uuid4())
+                    now = utc_now()
+                    conn.execute(
+                        '''
+                        INSERT INTO kpi_definitions (
+                            id, name, category, unit, tech_json, vendor_scope, mo_classes_json,
+                            granularity, agg_level, description, mappings_json, formula_json,
+                            thresholds_json, preview_json, version, is_active, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ''',
+                        (
+                            new_id,
+                            new_name,
+                            source['category'],
+                            source['unit'],
+                            source['tech_json'],
+                            source['vendor_scope'],
+                            source['mo_classes_json'],
+                            source['granularity'],
+                            source['agg_level'],
+                            source['description'],
+                            source['mappings_json'],
+                            source['formula_json'],
+                            source['thresholds_json'],
+                            source['preview_json'],
+                            1,
+                            source['is_active'],
+                            now,
+                            now,
+                        ),
+                    )
+                    conn.commit()
+                    conn.close()
+                send_json(self, 201, {'id': new_id, 'name': new_name})
+                return
 
         if path == '/api/dynamic-pages':
             if not body.get('name'):
@@ -838,6 +1243,151 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 200, {'ok': True})
             return
 
+        if path.startswith('/api/kpis/') and len(path.strip('/').split('/')) == 3:
+            kpi_id = path.strip('/').split('/')[2]
+            try:
+                payload = validate_kpi_payload(body)
+            except (ValueError, json.JSONDecodeError) as exc:
+                send_json(self, 400, {'message': str(exc)})
+                return
+
+            with _db_lock:
+                ensure_db_writable()
+                conn = get_conn()
+                existing = conn.execute('SELECT id, version FROM kpi_definitions WHERE id=?', (kpi_id,)).fetchone()
+                if not existing:
+                    conn.close()
+                    send_json(self, 404, {'message': 'KPI not found'})
+                    return
+
+                duplicate = conn.execute(
+                    'SELECT id FROM kpi_definitions WHERE LOWER(name)=LOWER(?) AND id<>?',
+                    (payload['name'], kpi_id),
+                ).fetchone()
+                if duplicate:
+                    conn.close()
+                    send_json(self, 409, {'message': 'KPI name must be unique'})
+                    return
+
+                conn.execute(
+                    '''
+                    UPDATE kpi_definitions SET
+                        name=?, category=?, unit=?, tech_json=?, vendor_scope=?, mo_classes_json=?,
+                        granularity=?, agg_level=?, description=?, mappings_json=?, formula_json=?,
+                        thresholds_json=?, preview_json=?, version=?, updated_at=?
+                    WHERE id=?
+                    ''',
+                    (
+                        payload['name'],
+                        payload['category'],
+                        payload['unit'],
+                        json.dumps(payload['tech']),
+                        payload['vendor_scope'],
+                        json.dumps(payload['mo_classes']),
+                        payload['granularity'],
+                        payload['agg_level'],
+                        payload['description'],
+                        json.dumps(payload['mappings']),
+                        json.dumps(payload['formula']),
+                        json.dumps(payload['thresholds']),
+                        json.dumps(payload['preview']),
+                        existing['version'] + 1,
+                        utc_now(),
+                        kpi_id,
+                    ),
+                )
+                conn.commit()
+                conn.close()
+            send_json(self, 200, {'ok': True})
+            return
+
+        if path.startswith('/api/kpis/') and path.endswith('/active'):
+            parts = path.strip('/').split('/')
+            if len(parts) == 4:
+                kpi_id = parts[2]
+                is_active = body.get('isActive')
+                if not isinstance(is_active, bool):
+                    send_json(self, 400, {'message': 'isActive must be boolean'})
+                    return
+                with _db_lock:
+                    ensure_db_writable()
+                    conn = get_conn()
+                    cur = conn.execute(
+                        'UPDATE kpi_definitions SET is_active=?, updated_at=? WHERE id=?',
+                        (1 if is_active else 0, utc_now(), kpi_id),
+                    )
+                    conn.commit()
+                    conn.close()
+                if cur.rowcount == 0:
+                    send_json(self, 404, {'message': 'KPI not found'})
+                    return
+                send_json(self, 200, {'ok': True})
+                return
+
+        if path.startswith('/api/sidebar-items/') and len(path.strip('/').split('/')) == 3:
+            item_id = path.strip('/').split('/')[2]
+            group_title = body.get('groupTitle')
+            title = body.get('title')
+            url = body.get('url')
+            sort_order = body.get('sortOrder')
+            display_mode = body.get('displayMode')
+            parent_id = body.get('parentId')
+
+            if not isinstance(group_title, str) or not group_title.strip() or not isinstance(title, str) or not title.strip():
+                send_json(self, 400, {'message': 'groupTitle and title are required'})
+                return
+            if display_mode not in ('hierarchy', 'vertical'):
+                send_json(self, 400, {'message': 'displayMode must be hierarchy or vertical'})
+                return
+            if parent_id == item_id:
+                send_json(self, 400, {'message': 'Item cannot be its own parent'})
+                return
+
+            try:
+                with _db_lock:
+                    ensure_db_writable()
+                    conn = get_conn()
+                    existing = conn.execute('SELECT id FROM sidebar_items WHERE id=?', (item_id,)).fetchone()
+                    if not existing:
+                        conn.close()
+                        send_json(self, 404, {'message': 'Sidebar item not found'})
+                        return
+
+                    if parent_id:
+                        parent_exists = conn.execute('SELECT id FROM sidebar_items WHERE id=?', (parent_id,)).fetchone()
+                        if not parent_exists:
+                            conn.close()
+                            send_json(self, 400, {'message': 'Invalid parentId'})
+                            return
+
+                    conn.execute(
+                        '''
+                        UPDATE sidebar_items
+                        SET group_title=?, parent_id=?, title=?, url=?, sort_order=?, display_mode=?
+                        WHERE id=?
+                        ''',
+                        (
+                            group_title.strip(),
+                            parent_id,
+                            title.strip(),
+                            (url or '').strip() or None,
+                            int(sort_order or 0),
+                            display_mode,
+                            item_id,
+                        ),
+                    )
+                    conn.commit()
+                    conn.close()
+            except sqlite3.IntegrityError:
+                send_json(self, 400, {'message': 'Invalid sidebar item update payload'})
+                return
+            except sqlite3.OperationalError as exc:
+                send_json(self, 500, {'message': str(exc)})
+                return
+
+            send_json(self, 200, {'ok': True})
+            return
+
         if path.startswith('/api/dynamic-tables/') and len(path.strip('/').split('/')) == 3:
             table_id = path.strip('/').split('/')[2]
             name = body.get('name')
@@ -926,18 +1476,90 @@ class Handler(BaseHTTPRequestHandler):
     def do_DELETE(self):
         path = urlparse(self.path).path
 
+        if path.startswith('/api/kpis/'):
+            parts = path.strip('/').split('/')
+            if len(parts) == 3:
+                kpi_id = parts[2]
+                with _db_lock:
+                    ensure_db_writable()
+                    conn = get_conn()
+                    cur = conn.execute('DELETE FROM kpi_definitions WHERE id=?', (kpi_id,))
+                    conn.commit()
+                    conn.close()
+                if cur.rowcount == 0:
+                    send_json(self, 404, {'message': 'KPI not found'})
+                else:
+                    send_json(self, 204)
+                return
+
         if path.startswith('/api/sidebar-items/'):
             item_id = path.split('/')[-1]
-            with _db_lock:
-                conn = get_conn()
-                cur = conn.execute('DELETE FROM sidebar_items WHERE id=?', (item_id,))
-                conn.commit()
-                conn.close()
-            if cur.rowcount == 0:
-                send_json(self, 404, {'message': 'Sidebar item not found'})
-            else:
-                send_json(self, 204)
-            return
+
+            for attempt in range(2):
+                try:
+                    with _db_lock:
+                        ensure_db_writable()
+                        conn = get_conn()
+                        existing = conn.execute('SELECT id FROM sidebar_items WHERE id=?', (item_id,)).fetchone()
+                        if not existing:
+                            conn.close()
+                            send_json(self, 404, {'message': 'Sidebar item not found'})
+                            return
+
+                        try:
+                            # Prefer direct delete; FKs handle cascade/set-null in normal schema.
+                            cur = conn.execute('DELETE FROM sidebar_items WHERE id=?', (item_id,))
+                        except sqlite3.IntegrityError:
+                            # Fallback for older DBs where FK actions were not created as expected.
+                            descendants = conn.execute(
+                                '''
+                                WITH RECURSIVE sidebar_descendants(id) AS (
+                                  SELECT id FROM sidebar_items WHERE id = ?
+                                  UNION ALL
+                                  SELECT s.id
+                                  FROM sidebar_items s
+                                  INNER JOIN sidebar_descendants d ON s.parent_id = d.id
+                                )
+                                SELECT id FROM sidebar_descendants
+                                ''',
+                                (item_id,),
+                            ).fetchall()
+                            descendant_ids = [row['id'] for row in descendants]
+
+                            if descendant_ids:
+                                placeholders = ','.join('?' for _ in descendant_ids)
+                                conn.execute(
+                                    f'DELETE FROM dynamic_pages WHERE sidebar_item_id IN ({placeholders})',
+                                    descendant_ids,
+                                )
+                                conn.execute(
+                                    f'DELETE FROM dynamic_tables WHERE sidebar_item_id IN ({placeholders})',
+                                    descendant_ids,
+                                )
+                            cur = conn.execute('DELETE FROM sidebar_items WHERE id=?', (item_id,))
+
+                        conn.commit()
+                        conn.close()
+
+                    if cur.rowcount == 0:
+                        send_json(self, 404, {'message': 'Sidebar item not found'})
+                    else:
+                        send_json(self, 204)
+                    return
+                except sqlite3.OperationalError as exc:
+                    is_readonly = 'readonly' in str(exc).lower()
+                    if is_readonly and attempt == 0 and relocate_to_writable_db():
+                        continue
+
+                    message = str(exc)
+                    if is_readonly:
+                        message = (
+                            'Database is readonly and auto-relocation failed. Set BACKEND_DB_PATH/BACKEND_DB_FALLBACK_PATH '
+                            f'to a writable location. Current DB: {DB_PATH}. Original error: {exc}'
+                        )
+                    send_json(self, 500, {'message': message})
+                    return
+
 
         if path.startswith('/api/dynamic-tables/'):
             table_id = path.split('/')[-1]
