@@ -30,6 +30,7 @@ import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedTableManagerIndexRouteImport } from './routes/_authenticated/table-manager/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedReportingIndexRouteImport } from './routes/_authenticated/reporting/index'
+import { Route as AuthenticatedKpisIndexRouteImport } from './routes/_authenticated/kpis/index'
 import { Route as AuthenticatedHelpCenterIndexRouteImport } from './routes/_authenticated/help-center/index'
 import { Route as AuthenticatedChatsIndexRouteImport } from './routes/_authenticated/chats/index'
 import { Route as AuthenticatedAppsIndexRouteImport } from './routes/_authenticated/apps/index'
@@ -42,6 +43,8 @@ import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_auth
 import { Route as AuthenticatedSettingsCategoryManagementRouteImport } from './routes/_authenticated/settings/category-management'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
+import { Route as AuthenticatedKpisNewRouteImport } from './routes/_authenticated/kpis/new'
+import { Route as AuthenticatedKpisIdRouteImport } from './routes/_authenticated/kpis/$id'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
 import { Route as AuthenticatedDynamicTablesTableIdRouteImport } from './routes/_authenticated/dynamic-tables/$tableId'
 import { Route as AuthenticatedReportingDomainHistoryRouteImport } from './routes/_authenticated/reporting/$domain/history'
@@ -153,6 +156,11 @@ const AuthenticatedReportingIndexRoute =
     path: '/reporting/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedKpisIndexRoute = AuthenticatedKpisIndexRouteImport.update({
+  id: '/kpis/',
+  path: '/kpis/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedHelpCenterIndexRoute =
   AuthenticatedHelpCenterIndexRouteImport.update({
     id: '/help-center/',
@@ -221,6 +229,16 @@ const AuthenticatedSettingsAccountRoute =
     path: '/account',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedKpisNewRoute = AuthenticatedKpisNewRouteImport.update({
+  id: '/kpis/new',
+  path: '/kpis/new',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedKpisIdRoute = AuthenticatedKpisIdRouteImport.update({
+  id: '/kpis/$id',
+  path: '/kpis/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedErrorsErrorRoute =
   AuthenticatedErrorsErrorRouteImport.update({
     id: '/errors/$error',
@@ -262,6 +280,8 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/dynamic-tables/$tableId': typeof AuthenticatedDynamicTablesTableIdRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
+  '/kpis/$id': typeof AuthenticatedKpisIdRoute
+  '/kpis/new': typeof AuthenticatedKpisNewRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/category-management': typeof AuthenticatedSettingsCategoryManagementRoute
@@ -274,6 +294,7 @@ export interface FileRoutesByFullPath {
   '/apps': typeof AuthenticatedAppsIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
+  '/kpis': typeof AuthenticatedKpisIndexRoute
   '/reporting': typeof AuthenticatedReportingIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/table-manager': typeof AuthenticatedTableManagerIndexRoute
@@ -297,6 +318,8 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/dynamic-tables/$tableId': typeof AuthenticatedDynamicTablesTableIdRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
+  '/kpis/$id': typeof AuthenticatedKpisIdRoute
+  '/kpis/new': typeof AuthenticatedKpisNewRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/category-management': typeof AuthenticatedSettingsCategoryManagementRoute
@@ -309,6 +332,7 @@ export interface FileRoutesByTo {
   '/apps': typeof AuthenticatedAppsIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
+  '/kpis': typeof AuthenticatedKpisIndexRoute
   '/reporting': typeof AuthenticatedReportingIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/table-manager': typeof AuthenticatedTableManagerIndexRoute
@@ -337,6 +361,8 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/dynamic-tables/$tableId': typeof AuthenticatedDynamicTablesTableIdRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
+  '/_authenticated/kpis/$id': typeof AuthenticatedKpisIdRoute
+  '/_authenticated/kpis/new': typeof AuthenticatedKpisNewRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/category-management': typeof AuthenticatedSettingsCategoryManagementRoute
@@ -349,6 +375,7 @@ export interface FileRoutesById {
   '/_authenticated/apps/': typeof AuthenticatedAppsIndexRoute
   '/_authenticated/chats/': typeof AuthenticatedChatsIndexRoute
   '/_authenticated/help-center/': typeof AuthenticatedHelpCenterIndexRoute
+  '/_authenticated/kpis/': typeof AuthenticatedKpisIndexRoute
   '/_authenticated/reporting/': typeof AuthenticatedReportingIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/table-manager/': typeof AuthenticatedTableManagerIndexRoute
@@ -375,6 +402,8 @@ export interface FileRouteTypes {
     | '/'
     | '/dynamic-tables/$tableId'
     | '/errors/$error'
+    | '/kpis/$id'
+    | '/kpis/new'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/category-management'
@@ -387,6 +416,7 @@ export interface FileRouteTypes {
     | '/apps'
     | '/chats'
     | '/help-center'
+    | '/kpis'
     | '/reporting'
     | '/settings/'
     | '/table-manager'
@@ -410,6 +440,8 @@ export interface FileRouteTypes {
     | '/'
     | '/dynamic-tables/$tableId'
     | '/errors/$error'
+    | '/kpis/$id'
+    | '/kpis/new'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/category-management'
@@ -422,6 +454,7 @@ export interface FileRouteTypes {
     | '/apps'
     | '/chats'
     | '/help-center'
+    | '/kpis'
     | '/reporting'
     | '/settings'
     | '/table-manager'
@@ -449,6 +482,8 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/dynamic-tables/$tableId'
     | '/_authenticated/errors/$error'
+    | '/_authenticated/kpis/$id'
+    | '/_authenticated/kpis/new'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/appearance'
     | '/_authenticated/settings/category-management'
@@ -461,6 +496,7 @@ export interface FileRouteTypes {
     | '/_authenticated/apps/'
     | '/_authenticated/chats/'
     | '/_authenticated/help-center/'
+    | '/_authenticated/kpis/'
     | '/_authenticated/reporting/'
     | '/_authenticated/settings/'
     | '/_authenticated/table-manager/'
@@ -634,6 +670,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportingIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/kpis/': {
+      id: '/_authenticated/kpis/'
+      path: '/kpis'
+      fullPath: '/kpis'
+      preLoaderRoute: typeof AuthenticatedKpisIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/help-center/': {
       id: '/_authenticated/help-center/'
       path: '/help-center'
@@ -718,6 +761,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAccountRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/kpis/new': {
+      id: '/_authenticated/kpis/new'
+      path: '/kpis/new'
+      fullPath: '/kpis/new'
+      preLoaderRoute: typeof AuthenticatedKpisNewRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/kpis/$id': {
+      id: '/_authenticated/kpis/$id'
+      path: '/kpis/$id'
+      fullPath: '/kpis/$id'
+      preLoaderRoute: typeof AuthenticatedKpisIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/errors/$error': {
       id: '/_authenticated/errors/$error'
       path: '/errors/$error'
@@ -783,9 +840,12 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedDynamicTablesTableIdRoute: typeof AuthenticatedDynamicTablesTableIdRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
+  AuthenticatedKpisIdRoute: typeof AuthenticatedKpisIdRoute
+  AuthenticatedKpisNewRoute: typeof AuthenticatedKpisNewRoute
   AuthenticatedAppsIndexRoute: typeof AuthenticatedAppsIndexRoute
   AuthenticatedChatsIndexRoute: typeof AuthenticatedChatsIndexRoute
   AuthenticatedHelpCenterIndexRoute: typeof AuthenticatedHelpCenterIndexRoute
+  AuthenticatedKpisIndexRoute: typeof AuthenticatedKpisIndexRoute
   AuthenticatedReportingIndexRoute: typeof AuthenticatedReportingIndexRoute
   AuthenticatedTableManagerIndexRoute: typeof AuthenticatedTableManagerIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
@@ -800,9 +860,12 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDynamicTablesTableIdRoute:
     AuthenticatedDynamicTablesTableIdRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
+  AuthenticatedKpisIdRoute: AuthenticatedKpisIdRoute,
+  AuthenticatedKpisNewRoute: AuthenticatedKpisNewRoute,
   AuthenticatedAppsIndexRoute: AuthenticatedAppsIndexRoute,
   AuthenticatedChatsIndexRoute: AuthenticatedChatsIndexRoute,
   AuthenticatedHelpCenterIndexRoute: AuthenticatedHelpCenterIndexRoute,
+  AuthenticatedKpisIndexRoute: AuthenticatedKpisIndexRoute,
   AuthenticatedReportingIndexRoute: AuthenticatedReportingIndexRoute,
   AuthenticatedTableManagerIndexRoute: AuthenticatedTableManagerIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
