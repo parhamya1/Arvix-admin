@@ -224,6 +224,17 @@ export const sidebarData: SidebarData = {
         },
       ],
     },
+
+    {
+      title: 'KPI',
+      items: [
+        {
+          title: 'KPI Builder',
+          url: '/kpis/new',
+          icon: SquareFunction,
+        },
+      ],
+    },
     {
       title: 'Other',
       items: [

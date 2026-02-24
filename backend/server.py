@@ -249,53 +249,80 @@ def reconcile_sidebar_item_urls(conn: sqlite3.Connection) -> None:
 
 
 def seed_kpi_sidebar(conn: sqlite3.Connection) -> None:
-    # Keep only one KPI category with KPI Builder under it.
-    existing_builder = conn.execute(
-        'SELECT id FROM sidebar_items WHERE LOWER(group_title)=LOWER(?) AND LOWER(title)=LOWER(?)',
-        ('KPI', 'KPI Builder'),
-    ).fetchone()
+    def upsert_kpi_item(title: str, url: str, sort_order: int) -> None:
+        existing = conn.execute(
+            '''
+            SELECT id
+            FROM sidebar_items
+            WHERE TRIM(LOWER(group_title)) = 'kpi'
+              AND TRIM(LOWER(title)) = TRIM(LOWER(?))
+            ORDER BY created_at ASC
+            ''',
+            (title,),
+        ).fetchall()
 
-    if existing_builder:
-        conn.execute(
-            'UPDATE sidebar_items SET url=?, sort_order=?, display_mode=? WHERE id=?',
-            ('/kpis/new', 10, 'hierarchy', existing_builder['id']),
-        )
-    else:
+        if existing:
+            keep_id = existing[0]['id']
+            conn.execute(
+                '''
+                UPDATE sidebar_items
+                SET group_title='KPI', title=?, url=?, sort_order=?, parent_id=NULL, badge=NULL, display_mode='hierarchy'
+                WHERE id=?
+                ''',
+                (title, url, sort_order, keep_id),
+            )
+            for duplicate in existing[1:]:
+                conn.execute('DELETE FROM sidebar_items WHERE id=?', (duplicate['id'],))
+            return
+
         conn.execute(
             '''
             INSERT INTO sidebar_items
               (id, group_title, parent_id, title, url, badge, sort_order, display_mode, created_at)
-            VALUES (?, ?, NULL, ?, ?, NULL, ?, ?, ?)
+            VALUES (?, 'KPI', NULL, ?, ?, NULL, ?, 'hierarchy', ?)
             ''',
-            (str(uuid.uuid4()), 'KPI', 'KPI Builder', '/kpis/new', 10, 'hierarchy', utc_now()),
+            (str(uuid.uuid4()), title, url, sort_order, utc_now()),
         )
 
-    # Delete all KPI-related items outside KPI group.
+    # Keep exactly two KPI entries in the KPI group.
+    upsert_kpi_item('KPI List', '/kpis', 10)
+    upsert_kpi_item('KPI Builder', '/kpis/new', 20)
+
+    # Remove any KPI-related sidebar entries outside the KPI group (including old General/Other items).
     conn.execute(
         '''
         DELETE FROM sidebar_items
-        WHERE LOWER(title) IN (LOWER(?), LOWER(?), LOWER(?), LOWER(?))
-          AND LOWER(group_title) <> LOWER(?)
-        ''',
-        ('KPI Builder', 'KPI List', 'KPI Library', 'KPI Runs', 'KPI'),
+        WHERE TRIM(LOWER(group_title)) <> 'kpi'
+          AND (
+            TRIM(LOWER(title)) LIKE '%kpi%'
+            OR COALESCE(TRIM(LOWER(url)), '') LIKE '/kpis%'
+          )
+        '''
     )
 
-    # In KPI group keep only KPI Builder and remove duplicates/legacy items.
-    builder_rows = conn.execute(
-        'SELECT id FROM sidebar_items WHERE LOWER(group_title)=LOWER(?) AND LOWER(title)=LOWER(?) ORDER BY created_at ASC',
-        ('KPI', 'KPI Builder'),
-    ).fetchall()
-    for duplicate in builder_rows[1:]:
-        conn.execute('DELETE FROM sidebar_items WHERE id=?', (duplicate['id'],))
-
+    # In KPI group, remove every legacy/duplicate row except KPI List + KPI Builder.
     conn.execute(
         '''
         DELETE FROM sidebar_items
-        WHERE LOWER(group_title)=LOWER(?)
-          AND LOWER(title) <> LOWER(?)
-        ''',
-        ('KPI', 'KPI Builder'),
+        WHERE TRIM(LOWER(group_title)) = 'kpi'
+          AND TRIM(LOWER(title)) NOT IN ('kpi list', 'kpi builder')
+        '''
     )
+
+    # Ensure there are no duplicate KPI List / KPI Builder rows left.
+    for title in ('KPI List', 'KPI Builder'):
+        rows = conn.execute(
+            '''
+            SELECT id
+            FROM sidebar_items
+            WHERE TRIM(LOWER(group_title)) = 'kpi'
+              AND TRIM(LOWER(title)) = TRIM(LOWER(?))
+            ORDER BY created_at ASC
+            ''',
+            (title,),
+        ).fetchall()
+        for duplicate in rows[1:]:
+            conn.execute('DELETE FROM sidebar_items WHERE id=?', (duplicate['id'],))
 
 
 KPI_CATEGORIES = {'Accessibility', 'Retainability', 'Mobility', 'Traffic', 'Availability', 'Integrity'}
