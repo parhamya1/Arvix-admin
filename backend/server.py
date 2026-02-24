@@ -222,8 +222,6 @@ def init_db() -> None:
         ensure_column(conn, 'dynamic_tables', 'page_id', 'TEXT REFERENCES dynamic_pages(id) ON DELETE CASCADE')
         migrate_dynamic_tables_schema(conn)
         ensure_column(conn, 'kpi_definitions', 'preview_json', "TEXT NOT NULL DEFAULT '{}'")
-        cleanup_general_sidebar_items(conn)
-        restore_unlinked_dynamic_pages(conn)
         seed_kpi_sidebar(conn)
         reconcile_sidebar_item_urls(conn)
         conn.execute('CREATE INDEX IF NOT EXISTS idx_dynamic_tables_page_id ON dynamic_tables(page_id)')
@@ -247,79 +245,6 @@ def reconcile_sidebar_item_urls(conn: sqlite3.Connection) -> None:
             'UPDATE sidebar_items SET url=? WHERE id=? AND (url IS NULL OR url = "")',
             (f'/dynamic-tables/{row["page_id"]}', row['sidebar_item_id']),
         )
-
-
-def cleanup_general_sidebar_items(conn: sqlite3.Connection) -> None:
-    # User requested removing only misplaced Help Center/KPI Builder entry from General.
-    conn.execute(
-        '''
-        DELETE FROM sidebar_items
-        WHERE TRIM(LOWER(group_title)) = 'general'
-          AND (
-            (TRIM(LOWER(title)) = 'kpi builder' AND COALESCE(TRIM(LOWER(url)), '') = '/help-center')
-            OR (TRIM(LOWER(title)) = 'help center' AND COALESCE(TRIM(LOWER(url)), '') = '/help-center')
-          )
-        '''
-    )
-
-
-def restore_unlinked_dynamic_pages(conn: sqlite3.Connection) -> None:
-    def ensure_sidebar_item(group_title: str, title: str, parent_id: str | None, url: str | None, sort_order: int) -> str:
-        row = conn.execute(
-            '''
-            SELECT id FROM sidebar_items
-            WHERE TRIM(LOWER(group_title)) = TRIM(LOWER(?))
-              AND TRIM(LOWER(title)) = TRIM(LOWER(?))
-              AND COALESCE(parent_id, '') = COALESCE(?, '')
-            ORDER BY created_at ASC
-            ''',
-            (group_title, title, parent_id),
-        ).fetchone()
-        if row:
-            conn.execute(
-                'UPDATE sidebar_items SET url=COALESCE(?, url), sort_order=?, display_mode=\'hierarchy\' WHERE id=?',
-                (url, sort_order, row['id']),
-            )
-            return row['id']
-
-        item_id = str(uuid.uuid4())
-        conn.execute(
-            '''
-            INSERT INTO sidebar_items
-              (id, group_title, parent_id, title, url, badge, sort_order, display_mode, created_at)
-            VALUES (?, ?, ?, ?, ?, NULL, ?, 'hierarchy', ?)
-            ''',
-            (item_id, group_title, parent_id, title, url, sort_order, utc_now()),
-        )
-        return item_id
-
-    rows = conn.execute(
-        '''
-        SELECT d.id, d.name
-        FROM dynamic_pages d
-        LEFT JOIN sidebar_items s ON s.id = d.sidebar_item_id
-        WHERE d.sidebar_item_id IS NULL OR s.id IS NULL
-        ORDER BY d.created_at ASC
-        '''
-    ).fetchall()
-
-    for row in rows:
-        page_id = row['id']
-        page_name = (row['name'] or '').strip()
-        if not page_name:
-            continue
-
-        parts = [part.strip() for part in page_name.split('/') if part.strip()]
-        if not parts:
-            continue
-
-        parent_id = None
-        for index, part in enumerate(parts):
-            is_leaf = index == len(parts) - 1
-            leaf_url = f'/dynamic-tables/{page_id}' if is_leaf else None
-            parent_id = ensure_sidebar_item('General', part, parent_id, leaf_url, (index + 1) * 10)
-
-        conn.execute('UPDATE dynamic_pages SET sidebar_item_id=? WHERE id=?', (parent_id, page_id))
 
 
 
