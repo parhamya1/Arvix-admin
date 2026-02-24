@@ -222,7 +222,7 @@ def init_db() -> None:
         ensure_column(conn, 'dynamic_tables', 'page_id', 'TEXT REFERENCES dynamic_pages(id) ON DELETE CASCADE')
         migrate_dynamic_tables_schema(conn)
         ensure_column(conn, 'kpi_definitions', 'preview_json', "TEXT NOT NULL DEFAULT '{}'")
-        seed_reporting_sidebar(conn)
+        cleanup_general_sidebar_items(conn)
         seed_kpi_sidebar(conn)
         reconcile_sidebar_item_urls(conn)
         conn.execute('CREATE INDEX IF NOT EXISTS idx_dynamic_tables_page_id ON dynamic_tables(page_id)')
@@ -248,78 +248,18 @@ def reconcile_sidebar_item_urls(conn: sqlite3.Connection) -> None:
         )
 
 
-def seed_reporting_sidebar(conn: sqlite3.Connection) -> None:
-    def ensure_item(group_title: str, title: str, url: str | None, sort_order: int, parent_id: str | None = None) -> str:
-        row = conn.execute(
-            '''
-            SELECT id
-            FROM sidebar_items
-            WHERE TRIM(LOWER(group_title)) = TRIM(LOWER(?))
-              AND TRIM(LOWER(title)) = TRIM(LOWER(?))
-              AND COALESCE(parent_id, '') = COALESCE(?, '')
-            ORDER BY created_at ASC
-            ''',
-            (group_title, title, parent_id),
-        ).fetchone()
-
-        if row:
-            conn.execute(
-                '''
-                UPDATE sidebar_items
-                SET group_title=?, title=?, url=?, sort_order=?, display_mode='hierarchy'
-                WHERE id=?
-                ''',
-                (group_title, title, url, sort_order, row['id']),
-            )
-            return row['id']
-
-        new_id = str(uuid.uuid4())
-        conn.execute(
-            '''
-            INSERT INTO sidebar_items
-              (id, group_title, parent_id, title, url, badge, sort_order, display_mode, created_at)
-            VALUES (?, ?, ?, ?, ?, NULL, ?, 'hierarchy', ?)
-            ''',
-            (new_id, group_title, parent_id, title, url, sort_order, utc_now()),
-        )
-        return new_id
-
-    reporting_id = ensure_item('General', 'Reporting', None, 30)
-
-    cm_id = ensure_item('General', 'CM', None, 10, reporting_id)
-    cm_raw_id = ensure_item('General', 'Raw Data', None, 10, cm_id)
-    ensure_item('General', 'Huawei', '/reporting/cm/raw/huawei', 10, cm_raw_id)
-    ensure_item('General', 'Nokia', '/reporting/cm/raw/nokia', 20, cm_raw_id)
-    ensure_item('General', 'Ericsson', '/reporting/cm/raw/ericsson', 30, cm_raw_id)
-    ensure_item('General', 'History', '/reporting/cm/history', 20, cm_id)
-
-    pm_id = ensure_item('General', 'PM', None, 20, reporting_id)
-    pm_raw_id = ensure_item('General', 'Raw Data', None, 10, pm_id)
-    ensure_item('General', 'Huawei', '/reporting/pm/raw/huawei', 10, pm_raw_id)
-    ensure_item('General', 'Nokia', '/reporting/pm/raw/nokia', 20, pm_raw_id)
-    ensure_item('General', 'Ericsson', '/reporting/pm/raw/ericsson', 30, pm_raw_id)
-    ensure_item('General', 'History (Counter Changes)', '/reporting/pm/history', 20, pm_id)
-
-    license_id = ensure_item('General', 'License', None, 30, reporting_id)
-    license_raw_id = ensure_item('General', 'Raw Data', None, 10, license_id)
-    ensure_item('General', 'Huawei', '/reporting/license/raw/huawei', 10, license_raw_id)
-    ensure_item('General', 'Nokia', '/reporting/license/raw/nokia', 20, license_raw_id)
-    ensure_item('General', 'Ericsson', '/reporting/license/raw/ericsson', 30, license_raw_id)
-    ensure_item('General', 'History', '/reporting/license/history', 20, license_id)
-
-    inventory_id = ensure_item('General', 'Inventory', None, 40, reporting_id)
-    inventory_raw_id = ensure_item('General', 'Raw Data', None, 10, inventory_id)
-    ensure_item('General', 'Huawei', '/reporting/inventory/raw/huawei', 10, inventory_raw_id)
-    ensure_item('General', 'Nokia', '/reporting/inventory/raw/nokia', 20, inventory_raw_id)
-    ensure_item('General', 'Ericsson', '/reporting/inventory/raw/ericsson', 30, inventory_raw_id)
-    ensure_item('General', 'History', '/reporting/inventory/history', 20, inventory_id)
-
-    user_log_id = ensure_item('General', 'User Log', None, 50, reporting_id)
-    row_data_id = ensure_item('General', 'Row Data', None, 10, user_log_id)
-    ensure_item('General', 'Nokia', '/reporting/user-log/raw/nokia', 10, row_data_id)
-    change_analysis_id = ensure_item('General', 'Change Analysis', None, 20, user_log_id)
-    change_nokia_id = ensure_item('General', 'Nokia', None, 10, change_analysis_id)
-    ensure_item('General', 'Applied Configuration Changes', '/reporting/user-log/history', 10, change_nokia_id)
+def cleanup_general_sidebar_items(conn: sqlite3.Connection) -> None:
+    # User requested removing these from General only.
+    conn.execute(
+        '''
+        DELETE FROM sidebar_items
+        WHERE TRIM(LOWER(group_title)) = 'general'
+          AND (
+            TRIM(LOWER(title)) IN ('reporting', 'kpi builder', 'help center')
+            OR COALESCE(TRIM(LOWER(url)), '') = '/help-center'
+          )
+        '''
+    )
 
 
 
