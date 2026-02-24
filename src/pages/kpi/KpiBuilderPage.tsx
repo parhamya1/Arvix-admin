@@ -238,21 +238,33 @@ function SearchableMulti({
   label,
   selected,
   options,
-  onToggle,
+  onChange,
   placeholder,
 }: {
   label: string
   selected: string[]
   options: string[]
-  onToggle: (value: string) => void
+  onChange: (next: string[]) => void
   placeholder: string
 }) {
   const [search, setSearch] = useState('')
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState<string[]>(selected)
+
+  useEffect(() => {
+    if (!open) setDraft(selected)
+  }, [selected, open])
+
   const filtered = useMemo(() => options.filter((o) => o.toLowerCase().includes(search.toLowerCase())), [options, search])
+
+  const toggleDraft = (value: string) => {
+    setDraft((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]))
+  }
+
   return (
     <div className='space-y-2'>
       <Label>{label}</Label>
-      <Popover>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button variant='outline' className='w-full justify-between'>
             <span className='truncate'>{selected.length ? `${selected.length} selected` : placeholder}</span>
@@ -264,19 +276,22 @@ function SearchableMulti({
           <ScrollArea className='h-56'>
             <div className='space-y-1'>
               {filtered.map((option) => (
-                <Button key={option} variant={selected.includes(option) ? 'default' : 'ghost'} className='w-full justify-start' onClick={() => onToggle(option)}>
+                <Button key={option} variant={draft.includes(option) ? 'default' : 'ghost'} className='w-full justify-start' onClick={() => toggleDraft(option)}>
                   {option}
                 </Button>
               ))}
             </div>
           </ScrollArea>
+          <div className='mt-3 flex justify-end'>
+            <Button size='sm' onClick={() => { onChange(draft); setOpen(false) }}>Apply</Button>
+          </div>
         </PopoverContent>
       </Popover>
       <div className='flex flex-wrap gap-2'>
         {selected.map((item) => (
           <Badge key={item} className='gap-2'>
             {item}
-            <button type='button' onClick={() => onToggle(item)}>×</button>
+            <button type='button' onClick={() => onChange(selected.filter((v) => v !== item))}>×</button>
           </Badge>
         ))}
       </div>
@@ -286,11 +301,19 @@ function SearchableMulti({
 
 function SearchableSingle({ label, value, options, onChange, placeholder }: { label: string; value: string; options: string[]; onChange: (value: string) => void; placeholder: string }) {
   const [search, setSearch] = useState('')
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(value)
+
+  useEffect(() => {
+    if (!open) setDraft(value)
+  }, [value, open])
+
   const filtered = useMemo(() => options.filter((o) => o.toLowerCase().includes(search.toLowerCase())), [options, search])
+
   return (
     <div className='space-y-2'>
       <Label>{label}</Label>
-      <Popover>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button variant='outline' className='w-full justify-between'>
             <span className='truncate'>{value || placeholder}</span>
@@ -302,12 +325,15 @@ function SearchableSingle({ label, value, options, onChange, placeholder }: { la
           <ScrollArea className='h-52'>
             <div className='space-y-1'>
               {filtered.map((option) => (
-                <Button key={option} variant={value === option ? 'default' : 'ghost'} className='w-full justify-start' onClick={() => onChange(option)}>
+                <Button key={option} variant={draft === option ? 'default' : 'ghost'} className='w-full justify-start' onClick={() => setDraft(option)}>
                   {option}
                 </Button>
               ))}
             </div>
           </ScrollArea>
+          <div className='mt-3 flex justify-end'>
+            <Button size='sm' onClick={() => { onChange(draft); setOpen(false) }}>Apply</Button>
+          </div>
         </PopoverContent>
       </Popover>
     </div>
@@ -631,18 +657,7 @@ export function KpiBuilderPage({ id }: { id?: string }) {
                   label='Technology *'
                   selected={wizard.basics.technologies}
                   options={techOptions}
-                  onToggle={(value) =>
-                    setWizard((prev) => {
-                      const has = prev.basics.technologies.includes(value as Tech)
-                      return {
-                        ...prev,
-                        basics: {
-                          ...prev.basics,
-                          technologies: has ? prev.basics.technologies.filter((t) => t !== value) : [...prev.basics.technologies, value as Tech],
-                        },
-                      }
-                    })
-                  }
+                  onChange={(next) => setWizard((prev) => ({ ...prev, basics: { ...prev.basics, technologies: next as Tech[] } }))}
                   placeholder='Select technologies'
                 />
               </>
@@ -663,7 +678,7 @@ export function KpiBuilderPage({ id }: { id?: string }) {
                 label='Targets * (min 2)'
                 selected={wizard.targets}
                 options={targetOptions}
-                onToggle={(value) => setWizard((prev) => ({ ...prev, targets: prev.targets.includes(value) ? prev.targets.filter((v) => v !== value) : [...prev.targets, value] }))}
+                onChange={(next) => setWizard((prev) => ({ ...prev, targets: next }))}
                 placeholder='Select targets'
               />
             ) : null}
@@ -684,16 +699,16 @@ export function KpiBuilderPage({ id }: { id?: string }) {
                   label='Counters *'
                   selected={wizard.counters.selected}
                   options={counterOptions}
-                  onToggle={(value) => setWizard((prev) => ({ ...prev, counters: { ...prev.counters, selected: prev.counters.selected.includes(value) ? prev.counters.selected.filter((v) => v !== value) : [...prev.counters.selected, value] } }))}
+                  onChange={(next) => setWizard((prev) => ({ ...prev, counters: { ...prev.counters, selected: next } }))}
                   placeholder='Select counters'
                 />
 
                 <div className='space-y-2'>
                   <Label>Reuse Existing KPI (optional)</Label>
-                  <Select value={wizard.counters.reuseKpiId} onValueChange={(value) => void applyReuseKpi(value)}>
+                  <Select value={wizard.counters.reuseKpiId || 'none'} onValueChange={(value) => void applyReuseKpi(value === 'none' ? '' : value)}>
                     <SelectTrigger><SelectValue placeholder='Select KPI to reuse' /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value=''>None</SelectItem>
+                      <SelectItem value='none'>None</SelectItem>
                       {existingKpis.filter((k) => k.id !== id).map((kpi) => <SelectItem key={kpi.id} value={kpi.id}>{kpi.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -717,8 +732,8 @@ export function KpiBuilderPage({ id }: { id?: string }) {
                   </div>
                 ) : (
                   <>
-                    <SearchableMulti label='Numerator expression counters' selected={wizard.formula.numeratorCounters} options={wizard.counters.selected} onToggle={(value) => setWizard((prev) => ({ ...prev, formula: { ...prev.formula, numeratorCounters: prev.formula.numeratorCounters.includes(value) ? prev.formula.numeratorCounters.filter((v) => v !== value) : [...prev.formula.numeratorCounters, value] } }))} placeholder='Select numerator counters' />
-                    <SearchableMulti label='Denominator expression counters' selected={wizard.formula.denominatorCounters} options={wizard.counters.selected} onToggle={(value) => setWizard((prev) => ({ ...prev, formula: { ...prev.formula, denominatorCounters: prev.formula.denominatorCounters.includes(value) ? prev.formula.denominatorCounters.filter((v) => v !== value) : [...prev.formula.denominatorCounters, value] } }))} placeholder='Select denominator counters' />
+                    <SearchableMulti label='Numerator expression counters' selected={wizard.formula.numeratorCounters} options={wizard.counters.selected} onChange={(next) => setWizard((prev) => ({ ...prev, formula: { ...prev.formula, numeratorCounters: next } }))} placeholder='Select numerator counters' />
+                    <SearchableMulti label='Denominator expression counters' selected={wizard.formula.denominatorCounters} options={wizard.counters.selected} onChange={(next) => setWizard((prev) => ({ ...prev, formula: { ...prev.formula, denominatorCounters: next } }))} placeholder='Select denominator counters' />
                     <div className='space-y-2'>
                       <Label>Multiplier</Label>
                       <Input value={wizard.formula.multiplier} onChange={(e) => setWizard((prev) => ({ ...prev, formula: { ...prev.formula, multiplier: e.target.value } }))} />
