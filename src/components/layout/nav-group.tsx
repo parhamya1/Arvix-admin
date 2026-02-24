@@ -42,6 +42,8 @@ type SortableNavGroupProps = NavGroupProps & {
 const isCollapsible = (item: NavItem): item is NavCollapsible =>
   Array.isArray((item as { items?: unknown }).items)
 
+const groupHasActiveItem = (href: string, items: NavItem[]) =>
+  items.some((item) => checkIsActive(href, item, true))
 
 const getDraggedSidebarItem = (
   event: DragEvent<HTMLElement>
@@ -71,63 +73,73 @@ export function NavGroup({
   const href = useLocation({ select: (location) => location.href })
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>{title}</SidebarGroupLabel>
-      <SidebarMenu
-        onDragOver={(event) => {
-          if (draggableItems) event.preventDefault()
-        }}
-        onDrop={(event) => {
-          if (!draggableItems || !onMoveItem) return
-          const source = getDraggedSidebarItem(event)
-          if (!source) return
-          event.preventDefault()
-          event.stopPropagation()
-          onMoveItem(source.groupIndex, source.itemIndex, groupIndex, items.length)
-        }}
-      >
-        {items.map((item, itemIndex) => {
-          const key = `${item.title}-${'url' in item ? item.url : 'group'}`
+    <Collapsible defaultOpen={groupHasActiveItem(href, items)} className='group/nav-group'>
+      <SidebarGroup>
+        <CollapsibleTrigger asChild>
+          <SidebarGroupLabel className='cursor-pointer justify-between'>
+            <span>{title}</span>
+            <ChevronRight className='size-4 transition-transform duration-200 group-data-[state=open]/nav-group:rotate-90 rtl:rotate-180' />
+          </SidebarGroupLabel>
+        </CollapsibleTrigger>
 
-          const itemNode = !isCollapsible(item) ? (
-            <SidebarMenuLink item={item} href={href} />
-          ) : state === 'collapsed' && !isMobile ? (
-            <SidebarMenuCollapsedDropdown item={item} href={href} />
-          ) : (
-            <SidebarMenuCollapsible item={item} href={href} />
-          )
+        <CollapsibleContent>
+          <SidebarMenu
+            onDragOver={(event) => {
+              if (draggableItems) event.preventDefault()
+            }}
+            onDrop={(event) => {
+              if (!draggableItems || !onMoveItem) return
+              const source = getDraggedSidebarItem(event)
+              if (!source) return
+              event.preventDefault()
+              event.stopPropagation()
+              onMoveItem(source.groupIndex, source.itemIndex, groupIndex, items.length)
+            }}
+          >
+            {items.map((item, itemIndex) => {
+              const key = `${item.title}-${'url' in item ? item.url : 'group'}`
 
-          return (
-            <div
-              key={key}
-              draggable={draggableItems}
-              onDragStartCapture={(event: DragEvent<HTMLDivElement>) => {
-                if (!draggableItems) return
-                event.dataTransfer.effectAllowed = 'move'
-                event.dataTransfer.setData(
-                  'application/sidebar-item',
-                  JSON.stringify({ groupIndex, itemIndex })
-                )
-              }}
-              onDragOver={(event) => {
-                if (draggableItems) event.preventDefault()
-              }}
-              onDrop={(event) => {
-                if (!draggableItems || !onMoveItem) return
-                const source = getDraggedSidebarItem(event)
-                if (!source) return
+              const itemNode = !isCollapsible(item) ? (
+                <SidebarMenuLink item={item} href={href} />
+              ) : state === 'collapsed' && !isMobile ? (
+                <SidebarMenuCollapsedDropdown item={item} href={href} />
+              ) : (
+                <SidebarMenuCollapsible item={item} href={href} />
+              )
 
-                event.preventDefault()
-                event.stopPropagation()
-                onMoveItem(source.groupIndex, source.itemIndex, groupIndex, itemIndex)
-              }}
-            >
-              {itemNode}
-            </div>
-          )
-        })}
-      </SidebarMenu>
-    </SidebarGroup>
+              return (
+                <div
+                  key={key}
+                  draggable={draggableItems}
+                  onDragStartCapture={(event: DragEvent<HTMLDivElement>) => {
+                    if (!draggableItems) return
+                    event.dataTransfer.effectAllowed = 'move'
+                    event.dataTransfer.setData(
+                      'application/sidebar-item',
+                      JSON.stringify({ groupIndex, itemIndex })
+                    )
+                  }}
+                  onDragOver={(event) => {
+                    if (draggableItems) event.preventDefault()
+                  }}
+                  onDrop={(event) => {
+                    if (!draggableItems || !onMoveItem) return
+                    const source = getDraggedSidebarItem(event)
+                    if (!source) return
+
+                    event.preventDefault()
+                    event.stopPropagation()
+                    onMoveItem(source.groupIndex, source.itemIndex, groupIndex, itemIndex)
+                  }}
+                >
+                  {itemNode}
+                </div>
+              )
+            })}
+          </SidebarMenu>
+        </CollapsibleContent>
+      </SidebarGroup>
+    </Collapsible>
   )
 }
 
