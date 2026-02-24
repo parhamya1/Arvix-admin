@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -31,8 +31,39 @@ export function CategoryManagement() {
   const [sortOrder, setSortOrder] = useState('0')
   const [displayMode, setDisplayMode] = useState<'hierarchy' | 'vertical'>('hierarchy')
   const [parentId, setParentId] = useState<string>('none')
+  const [notice, setNotice] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
 
-  const parentCandidates = useMemo(() => items, [items])
+  const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items])
+
+  const getItemPathLabel = useCallback((itemId: string) => {
+    const visited = new Set<string>()
+    const segments: string[] = []
+    let currentId: string | null = itemId
+
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId)
+      const item = itemById.get(currentId)
+      if (!item) break
+      segments.unshift(item.title)
+      currentId = item.parentId
+    }
+
+    const rootItem = itemById.get(itemId)
+    if (!rootItem) return ''
+    return `${rootItem.groupTitle} / ${segments.join(' / ')}`
+  }, [itemById])
+
+  const parentCandidates = useMemo(
+    () =>
+      items.map((item) => ({
+        item,
+        pathLabel: getItemPathLabel(item.id),
+      })),
+    [items, getItemPathLabel]
+  )
 
   const loadItems = async () => {
     const res = await fetch(`${backendBaseUrl}/api/sidebar-items`)
@@ -57,54 +88,141 @@ export function CategoryManagement() {
     return () => controller.abort()
   }, [])
 
-  const createItem = async () => {
-    if (!groupTitle.trim() || !title.trim()) return
-
-    const res = await fetch(`${backendBaseUrl}/api/sidebar-items`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        groupTitle: groupTitle.trim(),
-        title: title.trim(),
-        url: url.trim() || undefined,
-        sortOrder: Number(sortOrder) || 0,
-        displayMode,
-        parentId: parentId === 'none' ? null : parentId,
-      }),
-    })
-
-    if (!res.ok) return
-
-    const createdItem = (await res.json()) as { id: string }
-
-    await fetch(`${backendBaseUrl}/api/dynamic-pages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: `${groupTitle.trim()} / ${title.trim()}`,
-        sidebarItemId: createdItem.id,
-      }),
-    })
-
+  const resetForm = () => {
     setTitle('')
     setUrl('')
     setSortOrder('0')
     setParentId('none')
-    await loadItems()
-    window.dispatchEvent(new Event('sidebar-config-updated'))
+    setGroupTitle('Other')
+    setDisplayMode('hierarchy')
+    setEditingItemId(null)
+  }
+
+  const startEditItem = (item: SidebarItem) => {
+    setEditingItemId(item.id)
+    setGroupTitle(item.groupTitle)
+    setTitle(item.title)
+    setUrl(item.url ?? '')
+    setSortOrder(String(item.sortOrder))
+    setDisplayMode(item.displayMode)
+    setParentId(item.parentId ?? 'none')
+    setNotice('')
+  }
+
+  const saveItem = async () => {
+    if (!groupTitle.trim() || !title.trim()) return
+    if (!editingItemId) {
+      await createItem()
+      return
+    }
+
+    setSaving(true)
+    setNotice('')
+    try {
+      const res = await fetch(`${backendBaseUrl}/api/sidebar-items/${editingItemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupTitle: groupTitle.trim(),
+          title: title.trim(),
+          url: url.trim() || undefined,
+          sortOrder: Number(sortOrder) || 0,
+          displayMode,
+          parentId: parentId === 'none' ? null : parentId,
+        }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { message?: string } | null
+        setNotice(body?.message ?? 'Failed to update menu item.')
+        return
+      }
+      setNotice('Menu item updated successfully.')
+      resetForm()
+      await loadItems()
+      window.dispatchEvent(new Event('sidebar-config-updated'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const createItem = async () => {
+    if (!groupTitle.trim() || !title.trim()) return
+    setSaving(true)
+    setNotice('')
+
+    try {
+      const res = await fetch(`${backendBaseUrl}/api/sidebar-items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupTitle: groupTitle.trim(),
+          title: title.trim(),
+          url: url.trim() || undefined,
+          sortOrder: Number(sortOrder) || 0,
+          displayMode,
+          parentId: parentId === 'none' ? null : parentId,
+        }),
+      })
+
+      if (!res.ok) {
+        setNotice('Failed to create menu item.')
+        return
+      }
+
+      const createdItem = (await res.json()) as { id: string }
+      const initialPageName = `${groupTitle.trim()} / ${title.trim()}`
+      const createPage = async (pageName: string) =>
+        fetch(`${backendBaseUrl}/api/dynamic-pages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: pageName,
+            sidebarItemId: createdItem.id,
+          }),
+        })
+
+      let pageRes = await createPage(initialPageName)
+
+      if (!pageRes.ok && pageRes.status === 409) {
+        pageRes = await createPage(`${initialPageName} (${createdItem.id.slice(0, 6)})`)
+      }
+
+      if (!pageRes.ok) {
+        setNotice('Menu item created, but creating its page failed. Retry in table management.')
+      } else {
+        setNotice('Menu item and page created successfully.')
+      }
+
+      resetForm()
+      await loadItems()
+      window.dispatchEvent(new Event('sidebar-config-updated'))
+    } finally {
+      setSaving(false)
+    }
   }
 
   const deleteItem = async (id: string) => {
-    const res = await fetch(`${backendBaseUrl}/api/sidebar-items/${id}`, {
-      method: 'DELETE',
-    })
-    if (!res.ok) return
-    await loadItems()
-    window.dispatchEvent(new Event('sidebar-config-updated'))
+    setDeletingId(id)
+    setNotice('')
+    try {
+      const res = await fetch(`${backendBaseUrl}/api/sidebar-items/${id}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { message?: string } | null
+        setNotice(body?.message ?? 'Failed to delete selected item.')
+        return
+      }
+      setNotice('Item deleted successfully.')
+      await loadItems()
+      window.dispatchEvent(new Event('sidebar-config-updated'))
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
-    <div className='space-y-4'>
+    <div className='h-full min-h-0 space-y-4 overflow-y-auto pb-8 pe-1'>
       <Card>
         <CardHeader>
           <CardTitle>Manage Categories and Menu Items</CardTitle>
@@ -143,11 +261,13 @@ export function CategoryManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='none'>No parent (root item)</SelectItem>
-                  {parentCandidates.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.groupTitle} / {item.title}
-                    </SelectItem>
-                  ))}
+                  {parentCandidates
+                    .filter(({ item }) => item.id !== editingItemId)
+                    .map(({ item, pathLabel }) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {pathLabel}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -168,7 +288,17 @@ export function CategoryManagement() {
             </div>
           </div>
 
-          <Button onClick={createItem}>Add menu item</Button>
+          <div className='flex flex-wrap gap-2'>
+            <Button onClick={saveItem} disabled={saving}>
+              {saving ? 'Saving...' : editingItemId ? 'Save changes' : 'Add menu item'}
+            </Button>
+            {editingItemId && (
+              <Button variant='outline' onClick={resetForm} disabled={saving}>
+                Cancel edit
+              </Button>
+            )}
+          </div>
+          {notice && <p className='text-sm text-muted-foreground'>{notice}</p>}
         </CardContent>
       </Card>
 
@@ -183,17 +313,25 @@ export function CategoryManagement() {
               className='flex flex-col gap-2 rounded-md border p-3 md:flex-row md:items-center md:justify-between'
             >
               <div className='text-sm'>
-                <div className='font-medium'>
-                  {item.groupTitle} / {item.title}
-                </div>
+                <div className='font-medium'>{getItemPathLabel(item.id)}</div>
                 <div className='text-muted-foreground'>
-                  mode: {item.displayMode} • parent: {item.parentId ?? 'none'} • url:{' '}
-                  {item.url || 'none'}
+                  mode: {item.displayMode} • parent: {item.parentId ? getItemPathLabel(item.parentId) : 'none'} •
+                  url: {item.url || 'none'}
                 </div>
               </div>
-              <Button variant='destructive' size='sm' onClick={() => deleteItem(item.id)}>
-                Delete
-              </Button>
+              <div className='flex gap-2'>
+                <Button variant='outline' size='sm' onClick={() => startEditItem(item)}>
+                  Edit
+                </Button>
+                <Button
+                  variant='destructive'
+                  size='sm'
+                  onClick={() => deleteItem(item.id)}
+                  disabled={deletingId === item.id}
+                >
+                  {deletingId === item.id ? 'Deleting...' : 'Delete'}
+                </Button>
+              </div>
             </div>
           ))}
 
