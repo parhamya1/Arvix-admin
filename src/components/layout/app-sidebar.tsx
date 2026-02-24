@@ -321,7 +321,7 @@ export function AppSidebar() {
          /* if you want to use the normal app title instead of TeamSwitch dropdown */}
         {/* <AppTitle /> */}
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className='overflow-y-auto'>
         {navGroups.map((group, groupIndex) => (
           <div
             key={group.title}
