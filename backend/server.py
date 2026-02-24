@@ -254,11 +254,15 @@ def seed_kpi_sidebar(conn: sqlite3.Connection) -> None:
         ('63e87f7e-cbc9-4e89-a31d-996ec2d8280b', 'KPI Builder', '/kpis/new', 20),
     ]
 
-    # User requested a fully clean sidebar DB list that only keeps KPI List + KPI Builder.
-    # Keep dynamic pages/tables intact but detach their sidebar assignment before sidebar cleanup.
-    conn.execute('UPDATE dynamic_pages SET sidebar_item_id=NULL')
-    conn.execute('UPDATE dynamic_tables SET sidebar_item_id=NULL')
-    conn.execute('DELETE FROM sidebar_items')
+    # Keep non-KPI sidebar data (e.g. Reporting) and reset only KPI-related rows.
+    conn.execute(
+        '''
+        DELETE FROM sidebar_items
+        WHERE TRIM(LOWER(group_title)) = 'kpi'
+           OR TRIM(LOWER(title)) LIKE '%kpi%'
+           OR COALESCE(TRIM(LOWER(url)), '') LIKE '/kpis%'
+        '''
+    )
 
     now = utc_now()
     for item_id, title, url, sort_order in canonical_items:
