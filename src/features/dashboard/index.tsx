@@ -240,8 +240,8 @@ export function Dashboard() {
         </div>
       </Header>
 
-      <Main className='space-y-4 bg-slate-950/40'>
-        <section className='rounded-xl border border-cyan-400/20 bg-gradient-to-r from-slate-900/95 via-slate-900 to-slate-800/80 p-4 shadow-[0_0_40px_-24px_rgba(34,211,238,0.8)]'>
+      <Main className='space-y-4 bg-background text-foreground'>
+        <section className='rounded-xl border border-border bg-card/95 p-4 shadow-sm dark:border-cyan-400/20 dark:bg-gradient-to-r dark:from-slate-900/95 dark:via-slate-900 dark:to-slate-800/80 dark:shadow-[0_0_40px_-24px_rgba(34,211,238,0.8)]'>
           <div className='flex flex-wrap items-center justify-between gap-3'>
             <div className='flex items-center gap-3'>
               <div className='flex h-10 w-10 items-center justify-center rounded-lg border border-cyan-300/30 bg-cyan-500/10 text-cyan-300'>
@@ -249,14 +249,14 @@ export function Dashboard() {
               </div>
               <div>
                 <p className='text-xs uppercase tracking-[0.2em] text-cyan-200/70'>Dashboard Header</p>
-                <h2 className='text-lg font-semibold text-slate-100'>NOC Operations Monitor</h2>
+                <h2 className='text-lg font-semibold text-foreground dark:text-slate-100'>NOC Operations Monitor</h2>
               </div>
             </div>
             <div className='flex flex-wrap items-center gap-2'>
               <StatusPill label='Normal (Success)' count={statusCount.Normal} status='Normal' />
               <StatusPill label='Warning' count={statusCount.Warning} status='Warning' />
               <StatusPill label='Critical' count={statusCount.Critical} status='Critical' />
-              <Badge variant='outline' className='border-slate-600/70 bg-slate-800/70 text-slate-100'>
+              <Badge variant='outline' className='border-border bg-muted/60 text-foreground dark:border-slate-600/70 dark:bg-slate-800/70 dark:text-slate-100'>
                 <Clock3 className='me-1 h-3.5 w-3.5' /> 2026-02-18 09:37 UTC
               </Badge>
               <Badge className='bg-emerald-500/20 text-emerald-300'>
@@ -266,9 +266,14 @@ export function Dashboard() {
           </div>
         </section>
 
-        <section className='rounded-xl border border-slate-700/80 bg-slate-900/70 p-4 backdrop-blur'>
+        <section className='rounded-xl border border-border bg-card/80 p-4 backdrop-blur dark:border-slate-700/80 dark:bg-slate-900/70'>
           <div className='relative h-[380px] overflow-hidden rounded-xl border border-cyan-400/20 bg-[radial-gradient(circle_at_18%_18%,rgba(8,145,178,0.28),transparent_36%),radial-gradient(circle_at_78%_22%,rgba(14,165,233,0.18),transparent_45%),linear-gradient(140deg,#020617_12%,#0b1b3a_52%,#020617_100%)] shadow-[inset_0_0_120px_rgba(14,165,233,0.18)]'>
             <div className='absolute inset-0 bg-[linear-gradient(rgba(56,189,248,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(56,189,248,0.08)_1px,transparent_1px)] bg-[size:38px_38px] opacity-30' />
+            <div className='absolute -top-28 right-10 h-56 w-56 rounded-full border border-cyan-300/25 opacity-60' />
+            <div className='absolute -top-20 right-[4.5rem] h-40 w-40 rounded-full border border-cyan-300/20 opacity-60' />
+            <div className='absolute -top-12 right-[6.5rem] h-24 w-24 rounded-full border border-cyan-300/20 opacity-60' />
+            <div className='absolute bottom-12 left-[26%] h-px w-[44%] rotate-[16deg] bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent' />
+            <div className='absolute bottom-14 left-[22%] h-px w-[42%] rotate-[16deg] bg-gradient-to-r from-transparent via-cyan-200/45 to-transparent' />
             <div className='absolute -left-20 bottom-4 h-44 w-[85%] rotate-[-8deg] rounded-[60px] border border-cyan-300/15 bg-gradient-to-r from-slate-900/95 via-cyan-950/40 to-slate-900/90 shadow-[0_0_80px_rgba(20,184,166,0.22)]' />
             <div className='absolute bottom-20 left-[14%] h-32 w-8 rounded-t-sm bg-gradient-to-t from-cyan-500/25 to-cyan-200/30 shadow-[0_0_24px_rgba(45,212,191,0.35)]' />
             <div className='absolute bottom-16 left-[22%] h-44 w-10 rounded-t-sm bg-gradient-to-t from-cyan-500/20 to-cyan-100/35 shadow-[0_0_26px_rgba(34,211,238,0.35)]' />
@@ -279,7 +284,11 @@ export function Dashboard() {
             <div className='absolute left-7 top-7 z-10 rounded-xl border border-cyan-300/15 bg-slate-950/55 px-5 py-4 backdrop-blur'>
               <p className='text-2xs text-slate-400'>Active fault map · Warning/Critical only</p>
               <p className='mt-1 text-xl font-semibold uppercase tracking-[0.14em] text-slate-100'>Network Topology</p>
-              <p className='mt-1 text-2xl text-slate-300/85'>Real-time site monitoring</p>
+              <p className='mt-1 text-2xl text-slate-300/85'>Real-time site monitoring + fault pulse</p>
+            </div>
+            <div className='absolute right-6 top-8 rounded-xl border border-cyan-200/20 bg-slate-950/55 px-4 py-3 text-xs text-slate-300 backdrop-blur'>
+              <p className='uppercase tracking-[0.2em] text-cyan-200/80'>Telemetry</p>
+              <p className='mt-1 font-mono text-cyan-100'>Sites 410 · Nodes 92 · Cells 2,840</p>
             </div>
             {markers.map((kpi) => (
               <div key={kpi.id} className='group absolute -translate-x-1/2 -translate-y-1/2' style={{ left: `${kpi.marker?.x}%`, top: `${kpi.marker?.y}%` }}>
@@ -308,8 +317,8 @@ export function Dashboard() {
 
         <section className='grid gap-4 xl:grid-cols-3'>
           <div className='space-y-4 xl:col-span-2'>
-            <Card className='border-slate-700/80 bg-slate-900/75 transition-all hover:-translate-y-0.5 hover:shadow-[0_0_36px_-22px_rgba(56,189,248,0.75)]'>
-              <CardHeader><CardTitle className='text-slate-100'>Network KPI Trends</CardTitle></CardHeader>
+            <Card className='border-border bg-card/95 transition-all hover:-translate-y-0.5 dark:border-slate-700/80 dark:bg-slate-900/75 dark:hover:shadow-[0_0_36px_-22px_rgba(56,189,248,0.75)]'>
+              <CardHeader><CardTitle className='text-foreground dark:text-slate-100'>Network KPI Trends</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width='100%' height={250}>
                   <LineChart data={trendData}>
@@ -327,8 +336,8 @@ export function Dashboard() {
             </Card>
 
             <div className='grid gap-4 lg:grid-cols-2'>
-              <Card className='border-slate-700/80 bg-slate-900/75'>
-                <CardHeader><CardTitle className='text-slate-100'>Active Violations Over Time</CardTitle></CardHeader>
+              <Card className='border-border bg-card/95 dark:border-slate-700/80 dark:bg-slate-900/75'>
+                <CardHeader><CardTitle className='text-foreground dark:text-slate-100'>Active Violations Over Time</CardTitle></CardHeader>
                 <CardContent>
                   <ResponsiveContainer width='100%' height={220}>
                     <AreaChart data={violationData}>
@@ -342,8 +351,8 @@ export function Dashboard() {
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
-              <Card className='border-slate-700/80 bg-slate-900/75'>
-                <CardHeader><CardTitle className='text-slate-100'>Vendor Impact Split</CardTitle></CardHeader>
+              <Card className='border-border bg-card/95 dark:border-slate-700/80 dark:bg-slate-900/75'>
+                <CardHeader><CardTitle className='text-foreground dark:text-slate-100'>Vendor Impact Split</CardTitle></CardHeader>
                 <CardContent>
                   <ResponsiveContainer width='100%' height={220}>
                     <BarChart data={vendorImpact}>
@@ -358,12 +367,12 @@ export function Dashboard() {
               </Card>
             </div>
 
-            <Card className='border-slate-700/80 bg-slate-900/75'>
-              <CardHeader><CardTitle className='text-slate-100'>Top Degraded Regions</CardTitle></CardHeader>
+            <Card className='border-border bg-card/95 dark:border-slate-700/80 dark:bg-slate-900/75'>
+              <CardHeader><CardTitle className='text-foreground dark:text-slate-100'>Top Degraded Regions</CardTitle></CardHeader>
               <CardContent>
                 <div className='overflow-x-auto'>
                   <table className='w-full text-left text-sm'>
-                    <thead className='bg-slate-800/70 text-slate-300'>
+                    <thead className='bg-muted/70 text-muted-foreground dark:bg-slate-800/70 dark:text-slate-300'>
                       <tr>
                         <th className='px-3 py-2'>Region Name</th>
                         <th className='px-3 py-2'>Affected Cells</th>
@@ -372,7 +381,7 @@ export function Dashboard() {
                     </thead>
                     <tbody>
                       {regionRows.map(([region, cells, status]) => (
-                        <tr key={region} className='border-t border-slate-800 text-slate-200'>
+                        <tr key={region} className='border-t border-border text-foreground/90 dark:border-slate-800 dark:text-slate-200'>
                           <td className='px-3 py-2'>{region}</td>
                           <td className='px-3 py-2 tabular-nums'>{cells}</td>
                           <td className='px-3 py-2'><Badge className={severityStyles[status as Severity]}>{status}</Badge></td>
@@ -387,22 +396,22 @@ export function Dashboard() {
 
           <div className='space-y-4'>
             {infoCards.map(([label, value]) => (
-              <Card key={label} className='border-slate-700/80 bg-slate-900/70 transition-all hover:-translate-y-0.5 hover:border-cyan-400/40'>
+              <Card key={label} className='border-border bg-card/95 transition-all hover:-translate-y-0.5 dark:border-slate-700/80 dark:bg-slate-900/70 dark:hover:border-cyan-400/40'>
                 <CardContent className='pt-6'>
-                  <p className='text-xs uppercase tracking-[0.18em] text-slate-400'>{label}</p>
-                  <p className='mt-2 font-mono text-2xl font-semibold text-cyan-200'>{value}</p>
+                  <p className='text-xs uppercase tracking-[0.18em] text-muted-foreground'>{label}</p>
+                  <p className='mt-2 font-mono text-2xl font-semibold text-cyan-700 dark:text-cyan-200'>{value}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
         </section>
 
-        <section className='rounded-xl border border-slate-700/80 bg-slate-900/70 p-4'>
+        <section className='rounded-xl border border-border bg-card/95 p-4 dark:border-slate-700/80 dark:bg-slate-900/70'>
           <div className='mb-3 flex items-center justify-between'>
-            <h3 className='text-sm font-semibold uppercase tracking-[0.2em] text-slate-200'>Alarm Section</h3>
+            <h3 className='text-sm font-semibold uppercase tracking-[0.2em] text-foreground dark:text-slate-200'>Alarm Section</h3>
             <Dialog>
               <DialogTrigger asChild><Button variant='ghost' className='text-cyan-300 hover:text-cyan-200'>View all</Button></DialogTrigger>
-              <DialogContent className='max-w-2xl bg-slate-950 text-slate-100'>
+              <DialogContent className='max-w-2xl bg-background text-foreground dark:bg-slate-950 dark:text-slate-100'>
                 <DialogHeader><DialogTitle>All Active Alerts</DialogTitle></DialogHeader>
                 <div className='max-h-[420px] overflow-auto space-y-2'>
                   {alerts.map((alert) => (
@@ -417,12 +426,12 @@ export function Dashboard() {
           </div>
           <div className='flex gap-3 overflow-x-auto pb-2'>
             {alerts.map((alert, index) => (
-              <div key={alert.id} className={`min-w-[260px] rounded-lg border-l-4 border border-slate-700 bg-slate-950/75 p-3 ${alert.status === 'Critical' ? 'border-l-rose-400' : 'border-l-amber-300'}`}>
+              <div key={alert.id} className={`min-w-[260px] rounded-lg border-l-4 border border-border bg-card p-3 dark:border-slate-700 dark:bg-slate-950/75 ${alert.status === 'Critical' ? 'border-l-rose-400' : 'border-l-amber-300'}`}>
                 <div className='flex items-center justify-between'>
                   <Badge className={severityStyles[alert.status]}>{alert.status}</Badge>
-                  <span className='text-xs text-slate-400'>{5 + index} min ago</span>
+                  <span className='text-xs text-muted-foreground'>{5 + index} min ago</span>
                 </div>
-                <p className='mt-2 text-sm text-slate-100'>
+                <p className='mt-2 text-sm text-foreground dark:text-slate-100'>
                   {alert.scope} {alert.name} drift detected ({formatValue(alert.unit, alert.current)} vs {formatValue(alert.unit, alert.baseline)})
                 </p>
               </div>
@@ -430,14 +439,14 @@ export function Dashboard() {
           </div>
         </section>
 
-        <section className='rounded-xl border border-slate-700/80 bg-slate-900/70 p-4'>
+        <section className='rounded-xl border border-border bg-card/95 p-4 dark:border-slate-700/80 dark:bg-slate-900/70'>
           <div className='mb-3 flex flex-wrap items-center justify-between gap-2'>
-            <h3 className='text-lg font-semibold text-slate-100'>KPI Status (Network & Regions)</h3>
+            <h3 className='text-lg font-semibold text-foreground dark:text-slate-100'>KPI Status (Network & Regions)</h3>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant='outline' className='border-slate-600 bg-slate-800 text-slate-100'>Filter Status</Button>
+                <Button variant='outline' className='border-border bg-background text-foreground dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100'>Filter Status</Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className='bg-slate-900 text-slate-100'>
+              <DropdownMenuContent className='bg-popover text-popover-foreground dark:bg-slate-900 dark:text-slate-100'>
                 {(['Normal', 'Warning', 'Critical'] as Severity[]).map((status) => (
                   <DropdownMenuCheckboxItem
                     key={status}
@@ -457,10 +466,10 @@ export function Dashboard() {
             </DropdownMenu>
           </div>
 
-          <div className='max-h-[440px] overflow-auto rounded-lg border border-slate-800'>
+          <div className='max-h-[440px] overflow-auto rounded-lg border border-border dark:border-slate-800'>
             <table className='w-full text-left text-sm'>
-              <thead className='sticky top-0 z-10 bg-slate-900'>
-                <tr className='border-b border-slate-700 text-xs uppercase tracking-wider text-slate-400'>
+              <thead className='sticky top-0 z-10 bg-background dark:bg-slate-900'>
+                <tr className='border-b border-border text-xs uppercase tracking-wider text-muted-foreground dark:border-slate-700 dark:text-slate-400'>
                   <th className='px-3 py-3'>KPI Name</th>
                   <th className='px-3 py-3'>Scope</th>
                   <th className='px-3 py-3'>Current Value</th>
@@ -475,18 +484,18 @@ export function Dashboard() {
                   const delta = row.current - row.baseline
                   const deltaDisplay = `${delta > 0 ? '+' : ''}${row.unit === '%' ? delta.toFixed(2) : Math.round(delta)}`
                   return (
-                    <tr key={row.id} className='border-b border-slate-800 text-slate-100 hover:bg-slate-800/40'>
+                    <tr key={row.id} className='border-b border-border text-foreground hover:bg-muted/50 dark:border-slate-800 dark:text-slate-100 dark:hover:bg-slate-800/40'>
                       <td className='px-3 py-2'>{row.name}</td>
-                      <td className='px-3 py-2 text-slate-300'>{row.scope}</td>
+                      <td className='px-3 py-2 text-muted-foreground dark:text-slate-300'>{row.scope}</td>
                       <td className='px-3 py-2 font-mono'>{formatValue(row.unit, row.current)}</td>
-                      <td className='px-3 py-2 font-mono text-slate-300'>{formatValue(row.unit, row.baseline)}</td>
+                      <td className='px-3 py-2 font-mono text-muted-foreground dark:text-slate-300'>{formatValue(row.unit, row.baseline)}</td>
                       <td className='px-3 py-2 font-mono'>{deltaDisplay}</td>
                       <td className='px-3 py-2'><Badge className={severityStyles[row.status]}>{row.status}</Badge></td>
                       <td className='px-3 py-2'>
                         {row.status === 'Normal' ? (
-                          <Button size='sm' variant='ghost' disabled className='text-slate-500'>Details</Button>
+                          <Button size='sm' variant='ghost' disabled className='text-muted-foreground'>Details</Button>
                         ) : (
-                          <Button size='sm' variant='outline' className='border-slate-500 text-slate-100' onClick={() => setSelectedKpiId(row.id)}>
+                          <Button size='sm' variant='outline' className='border-border text-foreground dark:border-slate-500 dark:text-slate-100' onClick={() => setSelectedKpiId(row.id)}>
                             Details
                           </Button>
                         )}
@@ -500,10 +509,10 @@ export function Dashboard() {
         </section>
 
         <Sheet open={Boolean(selectedKpi)} onOpenChange={(open) => !open && setSelectedKpiId(null)}>
-          <SheetContent side='right' className='w-full overflow-auto bg-slate-950 text-slate-100 sm:max-w-2xl'>
+          <SheetContent side='right' className='w-full overflow-auto bg-background text-foreground dark:bg-slate-950 dark:text-slate-100 sm:max-w-2xl'>
             <SheetHeader>
               <SheetTitle>{selectedKpi?.name} · {selectedKpi?.scope}</SheetTitle>
-              <SheetDescription className='text-slate-400'>Investigation details and automated recommendations.</SheetDescription>
+              <SheetDescription className='text-muted-foreground dark:text-slate-400'>Investigation details and automated recommendations.</SheetDescription>
             </SheetHeader>
 
             {selectedKpi && (
@@ -519,11 +528,11 @@ export function Dashboard() {
                   rows={(selectedKpi.beforeAfter ?? []).map((item) => [item.kpi, item.before, item.after])}
                 />
 
-                <div className='rounded-lg border border-slate-800'>
-                  <div className='border-b border-slate-800 px-3 py-2 text-sm font-semibold text-slate-100'>Decision Suggestions</div>
+                <div className='rounded-lg border border-border dark:border-slate-800'>
+                  <div className='border-b border-border px-3 py-2 text-sm font-semibold text-foreground dark:border-slate-800 dark:text-slate-100'>Decision Suggestions</div>
                   <div className='overflow-auto'>
                     <table className='w-full text-left text-xs'>
-                      <thead className='bg-slate-900 text-slate-400'>
+                      <thead className='bg-muted/60 text-muted-foreground dark:bg-slate-900 dark:text-slate-400'>
                         <tr>
                           <th className='px-3 py-2'>Cell ID</th>
                           <th className='px-3 py-2'>Detected Issue</th>
@@ -534,7 +543,7 @@ export function Dashboard() {
                       </thead>
                       <tbody>
                         {(selectedKpi.suggestions ?? []).map((suggestion) => (
-                          <tr key={`${selectedKpi.id}-${suggestion.cellId}`} className='border-t border-slate-800 text-slate-200'>
+                          <tr key={`${selectedKpi.id}-${suggestion.cellId}`} className='border-t border-border text-foreground/90 dark:border-slate-800 dark:text-slate-200'>
                             <td className='px-3 py-2'>{suggestion.cellId}</td>
                             <td className='px-3 py-2'>{suggestion.issue}</td>
                             <td className='px-3 py-2'>{suggestion.action}</td>
@@ -570,16 +579,16 @@ function StatusPill({ label, count, status }: { label: string; count: number; st
 
 function DetailTable({ title, headers, rows }: { title: string; headers: string[]; rows: string[][] }) {
   return (
-    <div className='rounded-lg border border-slate-800'>
-      <div className='border-b border-slate-800 px-3 py-2 text-sm font-semibold text-slate-100'>{title}</div>
+    <div className='rounded-lg border border-border dark:border-slate-800'>
+      <div className='border-b border-border px-3 py-2 text-sm font-semibold text-foreground dark:border-slate-800 dark:text-slate-100'>{title}</div>
       <div className='overflow-auto'>
         <table className='w-full text-left text-xs'>
-          <thead className='bg-slate-900 text-slate-400'>
+          <thead className='bg-muted/60 text-muted-foreground dark:bg-slate-900 dark:text-slate-400'>
             <tr>{headers.map((header) => <th key={header} className='px-3 py-2'>{header}</th>)}</tr>
           </thead>
           <tbody>
             {rows.map((row, index) => (
-              <tr key={`${title}-${index}`} className='border-t border-slate-800 text-slate-200'>
+              <tr key={`${title}-${index}`} className='border-t border-border text-foreground/90 dark:border-slate-800 dark:text-slate-200'>
                 {row.map((cell, cellIndex) => <td key={`${title}-${index}-${cellIndex}`} className='px-3 py-2'>{cell}</td>)}
               </tr>
             ))}
