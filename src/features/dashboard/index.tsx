@@ -1182,11 +1182,13 @@ function DataTable({
           <thead>
             <tr className='border-b'>
               {headers.map((header, index) => (
-                <th key={header} className='px-3 py-2 font-semibold'>
+                <th key={header} className='px-3 py-2 text-xs font-medium'>
                   {sortable ? (
-                    <button type='button' className='inline-flex items-center gap-1' onClick={() => handleSort(index)}>
-                      {header}
-                      {sortByIndex === index ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                    <button type='button' className='inline-flex items-center gap-2' onClick={() => handleSort(index)}>
+                      <span>{header}</span>
+                      <span className='text-[10px] text-muted-foreground/60'>
+                        {sortByIndex === index ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                      </span>
                     </button>
                   ) : (
                     header
