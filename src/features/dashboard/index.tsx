@@ -311,20 +311,20 @@ export function Dashboard() {
               </div>
             ))}
 
-            <div className='absolute bottom-7 left-7 flex items-center gap-7 rounded-2xl border border-cyan-300/20 bg-slate-950/75 px-6 py-3 text-sm text-slate-200 backdrop-blur'>
-              <span className='inline-flex items-center gap-2'>
+            <ul className='absolute bottom-7 left-7 flex list-none items-center gap-7 rounded-2xl border border-cyan-300/20 bg-slate-950/75 px-6 py-3 text-sm text-slate-200 backdrop-blur'>
+              <li className='inline-flex items-center gap-2'>
                 <span className='h-3 w-3 rounded-full bg-amber-300 shadow-[0_0_12px_rgba(252,211,77,0.9)]' />
-                Warning
-              </span>
-              <span className='inline-flex items-center gap-2'>
+                <span>Warning</span>
+              </li>
+              <li className='inline-flex items-center gap-2'>
                 <span className='h-3 w-3 rounded-full bg-rose-400 shadow-[0_0_12px_rgba(251,113,133,0.95)]' />
-                Critical
-              </span>
-              <span className='inline-flex items-center gap-2'>
+                <span>Critical</span>
+              </li>
+              <li className='inline-flex items-center gap-2'>
                 <span className='h-3 w-3 rounded-full bg-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.85)]' />
-                Maintenance
-              </span>
-            </div>
+                <span>Maintenance</span>
+              </li>
+            </ul>
           </div>
         </section>
 
