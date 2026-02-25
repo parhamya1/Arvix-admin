@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Area,
@@ -30,10 +31,54 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { toast } from 'sonner'
 
 type Severity = 'Normal' | 'Warning' | 'Critical'
 type Vendor = 'Huawei' | 'Nokia' | 'Ericsson'
 type ReportingDomain = 'CM' | 'PM' | 'License' | 'Inventory' | 'User Log'
+type KpiRow = [string, string, string, string, string, string, Severity, string]
+
+type CmParameter = {
+  parameter: string
+  target: string
+  current: string
+  previous: string
+  changedBy: 'Script' | 'User' | 'Policy'
+  command: string
+}
+
+type CounterImpact = {
+  name: string
+  direction: '↑' | '↓'
+  note: string
+}
+
+type TimelineRow = {
+  time: string
+  actor: 'Script' | 'User' | 'Policy'
+  source: 'CM' | 'Log' | 'Policy'
+  command: string
+  parameter: string
+  beforeAfter: string
+  counterImpact: string
+}
+
+type SuggestedFix = {
+  targetId: string
+  detectedIssue: string
+  action: string
+  confidence: string
+  expectedOutcome: string
+  parameter: string
+  suggestedValue: string
+}
+
+type KpiDetails = {
+  cmParameters: CmParameter[]
+  counters: CounterImpact[]
+  timeline: TimelineRow[]
+  suggestions: SuggestedFix[]
+}
 
 type RawFileRow = {
   ingestionDateUtc: string
@@ -87,7 +132,7 @@ const violationTrendData = [
   { time: '20:00', critical: 602, warning: 643 },
 ]
 
-const kpiStatusRows = [
+const kpiStatusRows: KpiRow[] = [
   ['Call Setup Success Rate', '2G', '99.42%', '99.30%', '+0.12%', 'NOKIA', 'Normal', ''],
   ['Handover Success Rate', '3G', '98.84%', '98.70%', '+0.14%', 'ERICSSON', 'Normal', ''],
   ['Paging Success Rate', '4G', '99.12%', '98.95%', '+0.17%', 'HUAWEI', 'Normal', ''],
@@ -119,6 +164,113 @@ const kpiStatusRows = [
   ['Active UE Sessions', '4G', '18200 Sessions', '14000 Sessions', '+4200 Sessions', 'ERICSSON', 'Critical', 'Details'],
   ['Signaling Load Index', 'Core', '74.5%', '58.0%', '+16.5%', 'HUAWEI', 'Critical', 'Details'],
 ]
+
+function seededNumber(input: string) {
+  return Array.from(input).reduce((acc, char) => acc + char.charCodeAt(0), 0)
+}
+
+function parseValueWithUnit(value: string) {
+  const match = value.match(/-?\d+(?:\.\d+)?/)
+  if (!match) {
+    return { value: 0, decimals: 0, unit: '' }
+  }
+
+  const numeric = Number(match[0])
+  const decimals = (match[0].split('.')[1] ?? '').length
+  const unit = value.replace(match[0], '').trim()
+
+  return { value: numeric, decimals, unit }
+}
+
+function formatValue(value: number, decimals: number, unit: string) {
+  const numberText = value.toFixed(decimals)
+
+  return unit ? `${numberText} ${unit}`.replace(' %', '%') : numberText
+}
+
+function formatDelta(value: number, decimals: number, unit: string) {
+  const sign = value >= 0 ? '+' : ''
+
+  return `${sign}${formatValue(value, decimals, unit)}`
+}
+
+function generateKpiDetails(row: KpiRow): KpiDetails {
+  const [kpiName, technology, currentValue, baselineValue, delta, vendor] = row
+  const seed = seededNumber(kpiName)
+  const parameterPool = ['MaxUE', 'DLBW2', 'HO_Threshold', 'TxPower', 'A3Offset', 'QrxLevMin', 'RachPreamble', 'P0NominalPUSCH', 'ULPowerControl', 'CellReselectionPriority']
+  const actors: Array<'Script' | 'User' | 'Policy'> = ['Script', 'User', 'Policy']
+  const targets = ['Cell', 'Site', 'Node']
+
+  const cmParameters = Array.from({ length: 5 }, (_, index) => {
+    const parameter = parameterPool[(seed + index) % parameterPool.length]
+    const previous = String(20 + ((seed + index * 7) % 45))
+    const current = String(Number(previous) + ((index % 2 === 0 ? 1 : -1) * ((seed % 4) + 1)))
+
+    return {
+      parameter,
+      target: `${vendor}-${technology}-${targets[(seed + index) % targets.length]}-${100 + ((seed + index * 13) % 900)}`,
+      current,
+      previous,
+      changedBy: actors[(seed + index) % actors.length],
+      command: `set ${parameter} ${current}`,
+    }
+  })
+
+  const counterPool = ['erabDropCount', 'dlThroughputAvg', 'ulThroughputAvg', 'rrcConnEstabSucc', 'rachFailRate', 'handoverFailCount', 'packetDelayAvg', 'attachSuccessRate', 'pagingDiscardCount', 'radioLinkFailures']
+  const counters = Array.from({ length: 8 }, (_, index) => {
+    const name = counterPool[(seed + index) % counterPool.length]
+    const direction: '↑' | '↓' = index % 2 === 0 ? '↑' : '↓'
+
+    return {
+      name,
+      direction,
+      note: direction === '↑' ? `Increase observed after ${cmParameters[index % 5].parameter}` : `Drop linked to ${cmParameters[index % 5].parameter} tuning`,
+    }
+  })
+
+  const timeline = Array.from({ length: 8 }, (_, index) => {
+    const parameter = cmParameters[index % cmParameters.length]
+    const counterA = counters[index % counters.length]
+    const counterB = counters[(index + 1) % counters.length]
+
+    return {
+      time: `09:${String(8 + index * 3).padStart(2, '0')}`,
+      actor: actors[(seed + index) % actors.length],
+      source: (['CM', 'Log', 'Policy'] as const)[(seed + index) % 3],
+      command: index % 2 === 0 ? parameter.command : `validate ${parameter.parameter}`,
+      parameter: parameter.parameter,
+      beforeAfter: `${parameter.previous} → ${parameter.current}`,
+      counterImpact: `${counterA.name} ${counterA.direction}, ${counterB.name} ${counterB.direction}`,
+    }
+  })
+
+  const suggestions = cmParameters.slice(0, 4).map((parameter, index) => {
+    const suggestedValue = index % 2 === 0 ? parameter.previous : String((Number(parameter.previous) + Number(parameter.current)) / 2)
+
+    return {
+      targetId: parameter.target,
+      detectedIssue: `${parameter.parameter} drift pushed ${kpiName}`,
+      action: `Apply ${parameter.parameter} = ${suggestedValue}`,
+      confidence: (0.74 + ((seed + index) % 18) / 100).toFixed(2),
+      expectedOutcome: `${kpiName} moves toward baseline ${baselineValue}`,
+      parameter: parameter.parameter,
+      suggestedValue,
+    }
+  })
+
+  timeline.push({
+    time: '09:40',
+    actor: 'Policy',
+    source: 'Policy',
+    command: `mark KPI ${kpiName} as degraded`,
+    parameter: '-',
+    beforeAfter: `${currentValue} vs ${baselineValue} (${delta})`,
+    counterImpact: `${counters[0].name} ${counters[0].direction}`,
+  })
+
+  return { cmParameters, counters, timeline, suggestions }
+}
+
 
 const guardrailRows = [
   ['Nokia', 'Cell', 'MaxUE', 'Average', 'avg(14d)', '+15%', 'Region Helsinki'],
@@ -289,6 +441,35 @@ const rawRows: Record<ReportingDomain, Record<Vendor, RawExtractedRow[]>> = {
 }
 
 export function Dashboard() {
+  const [kpiRows, setKpiRows] = useState<KpiRow[]>(kpiStatusRows)
+
+  const handleApplyKpiSuggestion = (rowIndex: number) => {
+    setKpiRows((previousRows) =>
+      previousRows.map((row, index) => {
+        if (index !== rowIndex) {
+          return row
+        }
+
+        const current = parseValueWithUnit(row[2])
+        const baseline = parseValueWithUnit(row[3])
+        const nextCurrent = current.value + (baseline.value - current.value) * 0.35
+        const nextCurrentText = formatValue(nextCurrent, current.decimals, current.unit || baseline.unit)
+        const nextDeltaText = formatDelta(nextCurrent - baseline.value, Math.max(current.decimals, baseline.decimals), baseline.unit || current.unit)
+
+        let nextStatus: Severity = row[6]
+        if (row[6] === 'Critical') {
+          nextStatus = 'Warning'
+        } else if (row[6] === 'Warning' && Math.abs(nextCurrent - baseline.value) < Math.abs(current.value - baseline.value) * 0.55) {
+          nextStatus = 'Normal'
+        }
+
+        return [row[0], row[1], nextCurrentText, row[3], nextDeltaText, row[5], nextStatus, nextStatus === 'Normal' ? '' : 'Details']
+      })
+    )
+
+    toast.success('Change queued')
+  }
+
   return (
     <>
       <Header>
@@ -403,10 +584,11 @@ export function Dashboard() {
               <CardContent>
                 <DataTable
                   headers={['KPI Name', 'Technology', 'Current Value', 'Baseline Value', 'Delta', 'Vendor', 'Health Status', 'Actions']}
-                  rows={kpiStatusRows}
+                  rows={kpiRows}
                   severityColumnIndex={6}
                   actionColumnIndex={7}
                   expandableDetails
+                  onApplySuggestion={handleApplyKpiSuggestion}
                 />
               </CardContent>
             </Card>
@@ -809,74 +991,279 @@ function DataTable({
   severityColumnIndex,
   actionColumnIndex,
   expandableDetails,
+  onApplySuggestion,
 }: {
   headers: string[]
   rows: string[][]
   severityColumnIndex?: number
   actionColumnIndex?: number
   expandableDetails?: boolean
+  onApplySuggestion?: (rowIndex: number) => void
 }) {
-  const [expandedRow, setExpandedRow] = useState<number | null>(null)
+  const [open, setOpen] = useState(false)
+  const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null)
+  const [detailsByKpi, setDetailsByKpi] = useState<Record<string, KpiDetails>>({})
+
+  const selectedRow = selectedRowIndex !== null ? (rows[selectedRowIndex] as KpiRow | undefined) : undefined
+  const selectedDetails = selectedRow ? detailsByKpi[selectedRow[0]] ?? generateKpiDetails(selectedRow) : undefined
+
+  const handleOpenDetails = (row: string[], rowIndex: number) => {
+    const typedRow = row as KpiRow
+
+    setDetailsByKpi((previous) =>
+      previous[typedRow[0]]
+        ? previous
+        : {
+            ...previous,
+            [typedRow[0]]: generateKpiDetails(typedRow),
+          }
+    )
+    setSelectedRowIndex(rowIndex)
+    setOpen(true)
+  }
+
+  const handleApplySuggestion = (suggestion: SuggestedFix) => {
+    if (selectedRowIndex === null || !selectedRow || !selectedDetails) {
+      return
+    }
+
+    onApplySuggestion?.(selectedRowIndex)
+
+    setDetailsByKpi((previous) => {
+      const nextDetails = previous[selectedRow[0]] ?? generateKpiDetails(selectedRow)
+      const updatedParameters = nextDetails.cmParameters.map((parameter) =>
+        parameter.parameter === suggestion.parameter
+          ? {
+              ...parameter,
+              previous: parameter.current,
+              current: suggestion.suggestedValue,
+              changedBy: 'User' as const,
+              command: `apply ${suggestion.parameter} ${suggestion.suggestedValue}`,
+            }
+          : parameter
+      )
+
+      const nextTimeline: TimelineRow = {
+        time: 'Now',
+        actor: 'User',
+        source: 'Policy',
+        command: `Apply suggestion ${suggestion.action}`,
+        parameter: suggestion.parameter,
+        beforeAfter: `→ ${suggestion.suggestedValue}`,
+        counterImpact: 'kpiRecoveryIndex ↑, erabDropCount ↓',
+      }
+
+      return {
+        ...previous,
+        [selectedRow[0]]: {
+          ...nextDetails,
+          cmParameters: updatedParameters,
+          timeline: [...nextDetails.timeline, nextTimeline],
+        },
+      }
+    })
+  }
 
   return (
-    <div className='overflow-x-auto'>
-      <table className='w-full min-w-[760px] text-left text-sm'>
-        <thead>
-          <tr className='border-b'>
-            {headers.map((header) => (
-              <th key={header} className='px-3 py-2 font-semibold'>
-                {header}
-              </th>
+    <>
+      <div className='overflow-x-auto'>
+        <table className='w-full min-w-[760px] text-left text-sm'>
+          <thead>
+            <tr className='border-b'>
+              {headers.map((header) => (
+                <th key={header} className='px-3 py-2 font-semibold'>
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rowIndex) => (
+              <tr key={`${row[0]}-${rowIndex}`} className='border-b'>
+                {row.map((cell, cellIndex) => (
+                  <td key={`${cell}-${cellIndex}`} className='px-3 py-2'>
+                    {cellIndex === severityColumnIndex &&
+                    ['Normal', 'Warning', 'Critical'].includes(cell) ? (
+                      <Badge
+                        variant='secondary'
+                        className={severityClass[cell as Severity]}
+                      >
+                        {cell}
+                      </Badge>
+                    ) : expandableDetails && cellIndex === actionColumnIndex && cell === 'Details' ? (
+                      <Button
+                        size='sm'
+                        variant='outline'
+                        onClick={() => handleOpenDetails(row, rowIndex)}
+                      >
+                        Details
+                      </Button>
+                    ) : (
+                      cell
+                    )}
+                  </td>
+                ))}
+              </tr>
             ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, rowIndex) => {
-            const isExpanded = expandedRow === rowIndex
+          </tbody>
+        </table>
+      </div>
 
-            return (
-              <Fragment key={`${row[0]}-${rowIndex}`}>
-                <tr className='border-b'>
-                  {row.map((cell, cellIndex) => (
-                    <td key={`${cell}-${cellIndex}`} className='px-3 py-2'>
-                      {cellIndex === severityColumnIndex &&
-                      ['Normal', 'Warning', 'Critical'].includes(cell) ? (
-                        <Badge
-                          variant='secondary'
-                          className={severityClass[cell as Severity]}
-                        >
-                          {cell}
-                        </Badge>
-                      ) : cellIndex === actionColumnIndex && cell === 'Details' ? (
-                        <Button
-                          size='sm'
-                          variant='outline'
-                          onClick={() =>
-                            setExpandedRow((current) =>
-                              current === rowIndex ? null : rowIndex
-                            )
-                          }
-                        >
-                          {isExpanded ? 'Hide' : 'Details'}
-                        </Button>
-                      ) : (
-                        cell
-                      )}
-                    </td>
-                  ))}
-                </tr>
-                {expandableDetails && isExpanded && (
-                  <tr className='border-b bg-muted/20'>
-                    <td colSpan={headers.length} className='px-3 py-3 text-sm text-muted-foreground'>
-                      KPI: <span className='font-medium text-foreground'>{row[0]}</span> · Technology: {row[1]} · Vendor: {row[5]} · Current: {row[2]} · Baseline: {row[3]} · Delta: {row[4]}
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent className='w-full overflow-y-auto sm:max-w-[920px]'>
+          {selectedRow && selectedDetails && (
+            <div className='space-y-6'>
+              <SheetHeader>
+                <SheetTitle>KPI Details</SheetTitle>
+              </SheetHeader>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>KPI Overview</CardTitle>
+                </CardHeader>
+                <CardContent className='grid gap-2 sm:grid-cols-2'>
+                  <div><span className='font-medium'>KPI Name:</span> {selectedRow[0]}</div>
+                  <div><span className='font-medium'>Vendor:</span> {selectedRow[5]}</div>
+                  <div><span className='font-medium'>Technology:</span> {selectedRow[1]}</div>
+                  <div><span className='font-medium'>Current / Baseline / Delta:</span> {selectedRow[2]} / {selectedRow[3]} / {selectedRow[4]}</div>
+                  <div className='sm:col-span-2'>
+                    <span className='font-medium me-2'>Health Status:</span>
+                    <Badge variant='secondary' className={severityClass[selectedRow[6] as Severity]}>{selectedRow[6]}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Related CM Parameters & Counters</CardTitle>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <div>
+                    <div className='mb-2 font-medium'>A) CM Parameters</div>
+                    <table className='w-full text-left text-sm'>
+                      <thead>
+                        <tr className='border-b'>
+                          <th className='px-2 py-1'>Parameter</th>
+                          <th className='px-2 py-1'>Scope Target</th>
+                          <th className='px-2 py-1'>Current</th>
+                          <th className='px-2 py-1'>Previous</th>
+                          <th className='px-2 py-1'>Last changed by</th>
+                          <th className='px-2 py-1'>Command</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedDetails.cmParameters.map((parameter) => (
+                          <tr key={`${parameter.parameter}-${parameter.target}`} className='border-b'>
+                            <td className='px-2 py-1'>{parameter.parameter}</td>
+                            <td className='px-2 py-1'>{parameter.target}</td>
+                            <td className='px-2 py-1'>{parameter.current}</td>
+                            <td className='px-2 py-1'>{parameter.previous}</td>
+                            <td className='px-2 py-1'>{parameter.changedBy}</td>
+                            <td className='px-2 py-1'>{parameter.command}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div>
+                    <div className='mb-2 font-medium'>B) Related Counters</div>
+                    <table className='w-full text-left text-sm'>
+                      <thead>
+                        <tr className='border-b'>
+                          <th className='px-2 py-1'>Counter</th>
+                          <th className='px-2 py-1'>Impact</th>
+                          <th className='px-2 py-1'>Note</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedDetails.counters.map((counter) => (
+                          <tr key={counter.name} className='border-b'>
+                            <td className='px-2 py-1'>{counter.name}</td>
+                            <td className='px-2 py-1'>{counter.direction}</td>
+                            <td className='px-2 py-1'>{counter.note}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Change Timeline (Causal Chain)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <table className='w-full text-left text-sm'>
+                    <thead>
+                      <tr className='border-b'>
+                        <th className='px-2 py-1'>Time</th>
+                        <th className='px-2 py-1'>Actor</th>
+                        <th className='px-2 py-1'>Data Source</th>
+                        <th className='px-2 py-1'>Command/Action</th>
+                        <th className='px-2 py-1'>Parameter</th>
+                        <th className='px-2 py-1'>Before → After</th>
+                        <th className='px-2 py-1'>Counter Impact</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedDetails.timeline.map((event, index) => (
+                        <tr key={`${event.time}-${index}`} className='border-b'>
+                          <td className='px-2 py-1'>{event.time}</td>
+                          <td className='px-2 py-1'>{event.actor}</td>
+                          <td className='px-2 py-1'>{event.source}</td>
+                          <td className='px-2 py-1'>{event.command}</td>
+                          <td className='px-2 py-1'>{event.parameter}</td>
+                          <td className='px-2 py-1'>{event.beforeAfter}</td>
+                          <td className='px-2 py-1'>{event.counterImpact}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Suggested Fix (Decision Suggestions)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <table className='w-full text-left text-sm'>
+                    <thead>
+                      <tr className='border-b'>
+                        <th className='px-2 py-1'>Target ID</th>
+                        <th className='px-2 py-1'>Detected Issue</th>
+                        <th className='px-2 py-1'>Suggested Action</th>
+                        <th className='px-2 py-1'>Confidence</th>
+                        <th className='px-2 py-1'>Expected Outcome</th>
+                        <th className='px-2 py-1'>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedDetails.suggestions.map((suggestion) => (
+                        <tr key={`${suggestion.targetId}-${suggestion.parameter}`} className='border-b'>
+                          <td className='px-2 py-1'>{suggestion.targetId}</td>
+                          <td className='px-2 py-1'>{suggestion.detectedIssue}</td>
+                          <td className='px-2 py-1'>{suggestion.action}</td>
+                          <td className='px-2 py-1'>{suggestion.confidence}</td>
+                          <td className='px-2 py-1'>{suggestion.expectedOutcome}</td>
+                          <td className='px-2 py-1'>
+                            <Button size='sm' onClick={() => handleApplySuggestion(suggestion)}>
+                              Apply Change
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }
+
