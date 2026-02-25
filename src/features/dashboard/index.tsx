@@ -143,32 +143,32 @@ const violationTrendData = [
 
 const kpiStatusRows: KpiRow[] = [
   ['Call Setup Success Rate', '2G', '99.42%', '99.30%', '+0.12%', 'NOKIA', 'Normal', ''],
-  ['Handover Success Rate', '3G', '98.84%', '98.70%', '+0.14%', 'ERICSSON', 'Normal', ''],
-  ['Paging Success Rate', '4G', '99.12%', '98.95%', '+0.17%', 'HUAWEI', 'Normal', ''],
-  ['Packet Loss Rate', '5G', '0.46%', '0.55%', '-0.09%', 'NOKIA', 'Normal', ''],
-  ['Core Session Success', 'Core', '99.81%', '99.70%', '+0.11%', 'ERICSSON', 'Normal', ''],
-  ['VoLTE Setup SR', '4G', '98.76%', '98.60%', '+0.16%', 'HUAWEI', 'Normal', ''],
-  ['PRB Utilization', '5G', '63.4%', '65.0%', '-1.6%', 'NOKIA', 'Normal', ''],
-  ['RRC Connection SR', '4G', '99.01%', '98.90%', '+0.11%', 'ERICSSON', 'Normal', ''],
   ['Downlink Throughput', '4G', '92 Mbps', '105 Mbps', '-13 Mbps', 'HUAWEI', 'Warning', 'Details'],
-  ['Uplink Throughput', '5G', '38 Mbps', '45 Mbps', '-7 Mbps', 'NOKIA', 'Warning', 'Details'],
-  ['Average Latency', 'Core', '29 ms', '24 ms', '+5 ms', 'ERICSSON', 'Warning', 'Details'],
-  ['Jitter Index', '5G', '11 ms', '8 ms', '+3 ms', 'HUAWEI', 'Warning', 'Details'],
-  ['Data Session Retainability', '4G', '98.21%', '98.80%', '-0.59%', 'NOKIA', 'Warning', 'Details'],
-  ['VoNR Call Drop Rate', '5G', '1.18%', '0.80%', '+0.38%', 'ERICSSON', 'Warning', 'Details'],
-  ['CSFB Success Rate', '3G', '97.42%', '98.00%', '-0.58%', 'HUAWEI', 'Warning', 'Details'],
-  ['Inter-RAT HO SR', '4G', '96.88%', '97.40%', '-0.52%', 'NOKIA', 'Warning', 'Details'],
-  ['Core Attach Delay', 'Core', '1.7 s', '1.3 s', '+0.4 s', 'ERICSSON', 'Warning', 'Details'],
-  ['Bearer Setup Time', '4G', '122 ms', '105 ms', '+17 ms', 'HUAWEI', 'Warning', 'Details'],
   ['Cell Availability', '2G', '95.2%', '98.5%', '-3.3%', 'NOKIA', 'Critical', 'Details'],
+  ['Handover Success Rate', '3G', '98.84%', '98.70%', '+0.14%', 'ERICSSON', 'Normal', ''],
+  ['Uplink Throughput', '5G', '38 Mbps', '45 Mbps', '-7 Mbps', 'NOKIA', 'Warning', 'Details'],
   ['Site Power Stability', 'Core', '89.7%', '96.0%', '-6.3%', 'ERICSSON', 'Critical', 'Details'],
+  ['Paging Success Rate', '4G', '99.12%', '98.95%', '+0.17%', 'HUAWEI', 'Normal', ''],
+  ['Average Latency', 'Core', '29 ms', '24 ms', '+5 ms', 'ERICSSON', 'Warning', 'Details'],
   ['Backhaul Utilization', '5G', '93.0%', '80.0%', '+13.0%', 'HUAWEI', 'Critical', 'Details'],
+  ['Packet Loss Rate', '5G', '0.46%', '0.55%', '-0.09%', 'NOKIA', 'Normal', ''],
+  ['Jitter Index', '5G', '11 ms', '8 ms', '+3 ms', 'HUAWEI', 'Warning', 'Details'],
   ['S1 Signaling Success', '4G', '94.8%', '98.2%', '-3.4%', 'NOKIA', 'Critical', 'Details'],
+  ['Core Session Success', 'Core', '99.81%', '99.70%', '+0.11%', 'ERICSSON', 'Normal', ''],
+  ['Data Session Retainability', '4G', '98.21%', '98.80%', '-0.59%', 'NOKIA', 'Warning', 'Details'],
   ['X2 Handover Delay', '4G', '96 ms', '62 ms', '+34 ms', 'ERICSSON', 'Critical', 'Details'],
+  ['VoLTE Setup SR', '4G', '98.76%', '98.60%', '+0.16%', 'HUAWEI', 'Normal', ''],
+  ['VoNR Call Drop Rate', '5G', '1.18%', '0.80%', '+0.38%', 'ERICSSON', 'Warning', 'Details'],
   ['VoIP MOS Score', 'Core', '2.9', '3.8', '-0.9', 'HUAWEI', 'Critical', 'Details'],
+  ['PRB Utilization', '5G', '63.4%', '65.0%', '-1.6%', 'NOKIA', 'Normal', ''],
+  ['CSFB Success Rate', '3G', '97.42%', '98.00%', '-0.58%', 'HUAWEI', 'Warning', 'Details'],
   ['Emergency Call Setup Time', '3G', '6.3 s', '4.2 s', '+2.1 s', 'NOKIA', 'Critical', 'Details'],
+  ['RRC Connection SR', '4G', '99.01%', '98.90%', '+0.11%', 'ERICSSON', 'Normal', ''],
+  ['Inter-RAT HO SR', '4G', '96.88%', '97.40%', '-0.52%', 'NOKIA', 'Warning', 'Details'],
   ['Radio Link Failure Rate', '5G', '2.6%', '1.2%', '+1.4%', 'ERICSSON', 'Critical', 'Details'],
+  ['Core Attach Delay', 'Core', '1.7 s', '1.3 s', '+0.4 s', 'ERICSSON', 'Warning', 'Details'],
   ['Congestion Minutes', '2G', '214 min', '120 min', '+94 min', 'HUAWEI', 'Critical', 'Details'],
+  ['Bearer Setup Time', '4G', '122 ms', '105 ms', '+17 ms', 'HUAWEI', 'Warning', 'Details'],
   ['TCH Traffic Load', '2G', '81 Erlang', '62 Erlang', '+19 Erlang', 'NOKIA', 'Critical', 'Details'],
   ['Active UE Sessions', '4G', '18200 Sessions', '14000 Sessions', '+4200 Sessions', 'ERICSSON', 'Critical', 'Details'],
   ['Signaling Load Index', 'Core', '74.5%', '58.0%', '+16.5%', 'HUAWEI', 'Critical', 'Details'],
@@ -464,10 +464,10 @@ export function Dashboard() {
     [kpiRows, selectedStatuses, selectedVendors]
   )
 
-  const handleApplyKpiSuggestion = (rowIndex: number) => {
+  const handleApplyKpiSuggestion = (kpiName: string) => {
     setKpiRows((previousRows) =>
-      previousRows.map((row, index) => {
-        if (index !== rowIndex) {
+      previousRows.map((row) => {
+        if (row[0] !== kpiName) {
           return row
         }
 
@@ -658,6 +658,7 @@ export function Dashboard() {
                     actionColumnIndex={7}
                     expandableDetails
                     onApplySuggestion={handleApplyKpiSuggestion}
+                    sortable
                   />
                 </div>
               </CardContent>
@@ -1062,22 +1063,62 @@ function DataTable({
   actionColumnIndex,
   expandableDetails,
   onApplySuggestion,
+  sortable,
 }: {
   headers: string[]
   rows: string[][]
   severityColumnIndex?: number
   actionColumnIndex?: number
   expandableDetails?: boolean
-  onApplySuggestion?: (rowIndex: number) => void
+  onApplySuggestion?: (kpiName: string) => void
+  sortable?: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null)
+  const [selectedKpiKey, setSelectedKpiKey] = useState<string | null>(null)
   const [detailsByKpi, setDetailsByKpi] = useState<Record<string, KpiDetails>>({})
 
-  const selectedRow = selectedRowIndex !== null ? (rows[selectedRowIndex] as KpiRow | undefined) : undefined
+  const selectedRow = selectedKpiKey ? (rows.find((row) => row[0] === selectedKpiKey) as KpiRow | undefined) : undefined
   const selectedDetails = selectedRow ? detailsByKpi[selectedRow[0]] ?? generateKpiDetails(selectedRow) : undefined
 
-  const handleOpenDetails = (row: string[], rowIndex: number) => {
+  const [sortByIndex, setSortByIndex] = useState<number | null>(null)
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+
+  const sortedRows = useMemo(() => {
+    if (!sortable || sortByIndex === null) {
+      return rows
+    }
+
+    const severityRank: Record<string, number> = { Normal: 1, Warning: 2, Critical: 3 }
+    const sortableValue = (value: string) => {
+      if (value in severityRank) {
+        return severityRank[value]
+      }
+
+      const parsed = parseValueWithUnit(value)
+      return /\d/.test(value) ? parsed.value : value.toLowerCase()
+    }
+
+    return [...rows].sort((a, b) => {
+      const aValue = sortableValue(a[sortByIndex] ?? '')
+      const bValue = sortableValue(b[sortByIndex] ?? '')
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [rows, sortByIndex, sortDirection, sortable])
+
+  const handleSort = (columnIndex: number) => {
+    if (!sortable) return
+    if (sortByIndex === columnIndex) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+
+    setSortByIndex(columnIndex)
+    setSortDirection('asc')
+  }
+
+  const handleOpenDetails = (row: string[]) => {
     const typedRow = row as KpiRow
 
     setDetailsByKpi((previous) =>
@@ -1088,16 +1129,16 @@ function DataTable({
             [typedRow[0]]: generateKpiDetails(typedRow),
           }
     )
-    setSelectedRowIndex(rowIndex)
+    setSelectedKpiKey(typedRow[0])
     setOpen(true)
   }
 
   const handleApplySuggestion = (suggestion: SuggestedFix) => {
-    if (selectedRowIndex === null || !selectedRow || !selectedDetails) {
+    if (!selectedRow || !selectedDetails) {
       return
     }
 
-    onApplySuggestion?.(selectedRowIndex)
+    onApplySuggestion?.(selectedRow[0])
 
     setDetailsByKpi((previous) => {
       const nextDetails = previous[selectedRow[0]] ?? generateKpiDetails(selectedRow)
@@ -1140,15 +1181,22 @@ function DataTable({
         <table className='w-full min-w-[760px] text-left text-sm'>
           <thead>
             <tr className='border-b'>
-              {headers.map((header) => (
+              {headers.map((header, index) => (
                 <th key={header} className='px-3 py-2 font-semibold'>
-                  {header}
+                  {sortable ? (
+                    <button type='button' className='inline-flex items-center gap-1' onClick={() => handleSort(index)}>
+                      {header}
+                      {sortByIndex === index ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                    </button>
+                  ) : (
+                    header
+                  )}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, rowIndex) => (
+            {sortedRows.map((row, rowIndex) => (
               <tr key={`${row[0]}-${rowIndex}`} className='border-b'>
                 {row.map((cell, cellIndex) => (
                   <td key={`${cell}-${cellIndex}`} className='px-3 py-2'>
@@ -1164,7 +1212,7 @@ function DataTable({
                       <Button
                         size='sm'
                         variant='outline'
-                        onClick={() => handleOpenDetails(row, rowIndex)}
+                        onClick={() => handleOpenDetails(row)}
                       >
                         Details
                       </Button>
