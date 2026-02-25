@@ -88,14 +88,36 @@ const violationTrendData = [
 ]
 
 const kpiStatusRows = [
-  ['Drop Rate', 'Network', '0.82%', '0.60%', '+0.22', 'Warning'],
-  ['Throughput', 'Network', '94 Mbps', '110 Mbps', '-16', 'Warning'],
-  ['Latency', 'Network', '27 ms', '22 ms', '+5', 'Warning'],
-  ['Call Setup SR', 'Network', '99.1%', '99.4%', '-0.3', 'Normal'],
-  ['Handover SR', 'Network', '98.6%', '99.0%', '-0.4', 'Normal'],
-  ['Drop Rate', 'Region Helsinki', '0.95%', '0.60%', '+0.35', 'Warning'],
-  ['Throughput', 'Region Helsinki', '78 Mbps', '105 Mbps', '-27', 'Critical'],
-  ['Latency', 'Region Helsinki', '31 ms', '22 ms', '+9', 'Critical'],
+  ['Call Setup Success Rate', '2G', '99.42%', '99.30%', '+0.12%', 'Normal', '', 'NOKIA'],
+  ['Handover Success Rate', '3G', '98.84%', '98.70%', '+0.14%', 'Normal', '', 'ERICSSON'],
+  ['Paging Success Rate', '4G', '99.12%', '98.95%', '+0.17%', 'Normal', '', 'HUAWEI'],
+  ['Packet Loss Rate', '5G', '0.46%', '0.55%', '-0.09%', 'Normal', '', 'NOKIA'],
+  ['Core Session Success', 'Core', '99.81%', '99.70%', '+0.11%', 'Normal', '', 'ERICSSON'],
+  ['VoLTE Setup SR', '4G', '98.76%', '98.60%', '+0.16%', 'Normal', '', 'HUAWEI'],
+  ['PRB Utilization', '5G', '63.4%', '65.0%', '-1.6%', 'Normal', '', 'NOKIA'],
+  ['RRC Connection SR', '4G', '99.01%', '98.90%', '+0.11%', 'Normal', '', 'ERICSSON'],
+  ['Downlink Throughput', '4G', '92 Mbps', '105 Mbps', '-13 Mbps', 'Warning', 'Details', 'HUAWEI'],
+  ['Uplink Throughput', '5G', '38 Mbps', '45 Mbps', '-7 Mbps', 'Warning', 'Details', 'NOKIA'],
+  ['Average Latency', 'Core', '29 ms', '24 ms', '+5 ms', 'Warning', 'Details', 'ERICSSON'],
+  ['Jitter Index', '5G', '11 ms', '8 ms', '+3 ms', 'Warning', 'Details', 'HUAWEI'],
+  ['Data Session Retainability', '4G', '98.21%', '98.80%', '-0.59%', 'Warning', 'Details', 'NOKIA'],
+  ['VoNR Call Drop Rate', '5G', '1.18%', '0.80%', '+0.38%', 'Warning', 'Details', 'ERICSSON'],
+  ['CSFB Success Rate', '3G', '97.42%', '98.00%', '-0.58%', 'Warning', 'Details', 'HUAWEI'],
+  ['Inter-RAT HO SR', '4G', '96.88%', '97.40%', '-0.52%', 'Warning', 'Details', 'NOKIA'],
+  ['Core Attach Delay', 'Core', '1.7 s', '1.3 s', '+0.4 s', 'Warning', 'Details', 'ERICSSON'],
+  ['Bearer Setup Time', '4G', '122 ms', '105 ms', '+17 ms', 'Warning', 'Details', 'HUAWEI'],
+  ['Cell Availability', '2G', '95.2%', '98.5%', '-3.3%', 'Critical', 'Details', 'NOKIA'],
+  ['Site Power Stability', 'Core', '89.7%', '96.0%', '-6.3%', 'Critical', 'Details', 'ERICSSON'],
+  ['Backhaul Utilization', '5G', '93.0%', '80.0%', '+13.0%', 'Critical', 'Details', 'HUAWEI'],
+  ['S1 Signaling Success', '4G', '94.8%', '98.2%', '-3.4%', 'Critical', 'Details', 'NOKIA'],
+  ['X2 Handover Delay', '4G', '96 ms', '62 ms', '+34 ms', 'Critical', 'Details', 'ERICSSON'],
+  ['VoIP MOS Score', 'Core', '2.9', '3.8', '-0.9', 'Critical', 'Details', 'HUAWEI'],
+  ['Emergency Call Setup Time', '3G', '6.3 s', '4.2 s', '+2.1 s', 'Critical', 'Details', 'NOKIA'],
+  ['Radio Link Failure Rate', '5G', '2.6%', '1.2%', '+1.4%', 'Critical', 'Details', 'ERICSSON'],
+  ['Congestion Minutes', '2G', '214 min', '120 min', '+94 min', 'Critical', 'Details', 'HUAWEI'],
+  ['TCH Traffic Load', '2G', '81 Erlang', '62 Erlang', '+19 Erlang', 'Critical', 'Details', 'NOKIA'],
+  ['Active UE Sessions', '4G', '18200 Sessions', '14000 Sessions', '+4200 Sessions', 'Critical', 'Details', 'ERICSSON'],
+  ['Signaling Load Index', 'Core', '74.5%', '58.0%', '+16.5%', 'Critical', 'Details', 'HUAWEI'],
 ]
 
 const guardrailRows = [
@@ -380,7 +402,7 @@ export function Dashboard() {
               </CardHeader>
               <CardContent>
                 <DataTable
-                  headers={['KPI Name', 'Scope', 'Current Value', 'Baseline Value', 'Delta', 'Health Status']}
+                  headers={['KPI Name', 'Technology', 'Current Value', 'Baseline Value', 'Delta', 'Health Status', 'Actions', 'Vendor']}
                   rows={kpiStatusRows}
                   severityColumnIndex={5}
                 />
