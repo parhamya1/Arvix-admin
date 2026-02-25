@@ -6,6 +6,14 @@ import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
@@ -36,7 +44,8 @@ import { toast } from 'sonner'
 type Severity = 'Normal' | 'Warning' | 'Critical'
 type Vendor = 'Huawei' | 'Nokia' | 'Ericsson'
 type ReportingDomain = 'CM' | 'PM' | 'License' | 'Inventory' | 'User Log'
-type KpiRow = [string, string, string, string, string, string, Severity, string]
+type KpiVendor = 'NOKIA' | 'ERICSSON' | 'HUAWEI'
+type KpiRow = [string, string, string, string, string, KpiVendor, Severity, string]
 
 type CmParameter = {
   parameter: string
@@ -442,6 +451,18 @@ const rawRows: Record<ReportingDomain, Record<Vendor, RawExtractedRow[]>> = {
 
 export function Dashboard() {
   const [kpiRows, setKpiRows] = useState<KpiRow[]>(kpiStatusRows)
+  const [selectedStatuses, setSelectedStatuses] = useState<Severity[]>(['Normal', 'Warning', 'Critical'])
+  const [selectedVendors, setSelectedVendors] = useState<KpiVendor[]>(['HUAWEI', 'NOKIA', 'ERICSSON'])
+
+  const filteredKpiRows = useMemo(
+    () =>
+      kpiRows.filter(
+        (row) =>
+          selectedStatuses.includes(row[6]) &&
+          selectedVendors.includes(row[5])
+      ),
+    [kpiRows, selectedStatuses, selectedVendors]
+  )
 
   const handleApplyKpiSuggestion = (rowIndex: number) => {
     setKpiRows((previousRows) =>
@@ -582,9 +603,65 @@ export function Dashboard() {
                 <CardTitle>KPI Status (Network & Regions)</CardTitle>
               </CardHeader>
               <CardContent>
+                <div className='mb-4 flex flex-wrap gap-2'>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant='outline'>Status Filter ({selectedStatuses.length})</Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align='start' className='w-56'>
+                      <DropdownMenuLabel>Select Status</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {(['Normal', 'Warning', 'Critical'] as Severity[]).map((status) => (
+                        <DropdownMenuCheckboxItem
+                          key={status}
+                          checked={selectedStatuses.includes(status)}
+                          onCheckedChange={() =>
+                            setSelectedStatuses((previous) =>
+                              previous.includes(status)
+                                ? previous.filter((item) => item !== status)
+                                : [...previous, status]
+                            )
+                          }
+                        >
+                          {status}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant='outline'>Vendor Filter ({selectedVendors.length})</Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align='start' className='w-56'>
+                      <DropdownMenuLabel>Select Vendor</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {[
+                        { label: 'Huawei', value: 'HUAWEI' as const },
+                        { label: 'Nokia', value: 'NOKIA' as const },
+                        { label: 'Ericsson', value: 'ERICSSON' as const },
+                      ].map((vendorOption) => (
+                        <DropdownMenuCheckboxItem
+                          key={vendorOption.value}
+                          checked={selectedVendors.includes(vendorOption.value)}
+                          onCheckedChange={() =>
+                            setSelectedVendors((previous) =>
+                              previous.includes(vendorOption.value)
+                                ? previous.filter((item) => item !== vendorOption.value)
+                                : [...previous, vendorOption.value]
+                            )
+                          }
+                        >
+                          {vendorOption.label}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
                 <DataTable
                   headers={['KPI Name', 'Technology', 'Current Value', 'Baseline Value', 'Delta', 'Vendor', 'Health Status', 'Actions']}
-                  rows={kpiRows}
+                  rows={filteredKpiRows}
                   severityColumnIndex={6}
                   actionColumnIndex={7}
                   expandableDetails
