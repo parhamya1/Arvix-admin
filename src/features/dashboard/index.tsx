@@ -495,7 +495,7 @@ export function Dashboard() {
     <>
       <Header>
         <div className='text-sm font-semibold tracking-wide text-muted-foreground'>
-          ARVIX Finland Network Simulation
+          ARVIX Network Solution
         </div>
         <div className='ms-auto flex items-center gap-3'>
           <Search />
