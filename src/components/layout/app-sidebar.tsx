@@ -5,11 +5,10 @@ import {
   SidebarContent,
   SidebarHeader,
 } from '@/components/ui/sidebar'
-// import { AppTitle } from './app-title'
 import { sidebarData } from './data/sidebar-data'
 import { NavGroup } from './nav-group'
 import { type NavCollapsible, type NavGroup as NavGroupType, type NavItem } from './types'
-import { TeamSwitcher } from './team-switcher'
+import { AppTitle } from './app-title'
 import { useAuthStore } from '@/stores/auth-store'
 
 const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
@@ -315,11 +314,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible={collapsible} variant={variant}>
       <SidebarHeader>
-        <TeamSwitcher teams={sidebarData.teams} />
-
-        {/* Replace <TeamSwitch /> with the following <AppTitle />
-         /* if you want to use the normal app title instead of TeamSwitch dropdown */}
-        {/* <AppTitle /> */}
+        <AppTitle />
       </SidebarHeader>
       <SidebarContent className='overflow-y-auto'>
         {navGroups.map((group, groupIndex) => (
