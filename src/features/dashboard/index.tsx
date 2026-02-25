@@ -291,6 +291,8 @@ export function Dashboard() {
               <p className='mt-2 text-4xl font-semibold uppercase tracking-[0.14em] text-slate-100'>Network Topology</p>
               <p className='mt-2 text-2xl text-slate-300/90'>Smart fault corridors & anomaly radar</p>
             </div>
+          </div>
+        </section>
 
             <div className='absolute right-8 top-8 rounded-2xl border border-cyan-200/20 bg-slate-950/55 px-5 py-4 text-xs text-slate-300 backdrop-blur'>
               <p className='text-sm uppercase tracking-[0.22em] text-cyan-200'>Telemetry</p>
