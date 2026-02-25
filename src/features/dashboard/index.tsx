@@ -589,7 +589,7 @@ export function Dashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle>KPI Status (Network & Regions)</CardTitle>
+                <CardTitle>KPI Status</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className='mb-4 flex flex-wrap gap-2'>
@@ -648,14 +648,16 @@ export function Dashboard() {
                   </DropdownMenu>
                 </div>
 
-                <DataTable
-                  headers={['KPI Name', 'Technology', 'Current Value', 'Baseline Value', 'Delta', 'Vendor', 'Health Status', 'Actions']}
-                  rows={filteredKpiRows}
-                  severityColumnIndex={6}
-                  actionColumnIndex={7}
-                  expandableDetails
-                  onApplySuggestion={handleApplyKpiSuggestion}
-                />
+                <div className='max-h-[520px] overflow-auto'>
+                  <DataTable
+                    headers={['KPI Name', 'Technology', 'Current Value', 'Baseline Value', 'Delta', 'Vendor', 'Health Status', 'Actions']}
+                    rows={filteredKpiRows}
+                    severityColumnIndex={6}
+                    actionColumnIndex={7}
+                    expandableDetails
+                    onApplySuggestion={handleApplyKpiSuggestion}
+                  />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
