@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import {
   Area,
   AreaChart,
@@ -508,17 +508,6 @@ export function Dashboard() {
         <GlobalContextBar showVendor />
 
         <Tabs defaultValue='overview' className='space-y-4'>
-          <div className='w-full overflow-x-auto'>
-            <TabsList>
-              <TabsTrigger value='overview'>Overview</TabsTrigger>
-              <TabsTrigger value='guardrails'>Guardrails (Baselines)</TabsTrigger>
-              <TabsTrigger value='violations'>Violations</TabsTrigger>
-              <TabsTrigger value='investigation'>Investigation</TabsTrigger>
-              <TabsTrigger value='decisions'>Decisions</TabsTrigger>
-              <TabsTrigger value='reporting'>Reporting</TabsTrigger>
-            </TabsList>
-          </div>
-
           <TabsContent value='overview' className='space-y-4'>
             <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-5'>
               {networkSummary.map((metric) => (
