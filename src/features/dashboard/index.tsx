@@ -67,9 +67,12 @@ type KPIRecord = {
 }
 
 const severityStyles: Record<Severity, string> = {
-  Normal: 'border-emerald-400/35 bg-emerald-500/10 text-emerald-300',
-  Warning: 'border-amber-400/35 bg-amber-500/10 text-amber-300',
-  Critical: 'border-rose-400/35 bg-rose-500/10 text-rose-300',
+  Normal:
+    'border-emerald-500/35 bg-emerald-500/15 text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-500/10 dark:text-emerald-300',
+  Warning:
+    'border-amber-500/35 bg-amber-500/15 text-amber-700 dark:border-amber-400/35 dark:bg-amber-500/10 dark:text-amber-300',
+  Critical:
+    'border-rose-500/35 bg-rose-500/15 text-rose-700 dark:border-rose-400/35 dark:bg-rose-500/10 dark:text-rose-300',
 }
 
 const sharedDetails = {
@@ -231,7 +234,7 @@ export function Dashboard() {
     <>
       <Header>
         <div className='text-sm font-semibold tracking-wide text-muted-foreground'>
-          ARVIX Finland Network Simulation
+          ARVIX Network Simulation
         </div>
         <div className='ms-auto flex items-center gap-3'>
           <Search />
@@ -248,7 +251,7 @@ export function Dashboard() {
                 <Siren className='h-5 w-5' />
               </div>
               <div>
-                <p className='text-xs uppercase tracking-[0.2em] text-cyan-200/70'>Dashboard Header</p>
+                <p className='text-xs uppercase tracking-[0.2em] text-muted-foreground dark:text-cyan-200/70'>Dashboard Header</p>
                 <h2 className='text-lg font-semibold text-foreground dark:text-slate-100'>NOC Operations Monitor</h2>
               </div>
             </div>
@@ -259,7 +262,7 @@ export function Dashboard() {
               <Badge variant='outline' className='border-border bg-muted/60 text-foreground dark:border-slate-600/70 dark:bg-slate-800/70 dark:text-slate-100'>
                 <Clock3 className='me-1 h-3.5 w-3.5' /> 2026-02-18 09:37 UTC
               </Badge>
-              <Badge className='bg-emerald-500/20 text-emerald-300'>
+              <Badge className='bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'>
                 <CheckCircle2 className='me-1 h-3.5 w-3.5' /> System OK
               </Badge>
             </div>
@@ -267,33 +270,39 @@ export function Dashboard() {
         </section>
 
         <section className='rounded-xl border border-border bg-card/80 p-4 backdrop-blur dark:border-slate-700/80 dark:bg-slate-900/70'>
-          <div className='relative h-[380px] overflow-hidden rounded-xl border border-cyan-400/20 bg-[radial-gradient(circle_at_18%_18%,rgba(8,145,178,0.28),transparent_36%),radial-gradient(circle_at_78%_22%,rgba(14,165,233,0.18),transparent_45%),linear-gradient(140deg,#020617_12%,#0b1b3a_52%,#020617_100%)] shadow-[inset_0_0_120px_rgba(14,165,233,0.18)]'>
-            <div className='absolute inset-0 bg-[linear-gradient(rgba(56,189,248,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(56,189,248,0.08)_1px,transparent_1px)] bg-[size:38px_38px] opacity-30' />
-            <div className='absolute -top-28 right-10 h-56 w-56 rounded-full border border-cyan-300/25 opacity-60' />
-            <div className='absolute -top-20 right-[4.5rem] h-40 w-40 rounded-full border border-cyan-300/20 opacity-60' />
-            <div className='absolute -top-12 right-[6.5rem] h-24 w-24 rounded-full border border-cyan-300/20 opacity-60' />
-            <div className='absolute bottom-12 left-[26%] h-px w-[44%] rotate-[16deg] bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent' />
-            <div className='absolute bottom-14 left-[22%] h-px w-[42%] rotate-[16deg] bg-gradient-to-r from-transparent via-cyan-200/45 to-transparent' />
-            <div className='absolute -left-20 bottom-4 h-44 w-[85%] rotate-[-8deg] rounded-[60px] border border-cyan-300/15 bg-gradient-to-r from-slate-900/95 via-cyan-950/40 to-slate-900/90 shadow-[0_0_80px_rgba(20,184,166,0.22)]' />
-            <div className='absolute bottom-20 left-[14%] h-32 w-8 rounded-t-sm bg-gradient-to-t from-cyan-500/25 to-cyan-200/30 shadow-[0_0_24px_rgba(45,212,191,0.35)]' />
-            <div className='absolute bottom-16 left-[22%] h-44 w-10 rounded-t-sm bg-gradient-to-t from-cyan-500/20 to-cyan-100/35 shadow-[0_0_26px_rgba(34,211,238,0.35)]' />
-            <div className='absolute bottom-14 left-[34%] h-52 w-12 rounded-t-sm bg-gradient-to-t from-cyan-500/30 to-cyan-50/35 shadow-[0_0_32px_rgba(34,211,238,0.48)]' />
-            <div className='absolute bottom-14 left-[48%] h-40 w-9 rounded-t-sm bg-gradient-to-t from-sky-500/25 to-slate-100/35 shadow-[0_0_28px_rgba(56,189,248,0.42)]' />
-            <div className='absolute bottom-16 left-[58%] h-58 w-11 rounded-t-sm bg-gradient-to-t from-cyan-500/30 to-cyan-100/40 shadow-[0_0_36px_rgba(34,211,238,0.5)]' />
-            <div className='absolute bottom-20 left-[69%] h-36 w-9 rounded-t-sm bg-gradient-to-t from-sky-600/25 to-cyan-100/35 shadow-[0_0_24px_rgba(6,182,212,0.4)]' />
-            <div className='absolute left-7 top-7 z-10 rounded-xl border border-cyan-300/15 bg-slate-950/55 px-5 py-4 backdrop-blur'>
-              <p className='text-2xs text-slate-400'>Active fault map · Warning/Critical only</p>
-              <p className='mt-1 text-xl font-semibold uppercase tracking-[0.14em] text-slate-100'>Network Topology</p>
-              <p className='mt-1 text-2xl text-slate-300/85'>Real-time site monitoring + fault pulse</p>
+          <div className='relative h-[390px] overflow-hidden rounded-2xl border border-cyan-300/25 bg-[radial-gradient(circle_at_22%_20%,rgba(8,145,178,0.35),transparent_38%),radial-gradient(circle_at_80%_25%,rgba(37,99,235,0.20),transparent_42%),linear-gradient(120deg,#06112a_10%,#0b2b54_48%,#06112a_100%)] shadow-[inset_0_0_80px_rgba(34,211,238,0.18)]'>
+            <div className='absolute inset-0 bg-[linear-gradient(rgba(125,211,252,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(125,211,252,0.08)_1px,transparent_1px)] bg-[size:42px_42px] opacity-30' />
+            <div className='absolute bottom-0 left-[-8%] h-48 w-[72%] -skew-x-[28deg] rounded-[56px] border border-cyan-200/15 bg-gradient-to-r from-cyan-950/40 via-cyan-500/12 to-transparent' />
+            <div className='absolute bottom-14 left-[18%] h-[1px] w-[48%] rotate-[18deg] bg-gradient-to-r from-transparent via-cyan-300/50 to-transparent' />
+            <div className='absolute bottom-16 left-[24%] h-[1px] w-[46%] rotate-[18deg] bg-gradient-to-r from-transparent via-sky-300/35 to-transparent' />
+
+            <div className='absolute inset-x-0 bottom-8 flex items-end justify-around px-10'>
+              {[34, 52, 44, 60, 48, 67].map((height, index) => (
+                <div
+                  key={`tower-${index}`}
+                  className='w-12 rounded-t-lg border border-cyan-200/10 bg-gradient-to-t from-cyan-500/20 via-sky-200/18 to-slate-100/30 shadow-[0_0_30px_rgba(34,211,238,0.25)]'
+                  style={{ height: `${height}%` }}
+                />
+              ))}
             </div>
-            <div className='absolute right-6 top-8 rounded-xl border border-cyan-200/20 bg-slate-950/55 px-4 py-3 text-xs text-slate-300 backdrop-blur'>
-              <p className='uppercase tracking-[0.2em] text-cyan-200/80'>Telemetry</p>
-              <p className='mt-1 font-mono text-cyan-100'>Sites 410 · Nodes 92 · Cells 2,840</p>
+
+            <div className='absolute left-6 top-6 z-10 rounded-2xl border border-cyan-200/20 bg-slate-950/55 px-6 py-5 backdrop-blur'>
+              <p className='text-sm text-slate-300/90'>Active fault map · Warning/Critical only</p>
+              <p className='mt-2 text-4xl font-semibold uppercase tracking-[0.14em] text-slate-100'>Network Topology</p>
+              <p className='mt-2 text-2xl text-slate-300/90'>Smart fault corridors & anomaly radar</p>
             </div>
+          </div>
+        </section>
+
+            <div className='absolute right-8 top-8 rounded-2xl border border-cyan-200/20 bg-slate-950/55 px-5 py-4 text-xs text-slate-300 backdrop-blur'>
+              <p className='text-sm uppercase tracking-[0.22em] text-cyan-200'>Telemetry</p>
+              <p className='mt-2 font-mono text-xl text-cyan-100'>Sites 410 • Nodes 92 • Cells 2,840</p>
+            </div>
+
             {markers.map((kpi) => (
               <div key={kpi.id} className='group absolute -translate-x-1/2 -translate-y-1/2' style={{ left: `${kpi.marker?.x}%`, top: `${kpi.marker?.y}%` }}>
-                <div className={`absolute inset-0 animate-ping rounded-full ${kpi.status === 'Critical' ? 'bg-rose-500/40' : 'bg-amber-400/40'}`} />
-                <div className={`relative h-3.5 w-3.5 rounded-full border ${kpi.status === 'Critical' ? 'border-rose-300 bg-rose-500' : 'border-amber-200 bg-amber-400'}`} />
+                <div className={`absolute inset-0 rounded-full animate-ping ${kpi.status === 'Critical' ? 'bg-rose-500/40' : 'bg-amber-400/45'}`} />
+                <div className={`relative h-4 w-4 rounded-full border-2 ${kpi.status === 'Critical' ? 'border-rose-300 bg-rose-500' : 'border-amber-200 bg-amber-400'} shadow-[0_0_20px_rgba(34,211,238,0.45)]`} />
                 <div className='pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-64 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950/95 p-3 text-xs text-slate-200 shadow-lg group-hover:block'>
                   <p className='font-semibold'>{kpi.marker?.siteId}</p>
                   <p className='mt-1'>Status: <span className={kpi.status === 'Critical' ? 'text-rose-300' : 'text-amber-300'}>{kpi.status}</span></p>
@@ -301,15 +310,16 @@ export function Dashboard() {
                 </div>
               </div>
             ))}
-            <div className='absolute bottom-7 left-7 flex items-center gap-5 rounded-2xl border border-cyan-300/15 bg-slate-950/75 px-5 py-3 text-xs text-slate-300 backdrop-blur'>
+
+            <div className='absolute bottom-7 left-7 flex items-center gap-7 rounded-2xl border border-cyan-300/20 bg-slate-950/75 px-6 py-3 text-sm text-slate-200 backdrop-blur'>
               <span className='inline-flex items-center gap-2'>
-                <span className='h-2.5 w-2.5 rounded-full bg-amber-300 shadow-[0_0_12px_rgba(252,211,77,0.8)]' /> Warning
+                <span className='h-3 w-3 rounded-full bg-amber-300 shadow-[0_0_12px_rgba(252,211,77,0.9)]' /> Warning
               </span>
               <span className='inline-flex items-center gap-2'>
-                <span className='h-2.5 w-2.5 rounded-full bg-rose-400 shadow-[0_0_12px_rgba(251,113,133,0.9)]' /> Critical
+                <span className='h-3 w-3 rounded-full bg-rose-400 shadow-[0_0_12px_rgba(251,113,133,0.95)]' /> Critical
               </span>
               <span className='inline-flex items-center gap-2'>
-                <span className='h-2.5 w-2.5 rounded-full bg-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.8)]' /> Maintenance
+                <span className='h-3 w-3 rounded-full bg-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.85)]' /> Maintenance
               </span>
             </div>
           </div>
@@ -410,7 +420,7 @@ export function Dashboard() {
           <div className='mb-3 flex items-center justify-between'>
             <h3 className='text-sm font-semibold uppercase tracking-[0.2em] text-foreground dark:text-slate-200'>Alarm Section</h3>
             <Dialog>
-              <DialogTrigger asChild><Button variant='ghost' className='text-cyan-300 hover:text-cyan-200'>View all</Button></DialogTrigger>
+              <DialogTrigger asChild><Button variant='ghost' className='text-cyan-700 hover:text-cyan-600 dark:text-cyan-300 dark:hover:text-cyan-200'>View all</Button></DialogTrigger>
               <DialogContent className='max-w-2xl bg-background text-foreground dark:bg-slate-950 dark:text-slate-100'>
                 <DialogHeader><DialogTitle>All Active Alerts</DialogTitle></DialogHeader>
                 <div className='max-h-[420px] overflow-auto space-y-2'>
