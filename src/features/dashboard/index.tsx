@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from 'react'
+import { Fragment, type ReactNode, useMemo, useState } from 'react'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
@@ -88,36 +88,36 @@ const violationTrendData = [
 ]
 
 const kpiStatusRows = [
-  ['Call Setup Success Rate', '2G', '99.42%', '99.30%', '+0.12%', 'Normal', '', 'NOKIA'],
-  ['Handover Success Rate', '3G', '98.84%', '98.70%', '+0.14%', 'Normal', '', 'ERICSSON'],
-  ['Paging Success Rate', '4G', '99.12%', '98.95%', '+0.17%', 'Normal', '', 'HUAWEI'],
-  ['Packet Loss Rate', '5G', '0.46%', '0.55%', '-0.09%', 'Normal', '', 'NOKIA'],
-  ['Core Session Success', 'Core', '99.81%', '99.70%', '+0.11%', 'Normal', '', 'ERICSSON'],
-  ['VoLTE Setup SR', '4G', '98.76%', '98.60%', '+0.16%', 'Normal', '', 'HUAWEI'],
-  ['PRB Utilization', '5G', '63.4%', '65.0%', '-1.6%', 'Normal', '', 'NOKIA'],
-  ['RRC Connection SR', '4G', '99.01%', '98.90%', '+0.11%', 'Normal', '', 'ERICSSON'],
-  ['Downlink Throughput', '4G', '92 Mbps', '105 Mbps', '-13 Mbps', 'Warning', 'Details', 'HUAWEI'],
-  ['Uplink Throughput', '5G', '38 Mbps', '45 Mbps', '-7 Mbps', 'Warning', 'Details', 'NOKIA'],
-  ['Average Latency', 'Core', '29 ms', '24 ms', '+5 ms', 'Warning', 'Details', 'ERICSSON'],
-  ['Jitter Index', '5G', '11 ms', '8 ms', '+3 ms', 'Warning', 'Details', 'HUAWEI'],
-  ['Data Session Retainability', '4G', '98.21%', '98.80%', '-0.59%', 'Warning', 'Details', 'NOKIA'],
-  ['VoNR Call Drop Rate', '5G', '1.18%', '0.80%', '+0.38%', 'Warning', 'Details', 'ERICSSON'],
-  ['CSFB Success Rate', '3G', '97.42%', '98.00%', '-0.58%', 'Warning', 'Details', 'HUAWEI'],
-  ['Inter-RAT HO SR', '4G', '96.88%', '97.40%', '-0.52%', 'Warning', 'Details', 'NOKIA'],
-  ['Core Attach Delay', 'Core', '1.7 s', '1.3 s', '+0.4 s', 'Warning', 'Details', 'ERICSSON'],
-  ['Bearer Setup Time', '4G', '122 ms', '105 ms', '+17 ms', 'Warning', 'Details', 'HUAWEI'],
-  ['Cell Availability', '2G', '95.2%', '98.5%', '-3.3%', 'Critical', 'Details', 'NOKIA'],
-  ['Site Power Stability', 'Core', '89.7%', '96.0%', '-6.3%', 'Critical', 'Details', 'ERICSSON'],
-  ['Backhaul Utilization', '5G', '93.0%', '80.0%', '+13.0%', 'Critical', 'Details', 'HUAWEI'],
-  ['S1 Signaling Success', '4G', '94.8%', '98.2%', '-3.4%', 'Critical', 'Details', 'NOKIA'],
-  ['X2 Handover Delay', '4G', '96 ms', '62 ms', '+34 ms', 'Critical', 'Details', 'ERICSSON'],
-  ['VoIP MOS Score', 'Core', '2.9', '3.8', '-0.9', 'Critical', 'Details', 'HUAWEI'],
-  ['Emergency Call Setup Time', '3G', '6.3 s', '4.2 s', '+2.1 s', 'Critical', 'Details', 'NOKIA'],
-  ['Radio Link Failure Rate', '5G', '2.6%', '1.2%', '+1.4%', 'Critical', 'Details', 'ERICSSON'],
-  ['Congestion Minutes', '2G', '214 min', '120 min', '+94 min', 'Critical', 'Details', 'HUAWEI'],
-  ['TCH Traffic Load', '2G', '81 Erlang', '62 Erlang', '+19 Erlang', 'Critical', 'Details', 'NOKIA'],
-  ['Active UE Sessions', '4G', '18200 Sessions', '14000 Sessions', '+4200 Sessions', 'Critical', 'Details', 'ERICSSON'],
-  ['Signaling Load Index', 'Core', '74.5%', '58.0%', '+16.5%', 'Critical', 'Details', 'HUAWEI'],
+  ['Call Setup Success Rate', '2G', '99.42%', '99.30%', '+0.12%', 'NOKIA', 'Normal', ''],
+  ['Handover Success Rate', '3G', '98.84%', '98.70%', '+0.14%', 'ERICSSON', 'Normal', ''],
+  ['Paging Success Rate', '4G', '99.12%', '98.95%', '+0.17%', 'HUAWEI', 'Normal', ''],
+  ['Packet Loss Rate', '5G', '0.46%', '0.55%', '-0.09%', 'NOKIA', 'Normal', ''],
+  ['Core Session Success', 'Core', '99.81%', '99.70%', '+0.11%', 'ERICSSON', 'Normal', ''],
+  ['VoLTE Setup SR', '4G', '98.76%', '98.60%', '+0.16%', 'HUAWEI', 'Normal', ''],
+  ['PRB Utilization', '5G', '63.4%', '65.0%', '-1.6%', 'NOKIA', 'Normal', ''],
+  ['RRC Connection SR', '4G', '99.01%', '98.90%', '+0.11%', 'ERICSSON', 'Normal', ''],
+  ['Downlink Throughput', '4G', '92 Mbps', '105 Mbps', '-13 Mbps', 'HUAWEI', 'Warning', 'Details'],
+  ['Uplink Throughput', '5G', '38 Mbps', '45 Mbps', '-7 Mbps', 'NOKIA', 'Warning', 'Details'],
+  ['Average Latency', 'Core', '29 ms', '24 ms', '+5 ms', 'ERICSSON', 'Warning', 'Details'],
+  ['Jitter Index', '5G', '11 ms', '8 ms', '+3 ms', 'HUAWEI', 'Warning', 'Details'],
+  ['Data Session Retainability', '4G', '98.21%', '98.80%', '-0.59%', 'NOKIA', 'Warning', 'Details'],
+  ['VoNR Call Drop Rate', '5G', '1.18%', '0.80%', '+0.38%', 'ERICSSON', 'Warning', 'Details'],
+  ['CSFB Success Rate', '3G', '97.42%', '98.00%', '-0.58%', 'HUAWEI', 'Warning', 'Details'],
+  ['Inter-RAT HO SR', '4G', '96.88%', '97.40%', '-0.52%', 'NOKIA', 'Warning', 'Details'],
+  ['Core Attach Delay', 'Core', '1.7 s', '1.3 s', '+0.4 s', 'ERICSSON', 'Warning', 'Details'],
+  ['Bearer Setup Time', '4G', '122 ms', '105 ms', '+17 ms', 'HUAWEI', 'Warning', 'Details'],
+  ['Cell Availability', '2G', '95.2%', '98.5%', '-3.3%', 'NOKIA', 'Critical', 'Details'],
+  ['Site Power Stability', 'Core', '89.7%', '96.0%', '-6.3%', 'ERICSSON', 'Critical', 'Details'],
+  ['Backhaul Utilization', '5G', '93.0%', '80.0%', '+13.0%', 'HUAWEI', 'Critical', 'Details'],
+  ['S1 Signaling Success', '4G', '94.8%', '98.2%', '-3.4%', 'NOKIA', 'Critical', 'Details'],
+  ['X2 Handover Delay', '4G', '96 ms', '62 ms', '+34 ms', 'ERICSSON', 'Critical', 'Details'],
+  ['VoIP MOS Score', 'Core', '2.9', '3.8', '-0.9', 'HUAWEI', 'Critical', 'Details'],
+  ['Emergency Call Setup Time', '3G', '6.3 s', '4.2 s', '+2.1 s', 'NOKIA', 'Critical', 'Details'],
+  ['Radio Link Failure Rate', '5G', '2.6%', '1.2%', '+1.4%', 'ERICSSON', 'Critical', 'Details'],
+  ['Congestion Minutes', '2G', '214 min', '120 min', '+94 min', 'HUAWEI', 'Critical', 'Details'],
+  ['TCH Traffic Load', '2G', '81 Erlang', '62 Erlang', '+19 Erlang', 'NOKIA', 'Critical', 'Details'],
+  ['Active UE Sessions', '4G', '18200 Sessions', '14000 Sessions', '+4200 Sessions', 'ERICSSON', 'Critical', 'Details'],
+  ['Signaling Load Index', 'Core', '74.5%', '58.0%', '+16.5%', 'HUAWEI', 'Critical', 'Details'],
 ]
 
 const guardrailRows = [
@@ -402,9 +402,11 @@ export function Dashboard() {
               </CardHeader>
               <CardContent>
                 <DataTable
-                  headers={['KPI Name', 'Technology', 'Current Value', 'Baseline Value', 'Delta', 'Health Status', 'Actions', 'Vendor']}
+                  headers={['KPI Name', 'Technology', 'Current Value', 'Baseline Value', 'Delta', 'Vendor', 'Health Status', 'Actions']}
                   rows={kpiStatusRows}
-                  severityColumnIndex={5}
+                  severityColumnIndex={6}
+                  actionColumnIndex={7}
+                  expandableDetails
                 />
               </CardContent>
             </Card>
@@ -805,11 +807,17 @@ function DataTable({
   headers,
   rows,
   severityColumnIndex,
+  actionColumnIndex,
+  expandableDetails,
 }: {
   headers: string[]
   rows: string[][]
   severityColumnIndex?: number
+  actionColumnIndex?: number
+  expandableDetails?: boolean
 }) {
+  const [expandedRow, setExpandedRow] = useState<number | null>(null)
+
   return (
     <div className='overflow-x-auto'>
       <table className='w-full min-w-[760px] text-left text-sm'>
@@ -823,25 +831,50 @@ function DataTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, rowIndex) => (
-            <tr key={`${row[0]}-${rowIndex}`} className='border-b'>
-              {row.map((cell, cellIndex) => (
-                <td key={`${cell}-${cellIndex}`} className='px-3 py-2'>
-                  {cellIndex === severityColumnIndex &&
-                  ['Normal', 'Warning', 'Critical'].includes(cell) ? (
-                    <Badge
-                      variant='secondary'
-                      className={severityClass[cell as Severity]}
-                    >
-                      {cell}
-                    </Badge>
-                  ) : (
-                    cell
-                  )}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {rows.map((row, rowIndex) => {
+            const isExpanded = expandedRow === rowIndex
+
+            return (
+              <Fragment key={`${row[0]}-${rowIndex}`}>
+                <tr className='border-b'>
+                  {row.map((cell, cellIndex) => (
+                    <td key={`${cell}-${cellIndex}`} className='px-3 py-2'>
+                      {cellIndex === severityColumnIndex &&
+                      ['Normal', 'Warning', 'Critical'].includes(cell) ? (
+                        <Badge
+                          variant='secondary'
+                          className={severityClass[cell as Severity]}
+                        >
+                          {cell}
+                        </Badge>
+                      ) : cellIndex === actionColumnIndex && cell === 'Details' ? (
+                        <Button
+                          size='sm'
+                          variant='outline'
+                          onClick={() =>
+                            setExpandedRow((current) =>
+                              current === rowIndex ? null : rowIndex
+                            )
+                          }
+                        >
+                          {isExpanded ? 'Hide' : 'Details'}
+                        </Button>
+                      ) : (
+                        cell
+                      )}
+                    </td>
+                  ))}
+                </tr>
+                {expandableDetails && isExpanded && (
+                  <tr className='border-b bg-muted/20'>
+                    <td colSpan={headers.length} className='px-3 py-3 text-sm text-muted-foreground'>
+                      KPI: <span className='font-medium text-foreground'>{row[0]}</span> · Technology: {row[1]} · Vendor: {row[5]} · Current: {row[2]} · Baseline: {row[3]} · Delta: {row[4]}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            )
+          })}
         </tbody>
       </table>
     </div>
