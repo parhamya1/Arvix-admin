@@ -267,10 +267,19 @@ export function Dashboard() {
         </section>
 
         <section className='rounded-xl border border-slate-700/80 bg-slate-900/70 p-4 backdrop-blur'>
-          <div className='relative h-[360px] overflow-hidden rounded-xl border border-cyan-400/15 bg-[radial-gradient(circle_at_30%_20%,rgba(14,116,144,0.35),transparent_50%),radial-gradient(circle_at_70%_60%,rgba(15,23,42,0.95),rgba(2,6,23,0.95))]'>
-            <div className='absolute inset-0 bg-[linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:40px_40px]' />
-            <div className='absolute left-4 top-4 rounded-md bg-slate-900/80 px-3 py-1 text-xs uppercase tracking-wider text-cyan-200'>
-              Active fault map · Warning/Critical only
+          <div className='relative h-[380px] overflow-hidden rounded-xl border border-cyan-400/20 bg-[radial-gradient(circle_at_18%_18%,rgba(8,145,178,0.28),transparent_36%),radial-gradient(circle_at_78%_22%,rgba(14,165,233,0.18),transparent_45%),linear-gradient(140deg,#020617_12%,#0b1b3a_52%,#020617_100%)] shadow-[inset_0_0_120px_rgba(14,165,233,0.18)]'>
+            <div className='absolute inset-0 bg-[linear-gradient(rgba(56,189,248,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(56,189,248,0.08)_1px,transparent_1px)] bg-[size:38px_38px] opacity-30' />
+            <div className='absolute -left-20 bottom-4 h-44 w-[85%] rotate-[-8deg] rounded-[60px] border border-cyan-300/15 bg-gradient-to-r from-slate-900/95 via-cyan-950/40 to-slate-900/90 shadow-[0_0_80px_rgba(20,184,166,0.22)]' />
+            <div className='absolute bottom-20 left-[14%] h-32 w-8 rounded-t-sm bg-gradient-to-t from-cyan-500/25 to-cyan-200/30 shadow-[0_0_24px_rgba(45,212,191,0.35)]' />
+            <div className='absolute bottom-16 left-[22%] h-44 w-10 rounded-t-sm bg-gradient-to-t from-cyan-500/20 to-cyan-100/35 shadow-[0_0_26px_rgba(34,211,238,0.35)]' />
+            <div className='absolute bottom-14 left-[34%] h-52 w-12 rounded-t-sm bg-gradient-to-t from-cyan-500/30 to-cyan-50/35 shadow-[0_0_32px_rgba(34,211,238,0.48)]' />
+            <div className='absolute bottom-14 left-[48%] h-40 w-9 rounded-t-sm bg-gradient-to-t from-sky-500/25 to-slate-100/35 shadow-[0_0_28px_rgba(56,189,248,0.42)]' />
+            <div className='absolute bottom-16 left-[58%] h-58 w-11 rounded-t-sm bg-gradient-to-t from-cyan-500/30 to-cyan-100/40 shadow-[0_0_36px_rgba(34,211,238,0.5)]' />
+            <div className='absolute bottom-20 left-[69%] h-36 w-9 rounded-t-sm bg-gradient-to-t from-sky-600/25 to-cyan-100/35 shadow-[0_0_24px_rgba(6,182,212,0.4)]' />
+            <div className='absolute left-7 top-7 z-10 rounded-xl border border-cyan-300/15 bg-slate-950/55 px-5 py-4 backdrop-blur'>
+              <p className='text-2xs text-slate-400'>Active fault map · Warning/Critical only</p>
+              <p className='mt-1 text-xl font-semibold uppercase tracking-[0.14em] text-slate-100'>Network Topology</p>
+              <p className='mt-1 text-2xl text-slate-300/85'>Real-time site monitoring</p>
             </div>
             {markers.map((kpi) => (
               <div key={kpi.id} className='group absolute -translate-x-1/2 -translate-y-1/2' style={{ left: `${kpi.marker?.x}%`, top: `${kpi.marker?.y}%` }}>
@@ -283,6 +292,17 @@ export function Dashboard() {
                 </div>
               </div>
             ))}
+            <div className='absolute bottom-7 left-7 flex items-center gap-5 rounded-2xl border border-cyan-300/15 bg-slate-950/75 px-5 py-3 text-xs text-slate-300 backdrop-blur'>
+              <span className='inline-flex items-center gap-2'>
+                <span className='h-2.5 w-2.5 rounded-full bg-amber-300 shadow-[0_0_12px_rgba(252,211,77,0.8)]' /> Warning
+              </span>
+              <span className='inline-flex items-center gap-2'>
+                <span className='h-2.5 w-2.5 rounded-full bg-rose-400 shadow-[0_0_12px_rgba(251,113,133,0.9)]' /> Critical
+              </span>
+              <span className='inline-flex items-center gap-2'>
+                <span className='h-2.5 w-2.5 rounded-full bg-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.8)]' /> Maintenance
+              </span>
+            </div>
           </div>
         </section>
 
@@ -569,4 +589,3 @@ function DetailTable({ title, headers, rows }: { title: string; headers: string[
     </div>
   )
 }
-
