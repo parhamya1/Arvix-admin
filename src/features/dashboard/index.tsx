@@ -527,13 +527,13 @@ export function Dashboard() {
             <div className='grid gap-4 lg:grid-cols-2'>
               <ChartCard title='Network KPI Trends'>
                 <ResponsiveContainer width='100%' height={280}>
-                  <LineChart data={kpiTrendData}>
+                  <LineChart data={kpiTrendData} margin={{ top: 28, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray='3 3' />
                     <XAxis dataKey='time' />
                     <YAxis yAxisId='left' />
                     <YAxis yAxisId='right' orientation='right' />
                     <Tooltip />
-                    <Legend />
+                    <Legend verticalAlign='top' height={36} wrapperStyle={{ fontSize: 12, paddingTop: 6 }} />
                     <Line yAxisId='left' type='monotone' dataKey='dropRate' name='Drop Rate (%)' stroke='#ef4444' />
                     <Line yAxisId='right' type='monotone' dataKey='throughput' name='Throughput (Mbps)' stroke='#2563eb' />
                     <Line yAxisId='right' type='monotone' dataKey='latency' name='Latency (ms)' stroke='#10b981' />
@@ -559,7 +559,7 @@ export function Dashboard() {
             <div className='grid gap-4 lg:grid-cols-3'>
               <ChartCard title='Vendor Impact Split'>
                 <ResponsiveContainer width='100%' height={240}>
-                  <BarChart data={[{ vendor: 'Nokia', share: 52 }, { vendor: 'Ericsson', share: 48 }]}>
+                  <BarChart data={[{ vendor: 'Nokia', share: 41 }, { vendor: 'Ericsson', share: 34 }, { vendor: 'Huawei', share: 25 }]}>
                     <CartesianGrid strokeDasharray='3 3' />
                     <XAxis dataKey='vendor' />
                     <YAxis unit='%' />
@@ -580,6 +580,8 @@ export function Dashboard() {
                       ['Helsinki Metro', '412', 'Critical'],
                       ['Tampere', '188', 'Warning'],
                       ['Turku', '91', 'Warning'],
+                      ['Oulu', '77', 'Warning'],
+                      ['Lahti', '56', 'Critical'],
                     ]}
                     severityColumnIndex={2}
                   />
