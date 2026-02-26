@@ -1,30 +1,5 @@
-import { Fragment, type ReactNode, useMemo, useState } from 'react'
-import { Header } from '@/components/layout/header'
-import { Main } from '@/components/layout/main'
-import { ProfileDropdown } from '@/components/profile-dropdown'
-import { Search } from '@/components/search'
-import { ThemeSwitch } from '@/components/theme-switch'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Tabs, TabsContent } from '@/components/ui/tabs'
+import { type ReactNode, useMemo, useState } from 'react'
+import { AlertTriangle, ChevronRight } from 'lucide-react'
 import {
   Area,
   AreaChart,
@@ -40,12 +15,53 @@ import {
   YAxis,
 } from 'recharts'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
+import { Header } from '@/components/layout/header'
+import { Main } from '@/components/layout/main'
+import { ProfileDropdown } from '@/components/profile-dropdown'
+import { Search } from '@/components/search'
+import { ThemeSwitch } from '@/components/theme-switch'
 
 type Severity = 'Normal' | 'Warning' | 'Critical'
 type Vendor = 'Huawei' | 'Nokia' | 'Ericsson'
 type ReportingDomain = 'CM' | 'PM' | 'License' | 'Inventory' | 'User Log'
 type KpiVendor = 'NOKIA' | 'ERICSSON' | 'HUAWEI'
-type KpiRow = [string, string, string, string, string, KpiVendor, Severity, string]
+type KpiRow = [
+  string,
+  string,
+  string,
+  string,
+  string,
+  KpiVendor,
+  Severity,
+  string,
+]
 
 type CmParameter = {
   parameter: string
@@ -111,8 +127,7 @@ const severityClass: Record<Severity, string> = {
     'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
   Warning:
     'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
-  Critical:
-    'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300',
+  Critical: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300',
 }
 
 const networkSummary = [
@@ -142,36 +157,288 @@ const violationTrendData = [
 ]
 
 const kpiStatusRows: KpiRow[] = [
-  ['Call Setup Success Rate', '2G', '99.42%', '99.30%', '+0.12%', 'NOKIA', 'Normal', ''],
-  ['Downlink Throughput', '4G', '92 Mbps', '105 Mbps', '-13 Mbps', 'HUAWEI', 'Warning', 'Details'],
-  ['Cell Availability', '2G', '95.2%', '98.5%', '-3.3%', 'NOKIA', 'Critical', 'Details'],
-  ['Handover Success Rate', '3G', '98.84%', '98.70%', '+0.14%', 'ERICSSON', 'Normal', ''],
-  ['Uplink Throughput', '5G', '38 Mbps', '45 Mbps', '-7 Mbps', 'NOKIA', 'Warning', 'Details'],
-  ['Site Power Stability', 'Core', '89.7%', '96.0%', '-6.3%', 'ERICSSON', 'Critical', 'Details'],
-  ['Paging Success Rate', '4G', '99.12%', '98.95%', '+0.17%', 'HUAWEI', 'Normal', ''],
-  ['Average Latency', 'Core', '29 ms', '24 ms', '+5 ms', 'ERICSSON', 'Warning', 'Details'],
-  ['Backhaul Utilization', '5G', '93.0%', '80.0%', '+13.0%', 'HUAWEI', 'Critical', 'Details'],
+  [
+    'Call Setup Success Rate',
+    '2G',
+    '99.42%',
+    '99.30%',
+    '+0.12%',
+    'NOKIA',
+    'Normal',
+    '',
+  ],
+  [
+    'Downlink Throughput',
+    '4G',
+    '92 Mbps',
+    '105 Mbps',
+    '-13 Mbps',
+    'HUAWEI',
+    'Warning',
+    'Details',
+  ],
+  [
+    'Cell Availability',
+    '2G',
+    '95.2%',
+    '98.5%',
+    '-3.3%',
+    'NOKIA',
+    'Critical',
+    'Details',
+  ],
+  [
+    'Handover Success Rate',
+    '3G',
+    '98.84%',
+    '98.70%',
+    '+0.14%',
+    'ERICSSON',
+    'Normal',
+    '',
+  ],
+  [
+    'Uplink Throughput',
+    '5G',
+    '38 Mbps',
+    '45 Mbps',
+    '-7 Mbps',
+    'NOKIA',
+    'Warning',
+    'Details',
+  ],
+  [
+    'Site Power Stability',
+    'Core',
+    '89.7%',
+    '96.0%',
+    '-6.3%',
+    'ERICSSON',
+    'Critical',
+    'Details',
+  ],
+  [
+    'Paging Success Rate',
+    '4G',
+    '99.12%',
+    '98.95%',
+    '+0.17%',
+    'HUAWEI',
+    'Normal',
+    '',
+  ],
+  [
+    'Average Latency',
+    'Core',
+    '29 ms',
+    '24 ms',
+    '+5 ms',
+    'ERICSSON',
+    'Warning',
+    'Details',
+  ],
+  [
+    'Backhaul Utilization',
+    '5G',
+    '93.0%',
+    '80.0%',
+    '+13.0%',
+    'HUAWEI',
+    'Critical',
+    'Details',
+  ],
   ['Packet Loss Rate', '5G', '0.46%', '0.55%', '-0.09%', 'NOKIA', 'Normal', ''],
-  ['Jitter Index', '5G', '11 ms', '8 ms', '+3 ms', 'HUAWEI', 'Warning', 'Details'],
-  ['S1 Signaling Success', '4G', '94.8%', '98.2%', '-3.4%', 'NOKIA', 'Critical', 'Details'],
-  ['Core Session Success', 'Core', '99.81%', '99.70%', '+0.11%', 'ERICSSON', 'Normal', ''],
-  ['Data Session Retainability', '4G', '98.21%', '98.80%', '-0.59%', 'NOKIA', 'Warning', 'Details'],
-  ['X2 Handover Delay', '4G', '96 ms', '62 ms', '+34 ms', 'ERICSSON', 'Critical', 'Details'],
-  ['VoLTE Setup SR', '4G', '98.76%', '98.60%', '+0.16%', 'HUAWEI', 'Normal', ''],
-  ['VoNR Call Drop Rate', '5G', '1.18%', '0.80%', '+0.38%', 'ERICSSON', 'Warning', 'Details'],
-  ['VoIP MOS Score', 'Core', '2.9', '3.8', '-0.9', 'HUAWEI', 'Critical', 'Details'],
+  [
+    'Jitter Index',
+    '5G',
+    '11 ms',
+    '8 ms',
+    '+3 ms',
+    'HUAWEI',
+    'Warning',
+    'Details',
+  ],
+  [
+    'S1 Signaling Success',
+    '4G',
+    '94.8%',
+    '98.2%',
+    '-3.4%',
+    'NOKIA',
+    'Critical',
+    'Details',
+  ],
+  [
+    'Core Session Success',
+    'Core',
+    '99.81%',
+    '99.70%',
+    '+0.11%',
+    'ERICSSON',
+    'Normal',
+    '',
+  ],
+  [
+    'Data Session Retainability',
+    '4G',
+    '98.21%',
+    '98.80%',
+    '-0.59%',
+    'NOKIA',
+    'Warning',
+    'Details',
+  ],
+  [
+    'X2 Handover Delay',
+    '4G',
+    '96 ms',
+    '62 ms',
+    '+34 ms',
+    'ERICSSON',
+    'Critical',
+    'Details',
+  ],
+  [
+    'VoLTE Setup SR',
+    '4G',
+    '98.76%',
+    '98.60%',
+    '+0.16%',
+    'HUAWEI',
+    'Normal',
+    '',
+  ],
+  [
+    'VoNR Call Drop Rate',
+    '5G',
+    '1.18%',
+    '0.80%',
+    '+0.38%',
+    'ERICSSON',
+    'Warning',
+    'Details',
+  ],
+  [
+    'VoIP MOS Score',
+    'Core',
+    '2.9',
+    '3.8',
+    '-0.9',
+    'HUAWEI',
+    'Critical',
+    'Details',
+  ],
   ['PRB Utilization', '5G', '63.4%', '65.0%', '-1.6%', 'NOKIA', 'Normal', ''],
-  ['CSFB Success Rate', '3G', '97.42%', '98.00%', '-0.58%', 'HUAWEI', 'Warning', 'Details'],
-  ['Emergency Call Setup Time', '3G', '6.3 s', '4.2 s', '+2.1 s', 'NOKIA', 'Critical', 'Details'],
-  ['RRC Connection SR', '4G', '99.01%', '98.90%', '+0.11%', 'ERICSSON', 'Normal', ''],
-  ['Inter-RAT HO SR', '4G', '96.88%', '97.40%', '-0.52%', 'NOKIA', 'Warning', 'Details'],
-  ['Radio Link Failure Rate', '5G', '2.6%', '1.2%', '+1.4%', 'ERICSSON', 'Critical', 'Details'],
-  ['Core Attach Delay', 'Core', '1.7 s', '1.3 s', '+0.4 s', 'ERICSSON', 'Warning', 'Details'],
-  ['Congestion Minutes', '2G', '214 min', '120 min', '+94 min', 'HUAWEI', 'Critical', 'Details'],
-  ['Bearer Setup Time', '4G', '122 ms', '105 ms', '+17 ms', 'HUAWEI', 'Warning', 'Details'],
-  ['TCH Traffic Load', '2G', '81 Erlang', '62 Erlang', '+19 Erlang', 'NOKIA', 'Critical', 'Details'],
-  ['Active UE Sessions', '4G', '18200 Sessions', '14000 Sessions', '+4200 Sessions', 'ERICSSON', 'Critical', 'Details'],
-  ['Signaling Load Index', 'Core', '74.5%', '58.0%', '+16.5%', 'HUAWEI', 'Critical', 'Details'],
+  [
+    'CSFB Success Rate',
+    '3G',
+    '97.42%',
+    '98.00%',
+    '-0.58%',
+    'HUAWEI',
+    'Warning',
+    'Details',
+  ],
+  [
+    'Emergency Call Setup Time',
+    '3G',
+    '6.3 s',
+    '4.2 s',
+    '+2.1 s',
+    'NOKIA',
+    'Critical',
+    'Details',
+  ],
+  [
+    'RRC Connection SR',
+    '4G',
+    '99.01%',
+    '98.90%',
+    '+0.11%',
+    'ERICSSON',
+    'Normal',
+    '',
+  ],
+  [
+    'Inter-RAT HO SR',
+    '4G',
+    '96.88%',
+    '97.40%',
+    '-0.52%',
+    'NOKIA',
+    'Warning',
+    'Details',
+  ],
+  [
+    'Radio Link Failure Rate',
+    '5G',
+    '2.6%',
+    '1.2%',
+    '+1.4%',
+    'ERICSSON',
+    'Critical',
+    'Details',
+  ],
+  [
+    'Core Attach Delay',
+    'Core',
+    '1.7 s',
+    '1.3 s',
+    '+0.4 s',
+    'ERICSSON',
+    'Warning',
+    'Details',
+  ],
+  [
+    'Congestion Minutes',
+    '2G',
+    '214 min',
+    '120 min',
+    '+94 min',
+    'HUAWEI',
+    'Critical',
+    'Details',
+  ],
+  [
+    'Bearer Setup Time',
+    '4G',
+    '122 ms',
+    '105 ms',
+    '+17 ms',
+    'HUAWEI',
+    'Warning',
+    'Details',
+  ],
+  [
+    'TCH Traffic Load',
+    '2G',
+    '81 Erlang',
+    '62 Erlang',
+    '+19 Erlang',
+    'NOKIA',
+    'Critical',
+    'Details',
+  ],
+  [
+    'Active UE Sessions',
+    '4G',
+    '18200 Sessions',
+    '14000 Sessions',
+    '+4200 Sessions',
+    'ERICSSON',
+    'Critical',
+    'Details',
+  ],
+  [
+    'Signaling Load Index',
+    'Core',
+    '74.5%',
+    '58.0%',
+    '+16.5%',
+    'HUAWEI',
+    'Critical',
+    'Details',
+  ],
 ]
 
 function seededNumber(input: string) {
@@ -206,14 +473,31 @@ function formatDelta(value: number, decimals: number, unit: string) {
 function generateKpiDetails(row: KpiRow): KpiDetails {
   const [kpiName, technology, currentValue, baselineValue, delta, vendor] = row
   const seed = seededNumber(kpiName)
-  const parameterPool = ['MaxUE', 'DLBW2', 'HO_Threshold', 'TxPower', 'A3Offset', 'QrxLevMin', 'RachPreamble', 'P0NominalPUSCH', 'ULPowerControl', 'CellReselectionPriority']
-  const actors: Array<'Script' | 'User' | 'Policy'> = ['Script', 'User', 'Policy']
+  const parameterPool = [
+    'MaxUE',
+    'DLBW2',
+    'HO_Threshold',
+    'TxPower',
+    'A3Offset',
+    'QrxLevMin',
+    'RachPreamble',
+    'P0NominalPUSCH',
+    'ULPowerControl',
+    'CellReselectionPriority',
+  ]
+  const actors: Array<'Script' | 'User' | 'Policy'> = [
+    'Script',
+    'User',
+    'Policy',
+  ]
   const targets = ['Cell', 'Site', 'Node']
 
   const cmParameters = Array.from({ length: 5 }, (_, index) => {
     const parameter = parameterPool[(seed + index) % parameterPool.length]
     const previous = String(20 + ((seed + index * 7) % 45))
-    const current = String(Number(previous) + ((index % 2 === 0 ? 1 : -1) * ((seed % 4) + 1)))
+    const current = String(
+      Number(previous) + (index % 2 === 0 ? 1 : -1) * ((seed % 4) + 1)
+    )
 
     return {
       parameter,
@@ -225,7 +509,18 @@ function generateKpiDetails(row: KpiRow): KpiDetails {
     }
   })
 
-  const counterPool = ['erabDropCount', 'dlThroughputAvg', 'ulThroughputAvg', 'rrcConnEstabSucc', 'rachFailRate', 'handoverFailCount', 'packetDelayAvg', 'attachSuccessRate', 'pagingDiscardCount', 'radioLinkFailures']
+  const counterPool = [
+    'erabDropCount',
+    'dlThroughputAvg',
+    'ulThroughputAvg',
+    'rrcConnEstabSucc',
+    'rachFailRate',
+    'handoverFailCount',
+    'packetDelayAvg',
+    'attachSuccessRate',
+    'pagingDiscardCount',
+    'radioLinkFailures',
+  ]
   const counters = Array.from({ length: 8 }, (_, index) => {
     const name = counterPool[(seed + index) % counterPool.length]
     const direction: '↑' | '↓' = index % 2 === 0 ? '↑' : '↓'
@@ -233,7 +528,10 @@ function generateKpiDetails(row: KpiRow): KpiDetails {
     return {
       name,
       direction,
-      note: direction === '↑' ? `Increase observed after ${cmParameters[index % 5].parameter}` : `Drop linked to ${cmParameters[index % 5].parameter} tuning`,
+      note:
+        direction === '↑'
+          ? `Increase observed after ${cmParameters[index % 5].parameter}`
+          : `Drop linked to ${cmParameters[index % 5].parameter} tuning`,
     }
   })
 
@@ -246,7 +544,8 @@ function generateKpiDetails(row: KpiRow): KpiDetails {
       time: `09:${String(8 + index * 3).padStart(2, '0')}`,
       actor: actors[(seed + index) % actors.length],
       source: (['CM', 'Log', 'Policy'] as const)[(seed + index) % 3],
-      command: index % 2 === 0 ? parameter.command : `validate ${parameter.parameter}`,
+      command:
+        index % 2 === 0 ? parameter.command : `validate ${parameter.parameter}`,
       parameter: parameter.parameter,
       beforeAfter: `${parameter.previous} → ${parameter.current}`,
       counterImpact: `${counterA.name} ${counterA.direction}, ${counterB.name} ${counterB.direction}`,
@@ -254,7 +553,10 @@ function generateKpiDetails(row: KpiRow): KpiDetails {
   })
 
   const suggestions = cmParameters.slice(0, 4).map((parameter, index) => {
-    const suggestedValue = index % 2 === 0 ? parameter.previous : String((Number(parameter.previous) + Number(parameter.current)) / 2)
+    const suggestedValue =
+      index % 2 === 0
+        ? parameter.previous
+        : String((Number(parameter.previous) + Number(parameter.current)) / 2)
 
     return {
       targetId: parameter.target,
@@ -279,7 +581,6 @@ function generateKpiDetails(row: KpiRow): KpiDetails {
 
   return { cmParameters, counters, timeline, suggestions }
 }
-
 
 const guardrailRows = [
   ['Nokia', 'Cell', 'MaxUE', 'Average', 'avg(14d)', '+15%', 'Region Helsinki'],
@@ -451,15 +752,22 @@ const rawRows: Record<ReportingDomain, Record<Vendor, RawExtractedRow[]>> = {
 
 export function Dashboard() {
   const [kpiRows, setKpiRows] = useState<KpiRow[]>(kpiStatusRows)
-  const [selectedStatuses, setSelectedStatuses] = useState<Severity[]>(['Normal', 'Warning', 'Critical'])
-  const [selectedVendors, setSelectedVendors] = useState<KpiVendor[]>(['HUAWEI', 'NOKIA', 'ERICSSON'])
+  const [selectedStatuses, setSelectedStatuses] = useState<Severity[]>([
+    'Normal',
+    'Warning',
+    'Critical',
+  ])
+  const [selectedVendors, setSelectedVendors] = useState<KpiVendor[]>([
+    'HUAWEI',
+    'NOKIA',
+    'ERICSSON',
+  ])
 
   const filteredKpiRows = useMemo(
     () =>
       kpiRows.filter(
         (row) =>
-          selectedStatuses.includes(row[6]) &&
-          selectedVendors.includes(row[5])
+          selectedStatuses.includes(row[6]) && selectedVendors.includes(row[5])
       ),
     [kpiRows, selectedStatuses, selectedVendors]
   )
@@ -473,18 +781,40 @@ export function Dashboard() {
 
         const current = parseValueWithUnit(row[2])
         const baseline = parseValueWithUnit(row[3])
-        const nextCurrent = current.value + (baseline.value - current.value) * 0.35
-        const nextCurrentText = formatValue(nextCurrent, current.decimals, current.unit || baseline.unit)
-        const nextDeltaText = formatDelta(nextCurrent - baseline.value, Math.max(current.decimals, baseline.decimals), baseline.unit || current.unit)
+        const nextCurrent =
+          current.value + (baseline.value - current.value) * 0.35
+        const nextCurrentText = formatValue(
+          nextCurrent,
+          current.decimals,
+          current.unit || baseline.unit
+        )
+        const nextDeltaText = formatDelta(
+          nextCurrent - baseline.value,
+          Math.max(current.decimals, baseline.decimals),
+          baseline.unit || current.unit
+        )
 
         let nextStatus: Severity = row[6]
         if (row[6] === 'Critical') {
           nextStatus = 'Warning'
-        } else if (row[6] === 'Warning' && Math.abs(nextCurrent - baseline.value) < Math.abs(current.value - baseline.value) * 0.55) {
+        } else if (
+          row[6] === 'Warning' &&
+          Math.abs(nextCurrent - baseline.value) <
+            Math.abs(current.value - baseline.value) * 0.55
+        ) {
           nextStatus = 'Normal'
         }
 
-        return [row[0], row[1], nextCurrentText, row[3], nextDeltaText, row[5], nextStatus, nextStatus === 'Normal' ? '' : 'Details']
+        return [
+          row[0],
+          row[1],
+          nextCurrentText,
+          row[3],
+          nextDeltaText,
+          row[5],
+          nextStatus,
+          nextStatus === 'Normal' ? '' : 'Details',
+        ]
       })
     )
 
@@ -505,7 +835,8 @@ export function Dashboard() {
       </Header>
 
       <Main>
-        <GlobalContextBar showVendor />
+        <MarqueeKeyframes />
+        <AlarmMarquee rows={filteredKpiRows} />
 
         <Tabs defaultValue='overview' className='space-y-4'>
           <TabsContent value='overview' className='space-y-4'>
@@ -527,16 +858,41 @@ export function Dashboard() {
             <div className='grid gap-4 lg:grid-cols-2'>
               <ChartCard title='Network KPI Trends'>
                 <ResponsiveContainer width='100%' height={280}>
-                  <LineChart data={kpiTrendData} margin={{ top: 28, right: 8, left: 0, bottom: 0 }}>
+                  <LineChart
+                    data={kpiTrendData}
+                    margin={{ top: 28, right: 8, left: 0, bottom: 0 }}
+                  >
                     <CartesianGrid strokeDasharray='3 3' />
                     <XAxis dataKey='time' />
                     <YAxis yAxisId='left' />
                     <YAxis yAxisId='right' orientation='right' />
                     <Tooltip />
-                    <Legend verticalAlign='top' height={36} wrapperStyle={{ fontSize: 12, paddingTop: 6 }} />
-                    <Line yAxisId='left' type='monotone' dataKey='dropRate' name='Drop Rate (%)' stroke='#ef4444' />
-                    <Line yAxisId='right' type='monotone' dataKey='throughput' name='Throughput (Mbps)' stroke='#2563eb' />
-                    <Line yAxisId='right' type='monotone' dataKey='latency' name='Latency (ms)' stroke='#10b981' />
+                    <Legend
+                      verticalAlign='top'
+                      height={36}
+                      wrapperStyle={{ fontSize: 12, paddingTop: 6 }}
+                    />
+                    <Line
+                      yAxisId='left'
+                      type='monotone'
+                      dataKey='dropRate'
+                      name='Drop Rate (%)'
+                      stroke='#ef4444'
+                    />
+                    <Line
+                      yAxisId='right'
+                      type='monotone'
+                      dataKey='throughput'
+                      name='Throughput (Mbps)'
+                      stroke='#2563eb'
+                    />
+                    <Line
+                      yAxisId='right'
+                      type='monotone'
+                      dataKey='latency'
+                      name='Latency (ms)'
+                      stroke='#10b981'
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </ChartCard>
@@ -549,8 +905,22 @@ export function Dashboard() {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Area type='monotone' dataKey='critical' stackId='1' stroke='#f43f5e' fill='#f43f5e' name='Critical' />
-                    <Area type='monotone' dataKey='warning' stackId='1' stroke='#f59e0b' fill='#f59e0b' name='Warning' />
+                    <Area
+                      type='monotone'
+                      dataKey='critical'
+                      stackId='1'
+                      stroke='#f43f5e'
+                      fill='#f43f5e'
+                      name='Critical'
+                    />
+                    <Area
+                      type='monotone'
+                      dataKey='warning'
+                      stackId='1'
+                      stroke='#f59e0b'
+                      fill='#f59e0b'
+                      name='Warning'
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </ChartCard>
@@ -559,7 +929,13 @@ export function Dashboard() {
             <div className='grid gap-4 lg:grid-cols-3'>
               <ChartCard title='Vendor Impact Split'>
                 <ResponsiveContainer width='100%' height={240}>
-                  <BarChart data={[{ vendor: 'Nokia', share: 41 }, { vendor: 'Ericsson', share: 34 }, { vendor: 'Huawei', share: 25 }]}>
+                  <BarChart
+                    data={[
+                      { vendor: 'Nokia', share: 41 },
+                      { vendor: 'Ericsson', share: 34 },
+                      { vendor: 'Huawei', share: 25 },
+                    ]}
+                  >
                     <CartesianGrid strokeDasharray='3 3' />
                     <XAxis dataKey='vendor' />
                     <YAxis unit='%' />
@@ -575,7 +951,11 @@ export function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <DataTable
-                    headers={['Region Name', 'Affected Cells', 'Maximum Severity']}
+                    headers={[
+                      'Region Name',
+                      'Affected Cells',
+                      'Maximum Severity',
+                    ]}
                     rows={[
                       ['Helsinki Metro', '412', 'Critical'],
                       ['Tampere', '188', 'Warning'],
@@ -597,32 +977,38 @@ export function Dashboard() {
                 <div className='mb-4 flex flex-wrap gap-2'>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant='outline'>Status Filter ({selectedStatuses.length})</Button>
+                      <Button variant='outline'>
+                        Status Filter ({selectedStatuses.length})
+                      </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align='start' className='w-56'>
                       <DropdownMenuLabel>Select Status</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      {(['Normal', 'Warning', 'Critical'] as Severity[]).map((status) => (
-                        <DropdownMenuCheckboxItem
-                          key={status}
-                          checked={selectedStatuses.includes(status)}
-                          onCheckedChange={() =>
-                            setSelectedStatuses((previous) =>
-                              previous.includes(status)
-                                ? previous.filter((item) => item !== status)
-                                : [...previous, status]
-                            )
-                          }
-                        >
-                          {status}
-                        </DropdownMenuCheckboxItem>
-                      ))}
+                      {(['Normal', 'Warning', 'Critical'] as Severity[]).map(
+                        (status) => (
+                          <DropdownMenuCheckboxItem
+                            key={status}
+                            checked={selectedStatuses.includes(status)}
+                            onCheckedChange={() =>
+                              setSelectedStatuses((previous) =>
+                                previous.includes(status)
+                                  ? previous.filter((item) => item !== status)
+                                  : [...previous, status]
+                              )
+                            }
+                          >
+                            {status}
+                          </DropdownMenuCheckboxItem>
+                        )
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant='outline'>Vendor Filter ({selectedVendors.length})</Button>
+                      <Button variant='outline'>
+                        Vendor Filter ({selectedVendors.length})
+                      </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align='start' className='w-56'>
                       <DropdownMenuLabel>Select Vendor</DropdownMenuLabel>
@@ -638,7 +1024,9 @@ export function Dashboard() {
                           onCheckedChange={() =>
                             setSelectedVendors((previous) =>
                               previous.includes(vendorOption.value)
-                                ? previous.filter((item) => item !== vendorOption.value)
+                                ? previous.filter(
+                                    (item) => item !== vendorOption.value
+                                  )
                                 : [...previous, vendorOption.value]
                             )
                           }
@@ -652,7 +1040,16 @@ export function Dashboard() {
 
                 <div className='max-h-[520px] overflow-auto'>
                   <DataTable
-                    headers={['KPI Name', 'Technology', 'Current Value', 'Baseline Value', 'Delta', 'Vendor', 'Health Status', 'Actions']}
+                    headers={[
+                      'KPI Name',
+                      'Technology',
+                      'Current Value',
+                      'Baseline Value',
+                      'Delta',
+                      'Vendor',
+                      'Health Status',
+                      'Actions',
+                    ]}
                     rows={filteredKpiRows}
                     severityColumnIndex={6}
                     actionColumnIndex={7}
@@ -672,7 +1069,15 @@ export function Dashboard() {
               </CardHeader>
               <CardContent>
                 <DataTable
-                  headers={['Vendor', 'Entity Level', 'Parameter Name', 'Baseline Method', 'Expected Baseline', 'Tolerance', 'Rule Scope']}
+                  headers={[
+                    'Vendor',
+                    'Entity Level',
+                    'Parameter Name',
+                    'Baseline Method',
+                    'Expected Baseline',
+                    'Tolerance',
+                    'Rule Scope',
+                  ]}
                   rows={guardrailRows}
                 />
               </CardContent>
@@ -686,7 +1091,15 @@ export function Dashboard() {
               </CardHeader>
               <CardContent>
                 <DataTable
-                  headers={['Cell ID', 'Vendor', 'Parameter Name', 'Expected Value', 'Current Value', 'Deviation', 'Severity']}
+                  headers={[
+                    'Cell ID',
+                    'Vendor',
+                    'Parameter Name',
+                    'Expected Value',
+                    'Current Value',
+                    'Deviation',
+                    'Severity',
+                  ]}
                   rows={violationRows}
                   severityColumnIndex={6}
                 />
@@ -700,7 +1113,10 @@ export function Dashboard() {
                 <CardTitle>CM Timeline</CardTitle>
               </CardHeader>
               <CardContent>
-                <DataTable headers={['Event Time', 'Data Source', 'Change Description']} rows={cmTimelineRows} />
+                <DataTable
+                  headers={['Event Time', 'Data Source', 'Change Description']}
+                  rows={cmTimelineRows}
+                />
               </CardContent>
             </Card>
             <Card>
@@ -708,7 +1124,10 @@ export function Dashboard() {
                 <CardTitle>KPI Before / After</CardTitle>
               </CardHeader>
               <CardContent>
-                <DataTable headers={['KPI Name', 'Before Change', 'After Change']} rows={beforeAfterRows} />
+                <DataTable
+                  headers={['KPI Name', 'Before Change', 'After Change']}
+                  rows={beforeAfterRows}
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -720,11 +1139,17 @@ export function Dashboard() {
               </CardHeader>
               <CardContent>
                 <DataTable
-                  headers={['Cell ID', 'Detected Issue', 'Suggested Action', 'Confidence Score']}
+                  headers={[
+                    'Cell ID',
+                    'Detected Issue',
+                    'Suggested Action',
+                    'Confidence Score',
+                  ]}
                   rows={decisionRows}
                 />
                 <p className='mt-4 text-sm text-muted-foreground'>
-                  Confidence logic (MVP): rule-based + historical similarity + recency weighting.
+                  Confidence logic (MVP): rule-based + historical similarity +
+                  recency weighting.
                 </p>
               </CardContent>
             </Card>
@@ -760,8 +1185,24 @@ function ReportingWorkspace() {
           'New Value',
         ],
         rows: [
-          ['2026-02-18 09:14', 'Nokia', 'CELL', 'KFI-HEL-221', 'MaxUE', 'avg', '+22%'],
-          ['2026-02-18 09:18', 'Ericsson', 'CELL', 'KFI-HEL-305', 'DLBW2', 'avg', '-18%'],
+          [
+            '2026-02-18 09:14',
+            'Nokia',
+            'CELL',
+            'KFI-HEL-221',
+            'MaxUE',
+            'avg',
+            '+22%',
+          ],
+          [
+            '2026-02-18 09:18',
+            'Ericsson',
+            'CELL',
+            'KFI-HEL-305',
+            'DLBW2',
+            'avg',
+            '-18%',
+          ],
         ],
       }
     }
@@ -779,8 +1220,26 @@ function ReportingWorkspace() {
           'Status',
         ],
         rows: [
-          ['2026-02-18 09:15', 'Nokia', 'REGION', 'Helsinki', 'Throughput', '78 Mbps', '105 Mbps', 'Critical'],
-          ['2026-02-18 09:15', 'Ericsson', 'NETWORK', 'Finland', 'Drop Rate', '0.82%', '0.60%', 'Warning'],
+          [
+            '2026-02-18 09:15',
+            'Nokia',
+            'REGION',
+            'Helsinki',
+            'Throughput',
+            '78 Mbps',
+            '105 Mbps',
+            'Critical',
+          ],
+          [
+            '2026-02-18 09:15',
+            'Ericsson',
+            'NETWORK',
+            'Finland',
+            'Drop Rate',
+            '0.82%',
+            '0.60%',
+            'Warning',
+          ],
         ],
       }
     }
@@ -798,8 +1257,26 @@ function ReportingWorkspace() {
           'Risk Flag',
         ],
         rows: [
-          ['2026-02-18 09:20', 'Nokia', 'NOD-HEL-01', '5G Carrier', '120', '112', '93%', 'Warning'],
-          ['2026-02-18 09:20', 'Ericsson', 'NOD-TMP-03', 'LTE Capacity', '95', '95', '100%', 'Critical'],
+          [
+            '2026-02-18 09:20',
+            'Nokia',
+            'NOD-HEL-01',
+            '5G Carrier',
+            '120',
+            '112',
+            '93%',
+            'Warning',
+          ],
+          [
+            '2026-02-18 09:20',
+            'Ericsson',
+            'NOD-TMP-03',
+            'LTE Capacity',
+            '95',
+            '95',
+            '100%',
+            'Critical',
+          ],
         ],
       }
     }
@@ -816,8 +1293,24 @@ function ReportingWorkspace() {
           'Lifecycle Status',
         ],
         rows: [
-          ['2026-02-18 08:10', 'Nokia', 'NOD-HEL-01', 'SW Version', '21B', '22A', 'ACTIVE'],
-          ['2026-02-18 08:45', 'Huawei', 'NOD-TKU-12', 'Board Type', 'BBU3900', 'BBU5900', 'ACTIVE'],
+          [
+            '2026-02-18 08:10',
+            'Nokia',
+            'NOD-HEL-01',
+            'SW Version',
+            '21B',
+            '22A',
+            'ACTIVE',
+          ],
+          [
+            '2026-02-18 08:45',
+            'Huawei',
+            'NOD-TKU-12',
+            'Board Type',
+            'BBU3900',
+            'BBU5900',
+            'ACTIVE',
+          ],
         ],
       }
     }
@@ -833,8 +1326,24 @@ function ReportingWorkspace() {
         'Execution Result',
       ],
       rows: [
-        ['2026-02-18 09:10', 'Ericsson', 'op_hel_12', 'MODIFY', 'CELL', 'KFI-HEL-221', 'SUCCESS'],
-        ['2026-02-18 09:13', 'Nokia', 'op_tmp_04', 'ROLLBACK', 'CELL', 'KFI-TMP-087', 'SUCCESS'],
+        [
+          '2026-02-18 09:10',
+          'Ericsson',
+          'op_hel_12',
+          'MODIFY',
+          'CELL',
+          'KFI-HEL-221',
+          'SUCCESS',
+        ],
+        [
+          '2026-02-18 09:13',
+          'Nokia',
+          'op_tmp_04',
+          'ROLLBACK',
+          'CELL',
+          'KFI-TMP-087',
+          'SUCCESS',
+        ],
       ],
     }
   }, [domain])
@@ -847,7 +1356,10 @@ function ReportingWorkspace() {
         </CardHeader>
         <CardContent className='space-y-4'>
           <div className='grid gap-3 lg:grid-cols-4'>
-            <Select value={domain} onValueChange={(value) => setDomain(value as ReportingDomain)}>
+            <Select
+              value={domain}
+              onValueChange={(value) => setDomain(value as ReportingDomain)}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -860,7 +1372,10 @@ function ReportingWorkspace() {
               </SelectContent>
             </Select>
 
-            <Select value={viewMode} onValueChange={(value) => setViewMode(value as 'raw' | 'history')}>
+            <Select
+              value={viewMode}
+              onValueChange={(value) => setViewMode(value as 'raw' | 'history')}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -870,7 +1385,11 @@ function ReportingWorkspace() {
               </SelectContent>
             </Select>
 
-            <Select value={vendor} onValueChange={(value) => setVendor(value as Vendor)} disabled={viewMode === 'history'}>
+            <Select
+              value={vendor}
+              onValueChange={(value) => setVendor(value as Vendor)}
+              disabled={viewMode === 'history'}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -893,7 +1412,7 @@ function ReportingWorkspace() {
             </Select>
           </div>
 
-          <GlobalContextBar showVendor={viewMode === 'history'} compact />
+          <AlarmMarquee rows={kpiRows} compact />
 
           <div className='flex flex-wrap gap-2'>
             <Button variant='outline'>Export CSV</Button>
@@ -964,7 +1483,18 @@ function ReportingWorkspace() {
                         row.measurementUnit,
                         'Open payload around row',
                       ])
-                    : [['-', '-', '-', '-', '-', '-', '-', 'No rows in selected filter']]
+                    : [
+                        [
+                          '-',
+                          '-',
+                          '-',
+                          '-',
+                          '-',
+                          '-',
+                          '-',
+                          'No rows in selected filter',
+                        ],
+                      ]
                 }
               />
             </CardContent>
@@ -988,64 +1518,229 @@ function ReportingWorkspace() {
   )
 }
 
-function GlobalContextBar({
-  showVendor,
+function MarqueeKeyframes() {
+  return (
+    <style>{`@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }`}</style>
+  )
+}
+
+type AlertMarqueeItem = {
+  kpiName: string
+  status: 'Critical' | 'Warning'
+  vendor: KpiVendor
+  lastUpdated: string
+  detail: string
+}
+
+function AlarmMarquee({
+  rows,
   compact,
 }: {
-  showVendor?: boolean
+  rows: KpiRow[]
   compact?: boolean
 }) {
+  const alertItems = useMemo<AlertMarqueeItem[]>(
+    () =>
+      rows
+        .filter((row) => row[6] === 'Critical' || row[6] === 'Warning')
+        .map((row, index) => ({
+          kpiName: row[0],
+          status: row[6] as 'Critical' | 'Warning',
+          vendor: row[5],
+          lastUpdated: `${4 + ((index * 3) % 12)} min ago`,
+          detail: `${row[1]} • Current ${row[2]} vs Baseline ${row[3]}`,
+        })),
+    [rows]
+  )
+
+  if (alertItems.length === 0) {
+    return null
+  }
+
+  const firstRow = alertItems.slice(0, Math.ceil(alertItems.length / 2))
+  const prioritizedItems = [...alertItems].sort((a, b) =>
+    a.status === b.status
+      ? a.kpiName.localeCompare(b.kpiName)
+      : a.status === 'Critical'
+        ? -1
+        : 1
+  )
+
   return (
-    <div className={`${compact ? '' : 'mb-4'} rounded-lg border bg-card p-4`}>
-      <div className='mb-3 text-sm font-medium'>Global Context Bar</div>
-      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
-        <Select defaultValue='24h'>
-          <SelectTrigger>
-            <SelectValue placeholder='Time Range' />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='24h'>Last 24h</SelectItem>
-            <SelectItem value='7d'>Last 7d</SelectItem>
-            <SelectItem value='custom'>Custom</SelectItem>
-          </SelectContent>
-        </Select>
+    <div
+      className={cn(
+        compact ? '' : 'mb-4',
+        'relative overflow-hidden rounded-lg border bg-card p-2'
+      )}
+    >
+      <div className='mb-2 flex items-center justify-between px-2'>
+        <div className='flex items-center gap-2 text-sm font-semibold tracking-wide'>
+          <AlertTriangle className='size-4 text-amber-500' />
+          ALARM
+        </div>
+        <Sheet>
+          <SheetTrigger asChild>
+            <button className='text-sm font-semibold text-black hover:text-black/80 dark:text-white dark:hover:text-white/80'>
+              View all <ChevronRight className='inline size-4' />
+            </button>
+          </SheetTrigger>
+          <SheetContent
+            side='right'
+            className='w-full border-slate-200 p-0 sm:max-w-2xl dark:border-white/10'
+          >
+            <SheetHeader className='border-b border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100 p-6 dark:border-white/10 dark:from-slate-900 dark:to-slate-950'>
+              <SheetTitle className='text-left text-lg font-semibold tracking-wide text-slate-900 dark:text-white'>
+                All Active KPI Alarms
+              </SheetTitle>
+              <p className='text-left text-sm text-slate-600 dark:text-slate-300'>
+                Critical and warning KPIs from the dashboard table.
+              </p>
+            </SheetHeader>
+            <div className='h-[calc(100vh-110px)] overflow-y-auto p-4 sm:p-6'>
+              <div className='mb-4 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300'>
+                <span className='rounded-full bg-rose-100 px-2 py-0.5 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300'>
+                  {
+                    prioritizedItems.filter(
+                      (item) => item.status === 'Critical'
+                    ).length
+                  }{' '}
+                  Critical
+                </span>
+                <span className='rounded-full bg-amber-100 px-2 py-0.5 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'>
+                  {
+                    prioritizedItems.filter((item) => item.status === 'Warning')
+                      .length
+                  }{' '}
+                  Warning
+                </span>
+              </div>
+              <div className='space-y-3'>
+                {prioritizedItems.map((item, index) => {
+                  const isCritical = item.status === 'Critical'
+                  return (
+                    <article
+                      key={`${item.kpiName}-${item.status}-${index}`}
+                      className={cn(
+                        'rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm transition-all hover:shadow-md dark:border-white/10 dark:bg-slate-950/70',
+                        isCritical
+                          ? 'shadow-[inset_3px_0_0_0_#f43f5e]'
+                          : 'shadow-[inset_3px_0_0_0_#f59e0b]'
+                      )}
+                    >
+                      <div className='mb-1 flex items-center justify-between'>
+                        <div className='flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white'>
+                          <span
+                            className={cn(
+                              'inline-block size-2 rounded-full',
+                              isCritical ? 'bg-rose-500' : 'bg-amber-400'
+                            )}
+                          />
+                          {item.status}
+                        </div>
+                        <span className='text-xs text-slate-500 dark:text-slate-400'>
+                          {item.lastUpdated}
+                        </span>
+                      </div>
+                      <p className='text-base font-semibold text-slate-900 dark:text-white'>
+                        {item.kpiName}
+                      </p>
+                      <p className='mt-1 text-sm text-slate-700 dark:text-slate-300'>
+                        {item.vendor} • {item.detail}
+                      </p>
+                    </article>
+                  )
+                })}
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
 
-        <Select defaultValue='network'>
-          <SelectTrigger>
-            <SelectValue placeholder='Scope Level' />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='network'>Network</SelectItem>
-            <SelectItem value='region'>Region</SelectItem>
-            <SelectItem value='site'>Site</SelectItem>
-            <SelectItem value='node'>Node</SelectItem>
-            <SelectItem value='cell'>Cell</SelectItem>
-          </SelectContent>
-        </Select>
+      <MarqueeRow items={firstRow} />
 
-        {showVendor ? (
-          <Select defaultValue='all'>
-            <SelectTrigger>
-              <SelectValue placeholder='Vendor Filter' />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='all'>All Vendors</SelectItem>
-              <SelectItem value='huawei'>Huawei</SelectItem>
-              <SelectItem value='nokia'>Nokia</SelectItem>
-              <SelectItem value='ericsson'>Ericsson</SelectItem>
-            </SelectContent>
-          </Select>
-        ) : (
-          <Input placeholder='Search: Cell / Site / Node / Region' />
+      <div className='pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-background' />
+      <div className='pointer-events-none absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-background' />
+    </div>
+  )
+}
+
+function MarqueeRow({
+  items,
+  reverse,
+}: {
+  items: AlertMarqueeItem[]
+  reverse?: boolean
+}) {
+  const orderedItems = reverse ? [...items].reverse() : items
+
+  return (
+    <div className='group relative flex overflow-hidden py-1'>
+      <div
+        className={cn(
+          'flex min-w-max shrink-0 animate-[marquee_35s_linear_infinite] gap-3 pe-3 group-hover:[animation-play-state:paused]',
+          reverse && '[animation-direction:reverse]'
         )}
-
-        <Input placeholder='Search: Cell / Site / Node / Region' />
+      >
+        {orderedItems.map((item) => (
+          <AlertCard key={`${item.kpiName}-${item.status}`} item={item} />
+        ))}
+      </div>
+      <div
+        aria-hidden
+        className={cn(
+          'flex min-w-max shrink-0 animate-[marquee_35s_linear_infinite] gap-3 pe-3 group-hover:[animation-play-state:paused]',
+          reverse && '[animation-direction:reverse]'
+        )}
+      >
+        {orderedItems.map((item) => (
+          <AlertCard key={`${item.kpiName}-${item.status}-dup`} item={item} />
+        ))}
       </div>
     </div>
   )
 }
 
-function ChartCard({ title, children }: { title: string; children: ReactNode }) {
+function AlertCard({ item }: { item: AlertMarqueeItem }) {
+  const isCritical = item.status === 'Critical'
+
+  return (
+    <article
+      className={cn(
+        'w-[320px] rounded-xl border border-slate-300 bg-[#f3f3f3] px-4 py-3 text-slate-900 dark:border-white/10 dark:bg-slate-950/90 dark:text-white',
+        isCritical
+          ? 'shadow-[inset_3px_0_0_0_#f43f5e]'
+          : 'shadow-[inset_3px_0_0_0_#f59e0b]'
+      )}
+    >
+      <div className='mb-1 flex items-center justify-between text-sm'>
+        <div className='flex items-center gap-2 font-semibold'>
+          <span
+            className={cn(
+              'inline-block size-2 rounded-full',
+              isCritical ? 'bg-rose-500' : 'bg-amber-400'
+            )}
+          />
+          {item.status}
+        </div>
+        <span className='text-xs text-slate-700 dark:text-slate-400'>
+          {item.lastUpdated}
+        </span>
+      </div>
+      <p className='truncate text-base font-medium'>{item.kpiName}</p>
+      <p className='truncate text-sm text-slate-800 dark:text-slate-300'>
+        {item.vendor} • {item.detail}
+      </p>
+    </article>
+  )
+}
+
+function ChartCard({
+  title,
+  children,
+}: {
+  title: string
+  children: ReactNode
+}) {
   return (
     <Card>
       <CardHeader>
@@ -1075,10 +1770,16 @@ function DataTable({
 }) {
   const [open, setOpen] = useState(false)
   const [selectedKpiKey, setSelectedKpiKey] = useState<string | null>(null)
-  const [detailsByKpi, setDetailsByKpi] = useState<Record<string, KpiDetails>>({})
+  const [detailsByKpi, setDetailsByKpi] = useState<Record<string, KpiDetails>>(
+    {}
+  )
 
-  const selectedRow = selectedKpiKey ? (rows.find((row) => row[0] === selectedKpiKey) as KpiRow | undefined) : undefined
-  const selectedDetails = selectedRow ? detailsByKpi[selectedRow[0]] ?? generateKpiDetails(selectedRow) : undefined
+  const selectedRow = selectedKpiKey
+    ? (rows.find((row) => row[0] === selectedKpiKey) as KpiRow | undefined)
+    : undefined
+  const selectedDetails = selectedRow
+    ? (detailsByKpi[selectedRow[0]] ?? generateKpiDetails(selectedRow))
+    : undefined
 
   const [sortByIndex, setSortByIndex] = useState<number | null>(null)
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
@@ -1088,7 +1789,11 @@ function DataTable({
       return rows
     }
 
-    const severityRank: Record<string, number> = { Normal: 1, Warning: 2, Critical: 3 }
+    const severityRank: Record<string, number> = {
+      Normal: 1,
+      Warning: 2,
+      Critical: 3,
+    }
     const sortableValue = (value: string) => {
       if (value in severityRank) {
         return severityRank[value]
@@ -1141,7 +1846,8 @@ function DataTable({
     onApplySuggestion?.(selectedRow[0])
 
     setDetailsByKpi((previous) => {
-      const nextDetails = previous[selectedRow[0]] ?? generateKpiDetails(selectedRow)
+      const nextDetails =
+        previous[selectedRow[0]] ?? generateKpiDetails(selectedRow)
       const updatedParameters = nextDetails.cmParameters.map((parameter) =>
         parameter.parameter === suggestion.parameter
           ? {
@@ -1184,10 +1890,18 @@ function DataTable({
               {headers.map((header, index) => (
                 <th key={header} className='px-3 py-2 text-xs font-medium'>
                   {sortable ? (
-                    <button type='button' className='inline-flex items-center gap-2' onClick={() => handleSort(index)}>
+                    <button
+                      type='button'
+                      className='inline-flex items-center gap-2'
+                      onClick={() => handleSort(index)}
+                    >
                       <span>{header}</span>
                       <span className='text-[10px] text-muted-foreground/60'>
-                        {sortByIndex === index ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                        {sortByIndex === index
+                          ? sortDirection === 'asc'
+                            ? '↑'
+                            : '↓'
+                          : '↕'}
                       </span>
                     </button>
                   ) : (
@@ -1210,7 +1924,9 @@ function DataTable({
                       >
                         {cell}
                       </Badge>
-                    ) : expandableDetails && cellIndex === actionColumnIndex && cell === 'Details' ? (
+                    ) : expandableDetails &&
+                      cellIndex === actionColumnIndex &&
+                      cell === 'Details' ? (
                       <Button
                         size='sm'
                         variant='outline'
@@ -1242,13 +1958,32 @@ function DataTable({
                   <CardTitle>KPI Overview</CardTitle>
                 </CardHeader>
                 <CardContent className='grid gap-2 sm:grid-cols-2'>
-                  <div><span className='font-medium'>KPI Name:</span> {selectedRow[0]}</div>
-                  <div><span className='font-medium'>Vendor:</span> {selectedRow[5]}</div>
-                  <div><span className='font-medium'>Technology:</span> {selectedRow[1]}</div>
-                  <div><span className='font-medium'>Current / Baseline / Delta:</span> {selectedRow[2]} / {selectedRow[3]} / {selectedRow[4]}</div>
+                  <div>
+                    <span className='font-medium'>KPI Name:</span>{' '}
+                    {selectedRow[0]}
+                  </div>
+                  <div>
+                    <span className='font-medium'>Vendor:</span>{' '}
+                    {selectedRow[5]}
+                  </div>
+                  <div>
+                    <span className='font-medium'>Technology:</span>{' '}
+                    {selectedRow[1]}
+                  </div>
+                  <div>
+                    <span className='font-medium'>
+                      Current / Baseline / Delta:
+                    </span>{' '}
+                    {selectedRow[2]} / {selectedRow[3]} / {selectedRow[4]}
+                  </div>
                   <div className='sm:col-span-2'>
-                    <span className='font-medium me-2'>Health Status:</span>
-                    <Badge variant='secondary' className={severityClass[selectedRow[6] as Severity]}>{selectedRow[6]}</Badge>
+                    <span className='me-2 font-medium'>Health Status:</span>
+                    <Badge
+                      variant='secondary'
+                      className={severityClass[selectedRow[6] as Severity]}
+                    >
+                      {selectedRow[6]}
+                    </Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -1273,7 +2008,10 @@ function DataTable({
                       </thead>
                       <tbody>
                         {selectedDetails.cmParameters.map((parameter) => (
-                          <tr key={`${parameter.parameter}-${parameter.target}`} className='border-b'>
+                          <tr
+                            key={`${parameter.parameter}-${parameter.target}`}
+                            className='border-b'
+                          >
                             <td className='px-2 py-1'>{parameter.parameter}</td>
                             <td className='px-2 py-1'>{parameter.target}</td>
                             <td className='px-2 py-1'>{parameter.current}</td>
@@ -1362,14 +2100,24 @@ function DataTable({
                     </thead>
                     <tbody>
                       {selectedDetails.suggestions.map((suggestion) => (
-                        <tr key={`${suggestion.targetId}-${suggestion.parameter}`} className='border-b'>
+                        <tr
+                          key={`${suggestion.targetId}-${suggestion.parameter}`}
+                          className='border-b'
+                        >
                           <td className='px-2 py-1'>{suggestion.targetId}</td>
-                          <td className='px-2 py-1'>{suggestion.detectedIssue}</td>
+                          <td className='px-2 py-1'>
+                            {suggestion.detectedIssue}
+                          </td>
                           <td className='px-2 py-1'>{suggestion.action}</td>
                           <td className='px-2 py-1'>{suggestion.confidence}</td>
-                          <td className='px-2 py-1'>{suggestion.expectedOutcome}</td>
                           <td className='px-2 py-1'>
-                            <Button size='sm' onClick={() => handleApplySuggestion(suggestion)}>
+                            {suggestion.expectedOutcome}
+                          </td>
+                          <td className='px-2 py-1'>
+                            <Button
+                              size='sm'
+                              onClick={() => handleApplySuggestion(suggestion)}
+                            >
                               Apply Change
                             </Button>
                           </td>
@@ -1386,4 +2134,3 @@ function DataTable({
     </>
   )
 }
-
