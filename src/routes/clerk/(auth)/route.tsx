@@ -1,6 +1,5 @@
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router'
 import { ClerkFullLogo } from '@/assets/clerk-full-logo'
-import { Logo } from '@/assets/logo'
 import { BrandStack } from '@/components/brand-stack'
 import { LearnMore } from '@/components/learn-more'
 
@@ -18,7 +17,6 @@ function ClerkAuthLayout() {
           to='/'
           className='relative z-20 flex items-center text-lg font-medium'
         >
-          <Logo className='me-2' />
           <BrandStack
             className='items-start text-start'
             titleClassName='text-base'
