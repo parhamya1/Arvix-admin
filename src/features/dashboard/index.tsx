@@ -39,6 +39,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
 } from '@/components/ui/sheet'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/header'
@@ -1557,6 +1558,14 @@ function AlarmMarquee({
   }
 
   const firstRow = alertItems.slice(0, Math.ceil(alertItems.length / 2))
+  const prioritizedItems = [...alertItems].sort((a, b) =>
+    a.status === b.status
+      ? a.kpiName.localeCompare(b.kpiName)
+      : a.status === 'Critical'
+        ? -1
+        : 1
+  )
+
   return (
     <div
       className={cn(
@@ -1569,9 +1578,82 @@ function AlarmMarquee({
           <AlertTriangle className='size-4 text-amber-500' />
           ALARM
         </div>
-        <button className='text-sm font-medium text-cyan-500 hover:text-cyan-400'>
-          View all <ChevronRight className='inline size-4' />
-        </button>
+        <Sheet>
+          <SheetTrigger asChild>
+            <button className='text-sm font-semibold text-black hover:text-black/80 dark:text-white dark:hover:text-white/80'>
+              View all <ChevronRight className='inline size-4' />
+            </button>
+          </SheetTrigger>
+          <SheetContent
+            side='right'
+            className='w-full border-slate-200 p-0 sm:max-w-2xl dark:border-white/10'
+          >
+            <SheetHeader className='border-b border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100 p-6 dark:border-white/10 dark:from-slate-900 dark:to-slate-950'>
+              <SheetTitle className='text-left text-lg font-semibold tracking-wide text-slate-900 dark:text-white'>
+                All Active KPI Alarms
+              </SheetTitle>
+              <p className='text-left text-sm text-slate-600 dark:text-slate-300'>
+                Critical and warning KPIs from the dashboard table.
+              </p>
+            </SheetHeader>
+            <div className='h-[calc(100vh-110px)] overflow-y-auto p-4 sm:p-6'>
+              <div className='mb-4 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300'>
+                <span className='rounded-full bg-rose-100 px-2 py-0.5 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300'>
+                  {
+                    prioritizedItems.filter(
+                      (item) => item.status === 'Critical'
+                    ).length
+                  }{' '}
+                  Critical
+                </span>
+                <span className='rounded-full bg-amber-100 px-2 py-0.5 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'>
+                  {
+                    prioritizedItems.filter((item) => item.status === 'Warning')
+                      .length
+                  }{' '}
+                  Warning
+                </span>
+              </div>
+              <div className='space-y-3'>
+                {prioritizedItems.map((item, index) => {
+                  const isCritical = item.status === 'Critical'
+                  return (
+                    <article
+                      key={`${item.kpiName}-${item.status}-${index}`}
+                      className={cn(
+                        'rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm transition-all hover:shadow-md dark:border-white/10 dark:bg-slate-950/70',
+                        isCritical
+                          ? 'shadow-[inset_3px_0_0_0_#f43f5e]'
+                          : 'shadow-[inset_3px_0_0_0_#f59e0b]'
+                      )}
+                    >
+                      <div className='mb-1 flex items-center justify-between'>
+                        <div className='flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white'>
+                          <span
+                            className={cn(
+                              'inline-block size-2 rounded-full',
+                              isCritical ? 'bg-rose-500' : 'bg-amber-400'
+                            )}
+                          />
+                          {item.status}
+                        </div>
+                        <span className='text-xs text-slate-500 dark:text-slate-400'>
+                          {item.lastUpdated}
+                        </span>
+                      </div>
+                      <p className='text-base font-semibold text-slate-900 dark:text-white'>
+                        {item.kpiName}
+                      </p>
+                      <p className='mt-1 text-sm text-slate-700 dark:text-slate-300'>
+                        {item.vendor} • {item.detail}
+                      </p>
+                    </article>
+                  )
+                })}
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       <MarqueeRow items={firstRow} />
