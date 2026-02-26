@@ -15,6 +15,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar'
+import { BrandStack } from '@/components/brand-stack'
 
 type TeamSwitcherProps = {
   teams: {
@@ -40,12 +41,11 @@ export function TeamSwitcher({ teams }: TeamSwitcherProps) {
               <div className='flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground'>
                 <activeTeam.logo className='size-4' />
               </div>
-              <div className='grid flex-1 text-start text-sm leading-tight'>
-                <span className='truncate font-semibold'>
-                  {activeTeam.name}
-                </span>
-                <span className='truncate text-xs'>{activeTeam.plan}</span>
-              </div>
+              <BrandStack
+                className='grid flex-1'
+                titleClassName='text-sm leading-tight'
+                subtitleClassName='truncate text-[9px]'
+              />
               <ChevronsUpDown className='ms-auto' />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
