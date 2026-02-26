@@ -7,6 +7,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar'
+import { BrandStack } from '@/components/brand-stack'
 import { Button } from '../ui/button'
 
 export function AppTitle() {
@@ -25,7 +26,11 @@ export function AppTitle() {
               onClick={() => setOpenMobile(false)}
               className='grid flex-1 text-start text-sm leading-tight'
             >
-              <span className='truncate font-bold'>Arvix</span>
+              <BrandStack
+                className='items-center'
+                titleClassName='text-sm'
+                subtitleClassName='text-[8px]'
+              />
             </Link>
             <ToggleSidebar />
           </div>
