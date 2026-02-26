@@ -1557,8 +1557,6 @@ function AlarmMarquee({
   }
 
   const firstRow = alertItems.slice(0, Math.ceil(alertItems.length / 2))
-  const secondRow = alertItems.slice(Math.ceil(alertItems.length / 2))
-
   return (
     <div
       className={cn(
@@ -1577,7 +1575,6 @@ function AlarmMarquee({
       </div>
 
       <MarqueeRow items={firstRow} />
-      {secondRow.length > 0 && <MarqueeRow items={secondRow} reverse />}
 
       <div className='pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-background' />
       <div className='pointer-events-none absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-background' />
@@ -1627,7 +1624,7 @@ function AlertCard({ item }: { item: AlertMarqueeItem }) {
   return (
     <article
       className={cn(
-        'w-[320px] rounded-xl border border-white/10 bg-slate-950/90 px-4 py-3 text-white',
+        'w-[320px] rounded-xl border border-slate-300 bg-[#f3f3f3] px-4 py-3 text-slate-900 dark:border-white/10 dark:bg-slate-950/90 dark:text-white',
         isCritical
           ? 'shadow-[inset_3px_0_0_0_#f43f5e]'
           : 'shadow-[inset_3px_0_0_0_#f59e0b]'
@@ -1643,10 +1640,12 @@ function AlertCard({ item }: { item: AlertMarqueeItem }) {
           />
           {item.status}
         </div>
-        <span className='text-xs text-slate-400'>{item.lastUpdated}</span>
+        <span className='text-xs text-slate-700 dark:text-slate-400'>
+          {item.lastUpdated}
+        </span>
       </div>
       <p className='truncate text-base font-medium'>{item.kpiName}</p>
-      <p className='truncate text-sm text-slate-300'>
+      <p className='truncate text-sm text-slate-800 dark:text-slate-300'>
         {item.vendor} • {item.detail}
       </p>
     </article>
