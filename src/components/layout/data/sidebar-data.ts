@@ -23,9 +23,9 @@ export const sidebarData: SidebarData = {
   },
   teams: [
     {
-      name: 'Arvix',
+      name: 'ARVIX',
       logo: Command,
-      plan: 'Vite + ShadcnUI',
+      plan: 'ANALYTICAL REASONING FOR VISIBLE INTELLEGENCE EXECUTION',
     },
     {
       name: 'Acme Inc',
